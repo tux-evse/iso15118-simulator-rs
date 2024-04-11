@@ -1,0 +1,32 @@
+name: afb-simu15118
+port: 1234
+httpd: true
+alias:
+  - /devtools:/usr/share/afb-ui-devtools/binder
+binding:
+  - uid: iso15118-simu
+    api: simu
+    path: ${CARGO_TARGET_DIR}debug/libafb_iso15118_simulator.so
+    info: RUST ISO-15118 EV Simulator
+    scenarios:
+      - uid: simple-connect
+        info: simple iso2 connection scenario
+        target: iso2
+        transactions:
+        - uid: session-setup
+          request:
+            msg: session_setup_req
+            id: "01:02:03:04:05:06"
+          expect:
+            id: 'tux-evse-01'
+            rcode: ok
+        - uid: service-discovery
+          request:
+            scope: tux-evse
+            category: charger
+          expect:
+            rcode: ok
+            charging:
+              name: tux-evse
+              scope: iot.bzh
+              isfree: false

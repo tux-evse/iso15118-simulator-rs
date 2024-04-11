@@ -1,0 +1,54 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "iso-2",
+            "type": "lldb",
+            "preLaunchTask": "binding-native-build",
+            "request": "launch",
+            "program": "afb-binder",
+            "env": {
+                "LD_LIBRARY_PATH": "/usr/local/lib64",
+                "IFACE_PEV": "lo",
+                "IFACE_EVSE": "lo",
+                "PKI_TLS_DIR": "etc/"
+            },
+            "args": [
+                "-vv",
+                "--monitoring",
+                "--trap-faults=0",
+                "--config=iso15118-2/etc/binding-iso2.yaml",
+            ],
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "target stop-hook add -n _start -o continue",
+                "settings set target.disable-aslr false"
+            ]
+        },
+        {
+            "name": "iso-simulator",
+            "type": "lldb",
+            "preLaunchTask": "binding-native-build",
+            "request": "launch",
+            "program": "afb-binder",
+            "env": {
+                "LD_LIBRARY_PATH": "/usr/local/lib64",
+                "IFACE_PEV": "lo",
+                "IFACE_EVSE": "lo",
+                "PKI_TLS_DIR": "etc/"
+            },
+            "args": [
+                "-vv",
+                "--monitoring",
+                "--trap-faults=0",
+                "--config=iso15118-2//etc/binding-iso2.yaml",
+                "--config=simulator/etc/binding-simulator.yaml",
+            ],
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "target stop-hook add -n _start -o continue",
+                "settings set target.disable-aslr false"
+            ]
+        }
+    ]
+}

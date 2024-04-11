@@ -1,0 +1,27 @@
+{
+    "binding": [
+        {
+            "uid": "simu-15118",
+            "api": "simu",
+            "path": "${CARGO_TARGET_DIR}debug/libsimulator.so",
+            "info": "RUST ISO-15118 EV Simulator",
+            //"iface": codico ethernet iface,
+            "iface": "${IFACE_EVSE}",
+            "ip6_prefix": 0,
+            "sdp_port": 15118,
+            "tsl_active": true,
+            // use gen-cert.sh to generate development key
+            //"tls_oem":  "${PKI_TLS_DIR}/_trialog-oem-ca1.pem",
+            "tls_trust": "${PKI_TLS_DIR}/_trialog/",
+            "tls_certs": "${PKI_TLS_DIR}/_trialog/secc-chain.pem",
+            "tls_key": "${PKI_TLS_DIR}/_trialog/secc20Cert.key",
+            "tls_pin": "123456",
+            "tls_proto": "SECURE128:-VERS-SSL3.0:-VERS-TLS1.0:-ARCFOUR-128:+PSK:+DHE-PSK",
+            "psk_log": "/tmp/tls-keys-simu.log", // generate pre-master-secret for wireshark (for test-only),
+            //"tls_cert": "${PKI_TLS_DIR}/_server-cert.crt",
+            //"tls_key": "${PKI_TLS_DIR}/_server-key.pem",
+            //"tls_proto": "NORMAL:-VERS-TLS-ALL:+VERS-TLS1.2:-VERS-TLS1.3:-AES-128-CBC",
+
+        }
+    ]
+}

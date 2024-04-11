@@ -1,0 +1,24 @@
+name: afb-simu15118
+port: 1234
+httpd: true
+alias:
+  - /devtools:/usr/share/afb-ui-devtools/binder
+binding:
+  - uid: iso15118-2
+    api: iso2
+    path: ${CARGO_TARGET_DIR}debug/libafb_iso15118_2.so
+    info: RUST ISO-15118 EV Simulator
+    # iface:       ${IFACE_EVSE} # default lo
+    # ip6_prefix:  0             # default 0
+    # sdp_port:    15118         # default 15118
+    tls:
+      trust: ${PKI_TLS_DIR}/_trialog/
+      certs: ${PKI_TLS_DIR}/_trialog/secc-chain.pem
+      key: ${PKI_TLS_DIR}/_trialog/secc20Cert.key
+      pin: 123456
+      proto: SECURE128:-VERS-SSL3.0:-VERS-TLS1.0:-ARCFOUR-128:+PSK:+DHE-PSK
+      psk_log: /tmp/tls-keys-simu.log
+    verbs:
+      - session_setup_req
+      - service_discovery_req
+      - service_detail_req
