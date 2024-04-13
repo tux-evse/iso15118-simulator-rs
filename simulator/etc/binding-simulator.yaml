@@ -16,7 +16,7 @@ binding:
         - uid: session-setup
           request:
             msg: session_setup_req
-            id: "01:02:03:04:05:06"
+            id: 01:02:03:04:05:06"
           expect:
             id: 'tux-evse-01'
             rcode: ok

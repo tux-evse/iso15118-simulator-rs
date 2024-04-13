@@ -109,6 +109,7 @@ fn transac_req_cb(
 
 pub struct ScenarioReqCtx {
     _uid: &'static str,
+    target: &'static str,
     evt: &'static AfbEvent,
     job_id: i32,
     scenario: &'static Scenario,
@@ -119,25 +120,26 @@ fn scenario_action_cb(
     args: &AfbRqtData,
     ctx: &AfbCtxData,
 ) -> Result<(), AfbError> {
-    let context = ctx.get_mut::<ScenarioReqCtx>()?;
+    let ctx = ctx.get_mut::<ScenarioReqCtx>()?;
     let action = args.get::<&ScenarioAction>(0)?;
 
     match action {
         ScenarioAction::START => {
-            context.evt.subscribe(afb_rqt)?;
-            context.job_id = context.scenario.start(afb_rqt, context.evt)?;
-            afb_rqt.reply(context.job_id, 0);
+            AfbSubCall::call_sync(afb_rqt, ctx.target, "sdp", AFB_NO_DATA)?;
+            ctx.evt.subscribe(afb_rqt)?;
+            ctx.job_id = ctx.scenario.start(afb_rqt, ctx.evt)?;
+            afb_rqt.reply(ctx.job_id, 0);
         }
 
         ScenarioAction::STOP => {
-            context.evt.unsubscribe(afb_rqt)?;
-            context.scenario.stop(context.job_id)?;
-            context.job_id = 0;
+            ctx.evt.unsubscribe(afb_rqt)?;
+            ctx.scenario.stop(ctx.job_id)?;
+            ctx.job_id = 0;
             afb_rqt.reply(AFB_NO_DATA, 0);
         }
 
         ScenarioAction::RESULT => {
-            context.scenario.get_result()?;
+            ctx.scenario.get_result()?;
         }
     }
 
@@ -172,6 +174,7 @@ pub fn register_verbs(api: &mut AfbApi, config: &BindingConfig) -> Result<(), Af
             .set_callback(scenario_action_cb)
             .set_context(ScenarioReqCtx {
                 _uid: uid,
+                target,
                 job_id: 0,
                 scenario,
                 evt: scenario_event,

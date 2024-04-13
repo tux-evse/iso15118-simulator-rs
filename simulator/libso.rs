@@ -25,10 +25,10 @@ mod verbs;
 mod binding;
 
 #[path = "controller.rs"]
-mod controller;
+mod ctrl;
 
 pub(crate) mod prelude {
     pub use crate::binding::*;
     pub use crate::verbs::*;
-    pub use crate::controller::*;
+    pub use crate::ctrl::*;
 }

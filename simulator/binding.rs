@@ -17,24 +17,6 @@ pub struct BindingConfig {
     pub scenarios: JsoncObj,
 }
 
-struct ApiUserData {
-}
-
-
-impl AfbApiControls for ApiUserData {
-    // the API is created and ready. At this level user may subcall api(s) declare as dependencies
-    fn start(&mut self, _api: &AfbApi) -> Result<(), AfbError> {
-
-        //AfbSubCall::call_async(api, "simu", "ping", AFB_NO_DATA, Box::new(AsyncResponseCb {}))?;
-        //AfbSubCall::call_sync(api, "simu", "ping", AFB_NO_DATA)?;
-        Ok(())
-    }
-    // mandatory unsed declaration
-    fn as_any(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
 // Binding init callback started at binding load time before any API exist
 // -----------------------------------------
 pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi, AfbError> {
@@ -53,8 +35,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     };
     // create an register frontend api and register init session callback
     let api = AfbApi::new(api)
-        .set_info(info)
-        .set_callback(Box::new(ApiUserData {}));
+        .set_info(info);
 
 
     // create verbs

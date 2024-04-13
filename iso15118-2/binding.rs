@@ -12,31 +12,16 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
+use iso15118::prelude::*;
 use nettls::prelude::*;
 
 pub struct BindingConfig {
     pub timeout: i64,
     pub jverbs: JsoncObj,
-}
-struct ApiUserData {
-    iface: &'static str,
-    sdp_port: u16,
-}
-
-impl AfbApiControls for ApiUserData {
-    // the API is created and ready. At this level user may subcall api(s) declare as dependencies
-    fn start(&mut self, api: &AfbApi) -> Result<(), AfbError> {
-        afb_log_msg!(Notice, api, "iface:{} sdp:{}", self.iface, self.sdp_port);
-
-        //AfbSubCall::call_async(api, "simu", "ping", AFB_NO_DATA, Box::new(AsyncResponseCb {}))?;
-        //AfbSubCall::call_sync(api, "simu", "ping", AFB_NO_DATA)?;
-        //println! ("**** aftercall cb");
-        Ok(())
-    }
-    // mandatory unsed declaration
-    fn as_any(&mut self) -> &mut dyn Any {
-        self
-    }
+    pub ip6_iface: &'static str,
+    pub ip6_prefix: u16,
+    pub sdp_port: u16,
+    pub sdp_security: SdpSecurityModel,
 }
 
 // Binding init callback started at binding load time before any API exist
@@ -49,19 +34,19 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     let info = jconf.default::<&'static str>("info", "iso15118-2 json API")?;
 
     let sdp_port = jconf.default::<u32>("sdp_port", 15118)? as u16;
-    let ip6_prefix = jconf.default::<u32>("ip6_prefix", 0)? as u16;
-    let ip6_iface = jconf.default::<&'static str>("ip6_iface", "lo")?;
-    let session_id = jconf.default::<&'static str>("ip6_iface", "01:02:03:04:05:06")?;
+    let ip6_prefix = jconf.default::<u32>("ip6_prefix", 0xFE80)? as u16;
+    let ip6_iface = jconf.default::<&'static str>("iface", "lo")?;
+    let session_id = jconf.default::<&'static str>("session", "01:02:03:04:05:06")?;
     let timeout = jconf.default::<i64>("timeout", 1000)?;
 
     let tls_conf = if let Some(jtls) = jconf.optional::<JsoncObj>("tsl")? {
-        let cert_chain = jtls.get::<&str>("tls_certs")?;
-        let priv_key = jtls.get::<&str>("tls_key")?;
-        let pin_key = jtls.optional::<&str>("tls_pin")?;
-        let tls_psk = jtls.optional::<&'static str>("tls_pks")?;
-        let tls_trust = jtls.optional::<&'static str>("tls_trust")?;
-        let tls_verbosity = jtls.default::<i32>("tls_verbosity", 1)?;
-        let tls_proto = jtls.optional::<&'static str>("tls_proto")?;
+        let cert_chain = jtls.get::<&str>("certs")?;
+        let priv_key = jtls.get::<&str>("key")?;
+        let pin_key = jtls.optional::<&str>("pin")?;
+        let tls_psk = jtls.optional::<&'static str>("pks")?;
+        let tls_trust = jtls.optional::<&'static str>("trust")?;
+        let tls_verbosity = jtls.default::<i32>("verbosity", 1)?;
+        let tls_proto = jtls.optional::<&'static str>("proto")?;
         let psk_log = jtls.optional::<&'static str>("psk_log")?;
 
         Some(TlsConfig::new(
@@ -78,28 +63,44 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         None
     };
 
-    let jverbs= jconf.get::<JsoncObj>("verbs")?;
-    if ! jverbs.is_type(Jtype::Array) {
-        return afb_error! ("iso2-binding-config", "verbs should be a valid array of iso messages")
+    let jverbs = jconf.get::<JsoncObj>("verbs")?;
+    if !jverbs.is_type(Jtype::Array) {
+        return afb_error!(
+            "iso2-binding-config",
+            "verbs should be a valid array of iso messages"
+        );
     }
 
-    // Register controller
+    let sdp_security = match &tls_conf {
+        None => SdpSecurityModel::NONE,
+        Some(_) => SdpSecurityModel::TLS,
+    };
+
+    // Register ctrl
     let controller_config = ControllerConfig {
         tls_conf,
-        sdp_port,
-        ip6_prefix,
-        ip6_iface,
         session_id,
     };
-    let controller = Controller::new(controller_config)?;
+    let ctrl = Controller::new(controller_config)?;
 
+    // send SDP multicast packet
 
+    let binding_config = BindingConfig {
+        ip6_iface,
+        ip6_prefix,
+        sdp_port,
+        sdp_security,
+        timeout,
+        jverbs,
+    };
     // create an register frontend api and register init session callback
-    let api = AfbApi::new(uid).set_name(api).set_info(info);
+    let api = AfbApi::new(uid)
+        .set_name(api)
+        .set_info(info)
+        ;
 
     // create verbs
-    let binding_config = BindingConfig { timeout, jverbs };
-    register_verbs(api, binding_config, controller)?;
+    register_verbs(api, binding_config, ctrl)?;
 
     // if acls set apply them
     if let Ok(value) = jconf.get::<&'static str>("permission") {

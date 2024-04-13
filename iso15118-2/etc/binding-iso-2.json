@@ -6,7 +6,7 @@
             "path": "${CARGO_TARGET_DIR}debug/libsimulator.so",
             "info": "RUST ISO-15118 EV Simulator",
             //"iface": codico ethernet iface,
-            "iface": "${IFACE_EVSE}",
+            "iface": "${IFACE_SIMU}",
             "ip6_prefix": 0,
             "sdp_port": 15118,
             "tsl_active": true,

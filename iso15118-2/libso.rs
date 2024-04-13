@@ -25,7 +25,7 @@ mod verbs;
 mod binding;
 
 #[path = "controller.rs"]
-mod controller;
+mod ctrl;
 
 #[path = "msg-api.rs"]
 mod msg_api;
@@ -34,6 +34,6 @@ mod msg_api;
 pub(crate) mod prelude {
     pub use crate::binding::*;
     pub use crate::verbs::*;
-    pub use crate::controller::*;
+    pub use crate::ctrl::*;
     pub use crate::msg_api::*;
 }

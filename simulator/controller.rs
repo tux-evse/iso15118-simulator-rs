@@ -40,7 +40,7 @@ fn job_transaction_cb(
     ctx: &AfbCtxData,
 ) -> Result<(), AfbError> {
     let param = params.get_mut::<JobTransactionParam>()?;
-    let context = ctx.get_mut::<JobTransactionContext>()?;
+    let ctx = ctx.get_mut::<JobTransactionContext>()?;
 
     let mut transac = &mut param.state.entries[param.idx];
     if signal != 0 {
@@ -48,7 +48,7 @@ fn job_transaction_cb(
         let error = AfbError::new(
             "job-transaction-cb",
             -62,
-            format!("{}:{} timeout", context.target, transac.uid),
+            format!("{}:{} timeout", ctx.target, transac.uid),
         );
         transac.status = TransacStatus::Fail(error);
         return afb_error!(
@@ -58,15 +58,15 @@ fn job_transaction_cb(
         );
     }
 
-    if context.running {
+    if ctx.running {
         transac.status= TransacStatus::Pending;
-        transac.status= (context.callback)(param.api, &mut transac, context.target, context.event);
+        transac.status= (ctx.callback)(param.api, &mut transac, ctx.target, ctx.event);
         match  &transac.status {
             TransacStatus::Done | TransacStatus::Check => {
                 Ok(())
             },
             TransacStatus::Fail(_error) => {
-                context.running = false;
+                ctx.running = false;
                 Ok(())
             }
             _ => afb_error!(
@@ -101,7 +101,7 @@ fn job_scenario_cb(
     ctx: &AfbCtxData,
 ) -> Result<(), AfbError> {
     let param = params.get_ref::<JobScenarioParam>()?;
-    let context = ctx.get_ref::<JobScenarioContext>()?;
+    let ctx = ctx.get_ref::<JobScenarioContext>()?;
 
     // job was kill from API
     if signal != 0 {
@@ -109,19 +109,19 @@ fn job_scenario_cb(
     }
 
     let job = AfbSchedJob::new("iso15118-transac")
-        .set_exec_watchdog(context.timeout)
+        .set_exec_watchdog(ctx.timeout)
         .set_group(1)
         .set_callback(job_transaction_cb)
         .set_context(JobTransactionContext {
-            target: context.target,
+            target: ctx.target,
             event: param.event,
-            callback: context.callback,
+            callback: ctx.callback,
             running: true,
         })
-        .set_exec_watchdog(context.timeout)
+        .set_exec_watchdog(ctx.timeout)
         .finalize();
 
-    for idx in 0..context.count {
+    for idx in 0..ctx.count {
         job.post(
             0,
             JobTransactionParam {
