@@ -36,10 +36,10 @@ pub struct JobTransactionParam<'a> {
 fn job_transaction_cb(
     _job: &AfbSchedJob,
     signal: i32,
-    params: &AfbCtxData,
+    post: &AfbCtxData,
     ctx: &AfbCtxData,
 ) -> Result<(), AfbError> {
-    let param = params.get_mut::<JobTransactionParam>()?;
+    let param = post.get_mut::<JobTransactionParam>()?;
     let ctx = ctx.get_mut::<JobTransactionContext>()?;
 
     let mut transac = &mut param.state.entries[param.idx];
@@ -51,6 +51,8 @@ fn job_transaction_cb(
             format!("{}:{} timeout", ctx.target, transac.uid),
         );
         transac.status = TransacStatus::Fail(error);
+        post.free::<JobTransactionParam>();
+
         return afb_error!(
             "job-transaction-cb",
             "uid:{} transaction killed",
@@ -58,7 +60,7 @@ fn job_transaction_cb(
         );
     }
 
-    if ctx.running {
+    let response= if ctx.running {
         transac.status= TransacStatus::Pending;
         transac.status= (ctx.callback)(param.api, &mut transac, ctx.target, ctx.event);
         match  &transac.status {
@@ -78,7 +80,9 @@ fn job_transaction_cb(
     } else {
        transac.status= TransacStatus::Ignored;
        Ok(())
-    }
+    };
+    post.free::<JobTransactionParam>();
+    response
 }
 
 pub struct JobScenarioContext {

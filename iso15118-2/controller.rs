@@ -41,15 +41,17 @@ struct AsyncTcpClientCtx {
 }
 
 // New TCP client connecting
-fn async_tcp_client_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<(), AfbError> {
+fn async_tcp_client_cb(_evtfd: &AfbEvtFd, revent: u32, context: &AfbCtxData) -> Result<(), AfbError> {
+
+    // get verb user data context
+    let ctx = context.get_mut::<AsyncTcpClientCtx>()?;
+
     // read is the only accepted operation
     if revent != AfbEvtFdPoll::IN.bits() {
-        ctx.free();
+        context.free::<AsyncTcpClientCtx>();
         return Ok(());
     }
 
-    // get verb user data context
-    let ctx = ctx.get_mut::<AsyncTcpClientCtx>()?;
 
     // move tcp socket data into exi stream buffer
     let mut lock = ctx.ctrl.stream.lock_stream();
