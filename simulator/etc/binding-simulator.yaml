@@ -9,24 +9,31 @@ binding:
     path: ${CARGO_TARGET_DIR}debug/libafb_iso15118_simulator.so
     info: RUST ISO-15118 EV Simulator
     scenarios:
-      - uid: simple-connect
+      - uid: scenario-1
         info: simple iso2 connection scenario
         target: iso2
         transactions:
+        - uid: sdp-evse
+          query:
+            action: discover
+        - uid: iso2-handshake
+          verb: app_proto_req
         - uid: session-setup
-          request:
-            msg: session_setup_req
-            id: 01:02:03:04:05:06"
+          query:
+            id: 01:02:03:04:05:06
           expect:
-            id: 'tux-evse-01'
+            id: tux-evse-01
             rcode: ok
         - uid: service-discovery
-          request:
+          query:
             scope: tux-evse
-            category: charger
+            category: ev_charger
           expect:
             rcode: ok
             charging:
               name: tux-evse
               scope: iot.bzh
               isfree: false
+        - uid: sdp-evse
+          query:
+            action: forget

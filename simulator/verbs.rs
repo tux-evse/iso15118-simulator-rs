@@ -81,15 +81,16 @@ fn transac_req_cb(
     api: AfbApiV4,
     transac: &mut TransacEntry,
     target: &'static str,
-    event: &AfbEvent,
 ) -> TransacStatus {
+    // transac_req_cb does not return AfbError
+    let mut query = AfbParams::new();
+    if let Some(jsonc) = &transac.query {
+        if let Err(error) = query.push(jsonc.clone()) {
+            return TransacStatus::Fail(error);
+        }
+    }
 
-    let req_verb = match transac.request.optional::<String>("msg").unwrap() {
-        Some(value) => value,
-        None => format!("{}-req", transac.uid.replace("-", "_"))
-    };
-
-    let status = match AfbSubCall::call_sync(api, target, req_verb.as_str(), transac.request.clone()) {
+    let status = match AfbSubCall::call_sync(api, target, transac.verb, query) {
         Err(error) => TransacStatus::Fail(error),
         Ok(response) => match transac.expect.clone() {
             None => TransacStatus::Done,
@@ -100,16 +101,11 @@ fn transac_req_cb(
         },
     };
 
-    let mut response = AfbParams::new();
-    response.push(transac.uid).unwrap();
-    response.push(format!("{:?}", status)).unwrap();
-    event.push(response);
     status
 }
 
 pub struct ScenarioReqCtx {
     _uid: &'static str,
-    target: &'static str,
     evt: &'static AfbEvent,
     job_id: i32,
     scenario: &'static Scenario,
@@ -125,7 +121,6 @@ fn scenario_action_cb(
 
     match action {
         ScenarioAction::START => {
-            AfbSubCall::call_sync(afb_rqt, ctx.target, "sdp", AFB_NO_DATA)?;
             ctx.evt.subscribe(afb_rqt)?;
             ctx.job_id = ctx.scenario.start(afb_rqt, ctx.evt)?;
             afb_rqt.reply(ctx.job_id, 0);
@@ -133,13 +128,14 @@ fn scenario_action_cb(
 
         ScenarioAction::STOP => {
             ctx.evt.unsubscribe(afb_rqt)?;
-            ctx.scenario.stop(ctx.job_id)?;
+            let result = ctx.scenario.stop(ctx.job_id)?;
+            afb_rqt.reply(result, 0);
             ctx.job_id = 0;
-            afb_rqt.reply(AFB_NO_DATA, 0);
         }
 
         ScenarioAction::RESULT => {
-            ctx.scenario.get_result()?;
+            let result = ctx.scenario.get_result()?;
+            afb_rqt.reply(result, 0);
         }
     }
 
@@ -174,7 +170,6 @@ pub fn register_verbs(api: &mut AfbApi, config: &BindingConfig) -> Result<(), Af
             .set_callback(scenario_action_cb)
             .set_context(ScenarioReqCtx {
                 _uid: uid,
-                target,
                 job_id: 0,
                 scenario,
                 evt: scenario_event,

@@ -12,7 +12,7 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::*;
+use iso15118::prelude::v2g::*;
 use nettls::prelude::*;
 
 pub struct BindingConfig {

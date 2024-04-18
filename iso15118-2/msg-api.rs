@@ -130,7 +130,6 @@ pub fn body_to_json(body: &Iso2MessageBody) -> Result<JsoncObj, AfbError> {
 }
 
 pub fn body_from_json(tagid: MessageTagId, jsonc: JsoncObj) -> Result<Iso2BodyType, AfbError> {
-    println! ("*** body_from_json tagid:{:?} jsonc:{}", tagid, jsonc);
     let payload = match tagid {
         MessageTagId::SessionSetupReq => {
             let session_id = jsonc.get::<&str>("id")?;

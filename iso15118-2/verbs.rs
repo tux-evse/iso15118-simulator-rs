@@ -12,32 +12,23 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::{iso2::*, *};
+use iso15118::prelude::{iso2::*, v2g::*, *};
 use nettls::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-struct SessionSetupReqCtx {
-    ctrl: &'static Controller,
-    msg_id: MessageTagId,
-    timeout: i64,
-}
-
-fn session_setup_req_cb(
-    afb_rqt: &AfbRequest,
-    args: &AfbRqtData,
-    ctx: &AfbCtxData,
-) -> Result<(), AfbError> {
-    let ctx = ctx.get_ref::<SessionSetupReqCtx>()?;
-    let api_params = args.get::<JsoncObj>(0)?;
-
-    ctx.ctrl
-        .send_payload(afb_rqt, ctx.msg_id.clone(), api_params, ctx.timeout)?;
-    Ok(())
+AfbDataConverter!(sdp_actions, SdpAction);
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "lowercase", tag = "action")]
+pub enum SdpAction {
+    DISCOVER,
+    FORGET,
+    INFO,
 }
 
 struct SdpJobCtx {
     ctrl: &'static Controller,
-    sdp_security: SdpSecurityModel,
+    sdp_security: v2g::SdpSecurityModel,
     sdp_port: u16,
 }
 
@@ -97,95 +88,142 @@ fn sdp_job_cb(
             );
         }
     }
-    data.afb_rqt.reply(AFB_NO_DATA, 0);
+
+    let state = ctx.ctrl.lock_state()?;
+    match &state.connection {
+        Some(cnx) => {
+            let addr6 = format!("{}", cnx.get_source());
+            let jsonc = JsoncObj::new();
+            jsonc.add("ipv6", addr6.as_str())?;
+            jsonc.add("port", cnx.get_port() as u32)?;
+            jsonc.add("tls", cnx.is_secure())?;
+            data.afb_rqt.reply(jsonc, 0);
+        }
+        None => {
+           return afb_error!(
+                "iso2-discovery-fail",
+                "Fail to establish ISO15118-SDP message"
+            );
+        },
+    }
     Ok(())
 }
 
 struct DiscoverEvseCtx {
     sdp_job: &'static AfbSchedJob,
-    ip6_iface: &'static str,
-    ip6_prefix: u16,
+    ip6_addr: IfaceAddr6,
     sdp_port: u16,
     ctrl: &'static Controller,
 }
 
 fn discover_evse_cb(
     afb_rqt: &AfbRequest,
-    _args: &AfbRqtData,
-    ctx: &AfbCtxData,
+    args: &AfbRqtData,
+    context: &AfbCtxData,
 ) -> Result<(), AfbError> {
-    let ctx = ctx.get_mut::<DiscoverEvseCtx>()?;
+    let ctx = context.get_mut::<DiscoverEvseCtx>()?;
+    let action = args.get::<&SdpAction>(0)?;
 
-    afb_log_msg!(
-        Notice,
-        afb_rqt,
-        "iface:{} sdp:{} prefix:{:#0x}",
-        ctx.ip6_iface,
-        ctx.sdp_port,
-        ctx.ip6_prefix
-    );
+    match action {
+        SdpAction::INFO => {
+            let state = ctx.ctrl.lock_state()?;
 
-    // build multicast ip6 addr for iface/scope
-    let sdp_scope = get_iface_addrs(ctx.ip6_iface, ctx.ip6_prefix)?.get_scope();
+            let jresponse = JsoncObj::new();
+            jresponse.add("local", {
+                let addr6 = format!("[{}%{}]", ctx.ip6_addr.get_addr(), ctx.ip6_addr.get_scope());
+                let jsonc = JsoncObj::new();
+                jsonc.add("iface", ctx.ip6_addr.get_iface())?;
+                jsonc.add("ipv6", addr6.as_str())?;
+                jsonc.add("sdp", ctx.sdp_port as u32)?;
+                jsonc
+            })?;
 
-    // Create SDP sock (both client & server)
-    let sdp_svc = SdpServer::new("sdp-client", ctx.ip6_iface, ctx.sdp_port)?;
-    let sock_sdp = sdp_svc.get_socket();
+            if let Some(cnx) = &state.connection {
+                jresponse.add("remote", {
+                    let addr6 = format!("{}", cnx.get_source());
+                    let jsonc = JsoncObj::new();
+                    jsonc.add("ipv6", addr6.as_str())?;
+                    jsonc.add("port", cnx.get_port() as u32)?;
+                    jsonc.add("tls", cnx.is_secure())?;
+                    jsonc
+                })?;
+            }
 
-    // Map SDP receive message to callback
-    AfbEvtFd::new("sdp_async_cb")
-        .set_fd(sdp_svc.get_sockfd())
-        .set_events(AfbEvtFdPoll::IN | AfbEvtFdPoll::RUP)
-        .set_callback(async_sdp_cb)
-        .set_autounref(true)
-        .set_context(AsyncSdpCtx {
-            ctrl: ctx.ctrl,
-            sdp_scope,
-            sdp_svc,
-        })
-        .start()?;
+            afb_rqt.reply(jresponse, 0);
+            return Ok(());
+        }
+        SdpAction::FORGET => {
+            ctx.ctrl.reset()?;
+            afb_rqt.reply(AFB_NO_DATA, 0);
+        }
+        SdpAction::DISCOVER => {
+            let state = ctx.ctrl.lock_state()?;
+            if let Some(_) = &state.connection {
+                return afb_error!(
+                    "discover-evse_cb",
+                    "SDP iso15118 session already discovered"
+                );
+            }
 
-    ctx.sdp_job.post(
-        0,
-        SdpJobData {
-            afb_rqt: afb_rqt.add_ref(),
-            sock_sdp,
-            sdp_scope,
-        },
-    )?;
+            // Create SDP sock (both client & server)
+            let sdp_svc = SdpServer::new("sdp-client", ctx.ip6_addr.get_iface(), ctx.sdp_port)?;
+            let sock_sdp = sdp_svc.get_socket();
 
-    // if ctrl not initialized wait
-    // let (lock, cvar) = &*ctx.ctrl.initialized;
-    // let mut started = lock.lock().unwrap();
-    // let mut idx = 0;
-    // sock_sdp.sendto(&payload, &multicast6)?;
+            // Map SDP receive message to callback
+            AfbEvtFd::new("sdp_async_cb")
+                .set_fd(sdp_svc.get_sockfd())
+                .set_events(AfbEvtFdPoll::IN | AfbEvtFdPoll::RUP)
+                .set_callback(async_sdp_cb)
+                //.set_autounref(true)
+                .set_context(AsyncSdpCtx {
+                    ctrl: ctx.ctrl,
+                    sdp_scope: ctx.ip6_addr.get_scope(),
+                    sdp_svc,
+                })
+                .start()?;
 
-    // loop {
-    //     // send SDP discovery request
-    //     sock_sdp.sendto(&payload, &multicast6)?;
+            ctx.sdp_job.post(
+                0,
+                SdpJobData {
+                    afb_rqt: afb_rqt.add_ref(),
+                    sock_sdp,
+                    sdp_scope: ctx.ip6_addr.get_scope(),
+                },
+            )?;
+        }
+    }
+    Ok(())
+}
 
-    //     let result = cvar
-    //         .wait_timeout(started, Duration::from_millis(SDP_INIT_TIMEOUT))
-    //         .unwrap();
-    //     started = result.0;
-    //     if *started == true {
-    //         break;
-    //     }
-    //     idx += 1;
-    //     afb_log_msg!(
-    //         Notice,
-    //         afb_rqt,
-    //         "iso2-discovery-start[{}] probing v2g-msg message",
-    //         idx
-    //     );
+pub struct Iso2MsgReqCtx {
+    pub uid: &'static str,
+    ctrl: &'static Controller,
+    pub msg_id: MessageTagId,
+    pub timeout: i64,
+}
 
-    //     if idx == SDP_INIT_TRY {
-    //         return afb_error!(
-    //             "iso2-discovery-fail",
-    //             "Fail to receive ISO15118-SDP message"
-    //         );
-    //     }
-    // }
+fn iso2_msg_req_cb(
+    afb_rqt: &AfbRequest,
+    args: &AfbRqtData,
+    context: &AfbCtxData,
+) -> Result<(), AfbError> {
+    let ctx = context.get_ref::<Iso2MsgReqCtx>()?;
+    let api_params = args.get::<JsoncObj>(0)?;
+
+    ctx.ctrl.iso2_send_payload(afb_rqt, &ctx, api_params)?;
+    Ok(())
+}
+
+fn app_proto_req_cb(
+    afb_rqt: &AfbRequest,
+    _args: &AfbRqtData,
+    context: &AfbCtxData,
+) -> Result<(), AfbError> {
+    let ctx = context.get_ref::<Iso2MsgReqCtx>()?;
+    let iso2_proto = V2G_PROTOCOLS_SUPPORTED_LIST[ProtocolTagId::Iso2 as usize];
+    let v2g_body = SupportedAppProtocolReq::new(iso2_proto)?.encode();
+
+    ctx.ctrl.v2g_send_payload(afb_rqt, ctx, &v2g_body)?;
     Ok(())
 }
 
@@ -194,6 +232,8 @@ pub fn register_verbs(
     config: BindingConfig,
     ctrl: &'static Controller,
 ) -> Result<(), AfbError> {
+    sdp_actions::register()?;
+
     let sdp_job = AfbSchedJob::new("sdp-job")
         .set_callback(sdp_job_cb)
         .set_context(SdpJobCtx {
@@ -204,38 +244,51 @@ pub fn register_verbs(
         .finalize();
 
     let connect_verb = AfbVerb::new("sdp-evse")
-        .set_name("sdp")
+        .set_name("sdp_evse_req")
         .set_info("Discover EVSE ISO-15118 services")
+        .set_action("['discover','forget','info']")?
         .set_callback(discover_evse_cb)
         .set_context(DiscoverEvseCtx {
             sdp_job,
-            ip6_iface: config.ip6_iface,
-            ip6_prefix: config.ip6_prefix,
+            ip6_addr: get_iface_addrs(config.ip6_iface, config.ip6_prefix)?,
             sdp_port: config.sdp_port,
             ctrl,
+        });
+
+    let app_proto_verb = AfbVerb::new("iso2-hand-shake")
+        .set_name("app_proto_req")
+        .set_info("Announce ISO2 as only supported protocol")
+        .set_callback(app_proto_req_cb)
+        .set_context(Iso2MsgReqCtx {
+            ctrl,
+            uid: "app_proto_req",
+            timeout: config.timeout,
+            msg_id: MessageTagId::AppProtocolReq,
         });
 
     for idx in 0..config.jverbs.count()? {
         let msg_name = config.jverbs.index::<&'static str>(idx)?;
         let msg_api = api_from_tagid(msg_name)?;
 
-        let msg_verb = AfbVerb::new(msg_api.uid);
-        msg_verb
+        let iso2_msg_verb = AfbVerb::new(msg_api.uid);
+        iso2_msg_verb
             .set_name(msg_api.name)
             .set_info(msg_api.info)
-            .set_callback(session_setup_req_cb)
-            .set_context(SessionSetupReqCtx {
-                timeout: config.timeout,
+            .set_callback(iso2_msg_req_cb)
+            .set_context(Iso2MsgReqCtx {
                 ctrl,
+                uid: msg_name,
+                timeout: config.timeout,
                 msg_id: msg_api.msg_id,
             });
 
         if let Some(sample) = msg_api.sample {
-            msg_verb.set_sample(sample)?;
+            iso2_msg_verb.set_sample(sample)?;
         };
 
         api.add_verb(connect_verb.finalize()?);
-        api.add_verb(msg_verb.finalize()?);
+        api.add_verb(app_proto_verb.finalize()?);
+        api.add_verb(iso2_msg_verb.finalize()?);
     }
     Ok(())
 }

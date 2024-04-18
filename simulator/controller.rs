@@ -17,7 +17,6 @@ pub type TransacReqCb = fn(
     api: AfbApiV4,
     transac: &mut TransacEntry,
     target: &'static str,
-    event: &AfbEvent,
 ) -> TransacStatus;
 
 pub struct JobTransactionContext {
@@ -36,22 +35,29 @@ pub struct JobTransactionParam<'a> {
 fn job_transaction_cb(
     _job: &AfbSchedJob,
     signal: i32,
-    post: &AfbCtxData,
-    ctx: &AfbCtxData,
+    jobctx: &AfbCtxData,
+    context: &AfbCtxData,
 ) -> Result<(), AfbError> {
-    let param = post.get_mut::<JobTransactionParam>()?;
-    let ctx = ctx.get_mut::<JobTransactionContext>()?;
+    let param = jobctx.get_mut::<JobTransactionParam>()?;
+    let ctx = context.get_mut::<JobTransactionContext>()?;
 
     let mut transac = &mut param.state.entries[param.idx];
+
     if signal != 0 {
-        // callsync fail in timeout
         let error = AfbError::new(
             "job-transaction-cb",
             -62,
             format!("{}:{} timeout", ctx.target, transac.uid),
         );
+
+        // send result as event
+        let jreply = JsoncObj::new();
+        jreply.add("uid", transac.uid)?;
+        jreply.add("status", format!("{:?}", TransacStatus::Timeout).as_str())?;
+        ctx.event.push(jreply);
+
         transac.status = TransacStatus::Fail(error);
-        post.free::<JobTransactionParam>();
+        jobctx.free::<JobTransactionParam>();
 
         return afb_error!(
             "job-transaction-cb",
@@ -60,13 +66,13 @@ fn job_transaction_cb(
         );
     }
 
-    let response= if ctx.running {
-        transac.status= TransacStatus::Pending;
-        transac.status= (ctx.callback)(param.api, &mut transac, ctx.target, ctx.event);
-        match  &transac.status {
+    let response = if ctx.running {
+        transac.status = TransacStatus::Pending;
+        transac.status = (ctx.callback)(param.api, &mut transac, ctx.target);
+        match &transac.status {
             TransacStatus::Done | TransacStatus::Check => {
                 Ok(())
-            },
+            }
             TransacStatus::Fail(_error) => {
                 ctx.running = false;
                 Ok(())
@@ -78,10 +84,17 @@ fn job_transaction_cb(
             ),
         }
     } else {
-       transac.status= TransacStatus::Ignored;
-       Ok(())
+        transac.status = TransacStatus::Ignored;
+        Ok(())
     };
-    post.free::<JobTransactionParam>();
+
+    // send result as event
+    let jreply = JsoncObj::new();
+    jreply.add("uid", transac.uid)?;
+    jreply.add("verb", transac.verb)?;
+    jreply.add("status", format!("{:?}", transac.status).as_str())?;
+    ctx.event.push(jreply);
+    jobctx.free::<JobTransactionParam>();
     response
 }
 
@@ -102,13 +115,14 @@ fn job_scenario_cb(
     _job: &AfbSchedJob,
     signal: i32,
     params: &AfbCtxData,
-    ctx: &AfbCtxData,
+    context: &AfbCtxData,
 ) -> Result<(), AfbError> {
     let param = params.get_ref::<JobScenarioParam>()?;
-    let ctx = ctx.get_ref::<JobScenarioContext>()?;
+    let ctx = context.get_ref::<JobScenarioContext>()?;
 
     // job was kill from API
     if signal != 0 {
+        context.free::<JobScenarioContext>();
         return Ok(());
     }
 
@@ -147,12 +161,14 @@ pub enum TransacStatus {
     Check,
     Ignored,
     Idle,
+    Timeout,
     Fail(AfbError),
 }
 
 pub struct TransacEntry {
     pub uid: &'static str,
-    pub request: JsoncObj,
+    pub verb: &'static str,
+    pub query: Option<JsoncObj>,
     pub expect: Option<JsoncObj>,
     pub status: TransacStatus,
 }
@@ -162,7 +178,7 @@ pub struct ScenarioState {
 }
 
 pub struct Scenario {
-    _uid: &'static str,
+    uid: &'static str,
     job: &'static AfbSchedJob,
     count: usize,
     data_set: Mutex<ScenarioState>,
@@ -183,12 +199,20 @@ impl Scenario {
         for idx in 0..config.count()? {
             let transac = config.index::<JsoncObj>(idx)?;
             let uid = transac.get::<&str>("uid")?;
-            let request = transac.get::<JsoncObj>("request")?;
+            let query = transac.optional::<JsoncObj>("query")?;
             let expect = transac.optional::<JsoncObj>("expect")?;
+            let verb = match transac.optional::<&'static str>("verb")? {
+                Some(value) => value,
+                None => {
+                    let name = format!("{}_req", uid.replace("-", "_"));
+                    to_static_str(name)
+                }
+            };
 
             data_set.entries.push(TransacEntry {
                 uid,
-                request,
+                verb,
+                query,
                 expect,
                 status: TransacStatus::Idle,
             });
@@ -204,7 +228,7 @@ impl Scenario {
             });
 
         let this = Self {
-            _uid: uid,
+            uid,
             job,
             count: config.count()?,
             data_set: Mutex::new(data_set),
@@ -219,10 +243,14 @@ impl Scenario {
         Ok(guard)
     }
 
-    pub fn start(&'static self, afb_rqt: &AfbRequest, event: &'static AfbEvent) -> Result<i32, AfbError> {
+    pub fn start(
+        &'static self,
+        afb_rqt: &AfbRequest,
+        event: &'static AfbEvent,
+    ) -> Result<i32, AfbError> {
         let api = afb_rqt.get_apiv4();
         let job_id = self.job.post(
-            0,
+            1,
             JobScenarioParam {
                 scenario: self,
                 event,
@@ -233,18 +261,25 @@ impl Scenario {
         Ok(job_id)
     }
 
-    pub fn stop(&self, job_id: i32) -> Result<(), AfbError> {
+    pub fn stop(&self, job_id: i32) -> Result<JsoncObj, AfbError> {
         self.job.abort(job_id)?;
-        self.get_result()?;
-        Ok(())
+        self.get_result()
     }
 
-    pub fn get_result(&self) -> Result<(), AfbError> {
+    pub fn get_result(&self) -> Result<JsoncObj, AfbError> {
         let state = self.lock_state()?;
+        let result= JsoncObj::array();
+        result.insert(format!("1..{} # {}", self.count, self.uid).as_str())?;
         for idx in 0..self.count {
             let transac = &state.entries[idx];
-            println!(" --[{}] uid:{}, {:?}", idx, transac.uid, transac.status);
+            let status= match &transac.status {
+                TransacStatus::Done =>  format!("ok {} - {}  # Response uncheck", idx, transac.uid),
+                TransacStatus::Check => format!("ok {} - {}  # Response checked", idx, transac.uid),
+                TransacStatus::Fail(error) => format!("fx {} - {}  # {}", idx, transac.uid, error),
+                _ => format!("fx {} - {}  # {:?}", idx, transac.uid, transac.status),
+            };
+            result.insert(status.as_str())?;
         }
-        Ok(())
+        Ok(result)
     }
 }
