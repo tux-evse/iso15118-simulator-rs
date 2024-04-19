@@ -208,7 +208,6 @@ pub fn async_sdp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
             AfbEvtFd::new("iso2-tcp-client")
                 .set_fd(tcp_client.get_sockfd()?)
                 .set_events(AfbEvtFdPoll::IN | AfbEvtFdPoll::RUP)
-                .set_autounref(true)
                 .set_callback(async_tcp_client_cb)
                 .set_context(AsyncTcpClientCtx {
                     ctrl: ctx.ctrl,

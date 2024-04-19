@@ -174,7 +174,6 @@ fn discover_evse_cb(
                 .set_fd(sdp_svc.get_sockfd())
                 .set_events(AfbEvtFdPoll::IN | AfbEvtFdPoll::RUP)
                 .set_callback(async_sdp_cb)
-                //.set_autounref(true)
                 .set_context(AsyncSdpCtx {
                     ctrl: ctx.ctrl,
                     sdp_scope: ctx.ip6_addr.get_scope(),
