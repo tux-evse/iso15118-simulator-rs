@@ -27,13 +27,13 @@ mod binding;
 #[path = "controller.rs"]
 mod ctrl;
 
-#[path = "msg-api.rs"]
-mod msg_api;
+#[path = "iso2-json.rs"]
+mod iso2_json;
 
 
 pub(crate) mod prelude {
     pub use crate::binding::*;
     pub use crate::verbs::*;
     pub use crate::ctrl::*;
-    pub use crate::msg_api::*;
+    pub use crate::iso2_json::*;
 }

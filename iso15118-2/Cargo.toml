@@ -10,6 +10,7 @@ build = "etc/build.rs"
 afbv4 = {git= "https://github.com/redpesk-common/afb-librust", branch="master", optional = true}
 serde = { version = "1.0", features = ["derive"] }
 serde_json={ version= "1.0"}
+base64={ version= "0.22"}
 iso15118= {path ="../../iso15118-encoders-rs"}
 nettls= {path ="../../iso15118-network-rs"}
 

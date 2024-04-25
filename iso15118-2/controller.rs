@@ -270,7 +270,7 @@ impl Controller {
     pub fn new(config: ControllerConfig) -> Result<&'static Self, AfbError> {
         // create a fake session id
         let mut session_u8 = [0; 8];
-        let len = hexa_to_byte(config.session_id, &mut session_u8)?;
+        let len = hexa_to_bytes(config.session_id, &mut session_u8)?;
 
         // reserve timeout job ctx
         let job_post = AfbSchedJob::new("iso2-timeout-job")
@@ -328,7 +328,7 @@ impl Controller {
         }
 
         // build exi payload from json
-        let payload = body_from_json(ctx.msg_id.clone(), api_params)?;
+        let payload = body_from_jsonc(ctx.msg_id.clone(), api_params)?;
 
         let mut stream = self.stream.lock_stream();
         Iso2MessageExi::encode_to_stream(&mut stream, &payload, &self.session)?;
@@ -419,8 +419,8 @@ impl Controller {
                 afb_log_msg!(
                     Notice,
                     None,
-                    "Received {:?} message while pending=None",
-                    state.protocol.clone()
+                    "Received {} message while pending=None",
+                    &state.protocol
                 );
                 return Ok(());
             }
@@ -447,7 +447,7 @@ impl Controller {
                     &V2G_PROTOCOLS_SUPPORTED_LIST,
                 )?;
                 state.protocol = protocol.get_schema();
-                protocol.to_json()?
+                protocol.to_jsonc()?
             }
             v2g::ProtocolTagId::Iso2 => {
                 // extract message payload and tagid
@@ -457,18 +457,18 @@ impl Controller {
                 if tag_id != msg_id {
                     return afb_error!(
                         "iso2-decode-payload",
-                        "unexpected message got:{:?} waiting:{:?}",
-                        tag_id.to_json(),
-                        msg_id.clone().to_json()
+                        "unexpected message got:{} waiting:{}",
+                        tag_id,
+                        msg_id
                     );
                 }
-                body_to_json(payload)?.to_string()
+                body_to_jsonc(payload)?
             }
             _ => {
                 return afb_error!(
                     "iso-decode-payload",
-                    "unexpected iso protocol:{:?}",
-                    &state.protocol
+                    "unexpected iso protocol:{}",
+                    state.protocol
                 )
             }
         };
