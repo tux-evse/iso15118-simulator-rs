@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2022 IoT.bzh Company
+ * Copyright (C) 2015-2024 IoT.bzh Company
  * Author: Fulup Ar Foll <fulup@iot.bzh>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
