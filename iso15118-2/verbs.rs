@@ -196,7 +196,7 @@ fn discover_evse_cb(
 
 pub struct Iso2MsgReqCtx {
     pub uid: &'static str,
-    ctrl: &'static Controller,
+    pub ctrl: &'static Controller,
     pub msg_id: MessageTagId,
     pub timeout: i64,
 }

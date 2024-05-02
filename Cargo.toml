@@ -2,7 +2,5 @@
 resolver = "2"
 
 members = [
-    #"afb-types",
     "iso15118-2",
-    "simulator",
 ]

@@ -246,7 +246,10 @@ fn job_timeout_cb(
         // job post was cancelled
         param.afb_rqt.un_ref();
     } else {
-        param.afb_rqt.reply(format!("timeout msg:{} (no response from EVSE)",param.uid), -100); // timeout
+        param.afb_rqt.reply(
+            format!("timeout msg:{} (no response from EVSE)", param.uid),
+            -100,
+        ); // timeout
     }
 
     Ok(())
@@ -256,7 +259,7 @@ pub struct Controller {
     pub initialized: Arc<(Mutex<bool>, Condvar)>,
     pub data_set: Mutex<ControllerState>,
     pub stream: ExiStream,
-    pub session: SessionId,
+    pub session: Vec<u8>,
     pub tls_conf: Option<&'static TlsConfig>,
     pub job_post: &'static AfbSchedJob,
 }
@@ -270,7 +273,7 @@ impl Controller {
     pub fn new(config: ControllerConfig) -> Result<&'static Self, AfbError> {
         // create a fake session id
         let mut session_u8 = [0; 8];
-        let len = hexa_to_bytes(config.session_id, &mut session_u8)?;
+        let session = hexa_to_bytes(config.session_id, &mut session_u8)?;
 
         // reserve timeout job ctx
         let job_post = AfbSchedJob::new("iso2-timeout-job")
@@ -288,7 +291,7 @@ impl Controller {
             initialized: Arc::new((Mutex::new(false), Condvar::new())),
             tls_conf: config.tls_conf,
             stream: ExiStream::new(),
-            session: SessionId::new(&session_u8, len as u16),
+            session: session.to_vec(),
             data_set: Mutex::new(state),
             job_post,
         }));
@@ -307,7 +310,7 @@ impl Controller {
         let lock = self.stream.lock_stream();
         lock.reset();
         state.connection = None;
-        state.protocol= v2g::ProtocolTagId::Unknown;
+        state.protocol = v2g::ProtocolTagId::Unknown;
         let (lock, _cvar) = &*self.initialized;
         let mut started = lock.lock().unwrap();
         *started = false;
@@ -318,20 +321,21 @@ impl Controller {
         &self,
         afb_rqt: &AfbRequest,
         ctx: &Iso2MsgReqCtx,
-        api_params: JsoncObj,
+        jbody: JsoncObj,
     ) -> Result<(), AfbError> {
         // ctrl is ready let's send messages
         let mut state = self.lock_state()?;
 
         if let None = state.connection {
-            return afb_error!("iso2_send_payload","SDP iso15118 require");
+            return afb_error!("iso2_send_payload", "SDP iso15118 require");
         }
 
         // build exi payload from json
-        let payload = body_from_jsonc(ctx.msg_id.clone(), api_params)?;
+        let header= Iso2MessageHeader::new(&ctx.ctrl.session)?;
+        let body = body_from_jsonc(ctx.msg_id, jbody)?;
 
         let mut stream = self.stream.lock_stream();
-        Iso2MessageExi::encode_to_stream(&mut stream, &payload, &self.session)?;
+        Iso2MessageDoc::new(&header, &body).encode_to_stream(&mut stream)?;
 
         // if request expect a response let delay verb response
         let res_id = ctx.msg_id.match_res_id();
@@ -372,7 +376,7 @@ impl Controller {
         // ctrl is ready let's send messages
         let mut state = self.lock_state()?;
         if let None = state.connection {
-            return afb_error!("v2g_send_payload","SDP iso15118 require");
+            return afb_error!("v2g_send_payload", "SDP iso15118 require");
         }
 
         let mut stream = self.stream.lock_stream();
@@ -450,19 +454,17 @@ impl Controller {
                 protocol.to_jsonc()?
             }
             v2g::ProtocolTagId::Iso2 => {
-                // extract message payload and tagid
-                let message = Iso2Payload::decode_from_stream(&lock)?;
-                let payload = message.get_payload();
-                let tag_id = payload.get_tagid();
-                if tag_id != msg_id {
+                let message = Iso2MessageDoc::decode_from_stream(&lock)?;
+                let body = message.get_body()?;
+                if msg_id != body.get_tagid() {
                     return afb_error!(
                         "iso2-decode-payload",
                         "unexpected message got:{} waiting:{}",
-                        tag_id,
+                        body.get_tagid(),
                         msg_id
                     );
                 }
-                body_to_jsonc(payload)?
+                body_to_jsonc(&body)?
             }
             _ => {
                 return afb_error!(
