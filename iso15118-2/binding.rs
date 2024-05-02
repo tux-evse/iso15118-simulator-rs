@@ -36,7 +36,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     let sdp_port = jconf.default("sdp_port", 15118)?;
     let ip6_prefix = jconf.default("ip6_prefix", 0xFE80)?;
     let ip6_iface = jconf.default("iface", "lo")?;
-    let session_id = jconf.default("session", "01:02:03:04:05:06")?;
+    let session_id = jconf.default("session", "[01,02,03,04,05,06]")?;
     let timeout = jconf.default("timeout", 1000)?;
 
     let tls_conf = if let Some(jtls) = jconf.optional::<JsoncObj>("tsl")? {

@@ -20,7 +20,7 @@ Configuration relies on standard binding/binder json/yaml config file. The confi
 **Interface to service discovery** prefix allows to select the interface IPV6  to be used. 0xFE80 is the default for ipv6 local-link.
 
 ```yaml
-iface: ${IFACE_SIMU}     # default lo
+iface: ${IFACE_SIMU}   # default lo
 ip6_prefix:  0         # default 0xFE80
 sdp_port:    15118     # default 15118
 ```

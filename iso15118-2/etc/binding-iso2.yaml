@@ -23,3 +23,17 @@ binding:
       - session_setup_req
       - service_discovery_req
       - service_detail_req
+      - authorization_req
+      - cable_check_req
+      - certificate_install_req
+      - certificate_update_req
+      - param_discovery_req
+      - charging_status_req
+      - current_demand_req
+      - metering_receipt_req
+      - payment_details_req
+      - payment_selection_req
+      - power_delivery_req
+      - pre_charge_req
+      - session_stop_req
+      - welding_detection_req

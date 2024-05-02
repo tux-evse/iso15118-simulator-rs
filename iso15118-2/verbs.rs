@@ -100,11 +100,11 @@ fn sdp_job_cb(
             data.afb_rqt.reply(jsonc, 0);
         }
         None => {
-           return afb_error!(
+            return afb_error!(
                 "iso2-discovery-fail",
                 "Fail to establish ISO15118-SDP message"
             );
-        },
+        }
     }
     Ok(())
 }
@@ -265,6 +265,9 @@ pub fn register_verbs(
             msg_id: MessageTagId::AppProtocolReq,
         });
 
+    api.add_verb(connect_verb.finalize()?);
+    api.add_verb(app_proto_verb.finalize()?);
+
     for idx in 0..config.jverbs.count()? {
         let msg_name = config.jverbs.index::<&'static str>(idx)?;
         let msg_api = api_from_tagid(msg_name)?;
@@ -284,10 +287,8 @@ pub fn register_verbs(
         if let Some(sample) = msg_api.sample {
             iso2_msg_verb.set_sample(sample)?;
         };
-
-        api.add_verb(connect_verb.finalize()?);
-        api.add_verb(app_proto_verb.finalize()?);
         api.add_verb(iso2_msg_verb.finalize()?);
     }
+
     Ok(())
 }
