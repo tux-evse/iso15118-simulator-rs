@@ -66,7 +66,7 @@ impl IsoToJson for MeteringReceiptResponse {
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let rcode = ResponseCode::from_label(jsonc.get::<&str>("rcode")?)?;
+        let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
         let mut payload= MeteringReceiptResponse::new(rcode);
 
         if let Some(value) = jsonc.optional("ac_status")? {

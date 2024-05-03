@@ -21,7 +21,7 @@ impl IsoToJson for ServiceDetailRequest {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get::<u16>("id")?;
+        let id = jsonc.get("id")?;
         let payload = ServiceDetailRequest::new(id);
         Ok(Box::new(payload))
     }
@@ -43,8 +43,8 @@ impl IsoToJson for ServiceDetailResponse {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get::<u16>("id")?;
-        let rcode = ResponseCode::from_label(jsonc.get::<&str>("rcode")?)?;
+        let id = jsonc.get("id")?;
+        let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
         let mut payload = ServiceDetailResponse::new(id, rcode);
 
         if let Some(jvalue) = jsonc.optional::<JsoncObj>("psets")? {

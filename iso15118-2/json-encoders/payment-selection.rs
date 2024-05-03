@@ -65,7 +65,7 @@ impl IsoToJson for PaymentSelectionResponse {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let rcode = ResponseCode::from_label(jsonc.get::<&str>("rcode")?)?;
+        let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
         let payload= PaymentSelectionResponse::new(rcode);
         Ok(Box::new(payload))
     }

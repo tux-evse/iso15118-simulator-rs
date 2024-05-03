@@ -56,7 +56,7 @@ impl IsoToJson for AuthorizationResponse {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let rcode = ResponseCode::from_label(jsonc.get::<&str>("rcode")?)?;
+        let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
         let processing= EvseProcessing::from_label(jsonc.get("processing")?)?;
         let payload= AuthorizationResponse::new(rcode, processing);
         Ok(Box::new(payload))

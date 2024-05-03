@@ -25,8 +25,8 @@ impl IsoToJson for ChargingProfileEntry {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let start = jsonc.get::<u32>("start")?;
-        let power_max = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("power_max")?)?;
+        let start = jsonc.get("start")?;
+        let power_max = PhysicalValue::from_jsonc(jsonc.get("power_max")?)?;
         let phase_max = jsonc.optional::<i8>("phases_max")?;
         Ok(Box::new(ChargingProfileEntry::new(
             start, *power_max, phase_max,
@@ -45,8 +45,8 @@ impl IsoToJson for DcEvPowerDeliveryParam {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let status = DcEvStatusType::from_jsonc(jsonc.get::<JsoncObj>("status")?)?;
-        let charge_complete = jsonc.get::<bool>("charge_complete")?;
+        let status = DcEvStatusType::from_jsonc(jsonc.get("status")?)?;
+        let charge_complete = jsonc.get("charge_complete")?;
         let bulk_complete = jsonc.optional::<bool>("charge_complete")?;
         Ok(Box::new(DcEvPowerDeliveryParam::new(
             *status,
@@ -122,7 +122,7 @@ impl IsoToJson for PowerDeliveryResponse {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let rcode = ResponseCode::from_label(jsonc.get::<&str>("rcode")?)?;
+        let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
         let mut payload = PowerDeliveryResponse::new(rcode);
 
         if let Some(value) = jsonc.optional("ac_evse_status")? {

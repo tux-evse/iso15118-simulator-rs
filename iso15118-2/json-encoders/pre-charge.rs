@@ -40,7 +40,7 @@ impl IsoToJson for PreChargeResponse {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let rcode = ResponseCode::from_label(jsonc.get::<&str>("rcode")?)?;
+        let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
         let status = DcEvseStatusType::from_jsonc(jsonc.get("status")?)?;
         let voltage = PhysicalValue::from_jsonc(jsonc.get("voltage")?)?;
         let payload = PreChargeResponse::new(rcode, status.as_ref(), voltage.as_ref())?;

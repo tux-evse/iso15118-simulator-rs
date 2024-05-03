@@ -116,7 +116,7 @@ impl IsoToJson for CurrentDemandResponse {
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let evse_id = jsonc.get("id")?;
-        let rcode = ResponseCode::from_label(jsonc.get::<&str>("rcode")?)?;
+        let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
         let dc_status = DcEvseStatusType::from_jsonc(jsonc.get("status")?)?;
         let current = PhysicalValue::from_jsonc(jsonc.get("current")?)?;
         let voltage = PhysicalValue::from_jsonc(jsonc.get("voltage")?)?;

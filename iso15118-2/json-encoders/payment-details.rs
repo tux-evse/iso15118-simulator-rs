@@ -42,7 +42,7 @@ impl IsoToJson for PaymentDetailsResponse {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let rcode = ResponseCode::from_label(jsonc.get::<&str>("rcode")?)?;
+        let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
         let challenge=  match general_purpose::STANDARD.decode(jsonc.get::<&str>("challenge")?) {
             Ok(decode) => decode,
             Err(_) => return afb_error!("payment-detail-res-from-jsonc", "fail to decode base64 challenge")

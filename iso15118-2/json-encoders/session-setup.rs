@@ -41,8 +41,8 @@ impl IsoToJson for SessionSetupResponse {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get::<&str>("id")?;
-        let rcode = ResponseCode::from_label(jsonc.get::<&str>("rcode")?)?;
+        let id = jsonc.get("id")?;
+        let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
         let payload = SessionSetupResponse::new(id, rcode)?;
         Ok(Box::new(payload))
     }

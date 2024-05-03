@@ -455,7 +455,7 @@ impl IsoToJson for AcEvChargeParam {
         let max_current = PhysicalValue::from_jsonc(jsonc.get("max_current")?)?;
         let min_current = PhysicalValue::from_jsonc(jsonc.get("min_current")?)?;
         let mut param = AcEvChargeParam::new(&ea_mount, &max_voltage, &max_current, &min_current)?;
-        if let Ok(value) = jsonc.get::<u32>("departure_time") {
+        if let Ok(value) = jsonc.get("departure_time") {
             param.set_departure_time(value);
         }
         Ok(Box::new(param))
@@ -477,7 +477,7 @@ impl IsoToJson for EvChargeParam {
         let ac_param = AcEvChargeParam::from_jsonc(jsonc.get("ac_param")?)?;
         let dc_param = DcEvChargeParam::from_jsonc(jsonc.get("dc_param")?)?;
         let mut param = EvChargeParam::new(&ac_param, &dc_param);
-        if let Ok(value) = jsonc.get::<u32>("departure_time") {
+        if let Ok(value) = jsonc.get("departure_time") {
             param.set_departure_time(value);
         }
         Ok(Box::new(param))
@@ -521,7 +521,7 @@ impl IsoToJson for ParamSet {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get::<i16>("id")?;
+        let id = jsonc.get("id")?;
         let mut this = ParamSet::new(id);
         if let Some(jvalue) = jsonc.optional::<JsoncObj>("prms")? {
             for idx in 0..jvalue.count()? {
@@ -580,7 +580,7 @@ impl IsoToJson for ParamValue {
             }
 
             "i16" => {
-                let value = jsonc.get::<i16>("value")?;
+                let value = jsonc.get("value")?;
                 ParamValue::Int16(value)
             }
 
@@ -595,7 +595,7 @@ impl IsoToJson for ParamValue {
             }
 
             "string" => {
-                let value = jsonc.get::<String>("value")?;
+                let value = jsonc.get("value")?;
                 ParamValue::Text(value)
             }
 

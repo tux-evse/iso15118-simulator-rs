@@ -34,7 +34,7 @@ impl IsoToJson for SessionStopResponse {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let rcode = ResponseCode::from_label(jsonc.get::<&str>("rcode")?)?;
+        let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
         let payload = SessionStopResponse::new(rcode);
         Ok(Box::new(payload))
     }

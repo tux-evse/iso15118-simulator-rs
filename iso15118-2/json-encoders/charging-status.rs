@@ -41,7 +41,7 @@ impl IsoToJson for ChargingStatusResponse {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let rcode= ResponseCode::from_label(jsonc.get::<&str>("rcode")?)?;
+        let rcode= ResponseCode::from_label(jsonc.get("rcode")?)?;
         let evse_id= jsonc.get("evse_id")?;
         let tuple_id= jsonc.get("tuple_id")?;
         let status= AcEvseStatusType::from_jsonc(jsonc.get("status")?)?;

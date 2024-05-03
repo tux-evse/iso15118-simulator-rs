@@ -39,7 +39,7 @@ impl IsoToJson for CertificateInstallRequest {
                 )
             }
         };
-        let cert_list = CertificateRootList::from_jsonc(jsonc.get::<JsoncObj>("certs")?)?;
+        let cert_list = CertificateRootList::from_jsonc(jsonc.get("certs")?)?;
         let payload = CertificateInstallRequest::new(id, &provisioning, &cert_list)?;
         Ok(Box::new(payload))
     }
