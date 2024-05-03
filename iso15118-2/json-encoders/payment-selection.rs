@@ -37,7 +37,7 @@ impl IsoToJson for PaymentSelectionRequest {
         jsonc.add("option", self.get_option().to_label())?;
         let services = self.get_services();
         if services.len() > 0 {
-            let jservices = JsoncObj::new();
+            let jservices = JsoncObj::array();
             for service in services {
                 jservices.insert(service.to_jsonc()?)?;
             }

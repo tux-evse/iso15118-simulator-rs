@@ -31,8 +31,8 @@ impl IsoToJson for ChargingStatusResponse {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("rcode", self.get_rcode().to_label())?;
-        jsonc.add("id", self.get_id()?)?;
-        jsonc.add("tuple", self.get_tuple_id() as u32)?;
+        jsonc.add("evse_id", self.get_id()?)?;
+        jsonc.add("tuple_id", self.get_tuple_id() as u32)?;
         jsonc.add("status", &self.get_ac_evse_status().to_jsonc()?)?;
 
         if let Some(value) = self.get_meter_info() {
@@ -42,8 +42,8 @@ impl IsoToJson for ChargingStatusResponse {
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let rcode= ResponseCode::from_label(jsonc.get::<&str>("rcode")?)?;
-        let evse_id= jsonc.get("id")?;
-        let tuple_id= jsonc.get("id")?;
+        let evse_id= jsonc.get("evse_id")?;
+        let tuple_id= jsonc.get("tuple_id")?;
         let status= AcEvseStatusType::from_jsonc(jsonc.get("status")?)?;
         let payload = ChargingStatusResponse::new(rcode, evse_id, tuple_id, &status)?;
         Ok(Box::new(payload))

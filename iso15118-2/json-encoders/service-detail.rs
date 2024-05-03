@@ -31,20 +31,15 @@ impl IsoToJson for ServiceDetailResponse {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("rcode", self.get_rcode().to_label())?;
-        let jsonc = JsoncObj::new();
-        let jpsets = JsoncObj::array();
-        for pset in self.get_psets() {
-            let jpset = JsoncObj::new();
-            jpset.add("id", pset.get_id() as i32)?;
-            let jprms = JsoncObj::array();
-            for prm in pset.get_params()? {
-                let jprm = JsoncObj::new();
-                jprm.add("name", prm.get_name())?;
-                jprm.add("value", prm.get_value().to_jsonc()?)?;
-                jprms.insert(jprm)?;
+        jsonc.add("id", self.get_id())?;
+        let psets = self.get_psets();
+        if psets.len() > 0 {
+            let jpsets = JsoncObj::array();
+            for pset in psets {
+                jpsets.insert(pset.to_jsonc()?)?;
             }
+            jsonc.add("psets", jpsets)?;
         }
-        jsonc.add("params", jpsets)?;
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
@@ -55,7 +50,7 @@ impl IsoToJson for ServiceDetailResponse {
         if let Some(jvalue) = jsonc.optional::<JsoncObj>("psets")? {
             for idx in 0..jvalue.count()? {
                 let pset = ParamSet::from_jsonc(jvalue.index(idx)?)?;
-                payload.add_pset(&*pset)?;
+                payload.add_pset(pset.as_ref())?;
             }
         }
         Ok(Box::new(payload))

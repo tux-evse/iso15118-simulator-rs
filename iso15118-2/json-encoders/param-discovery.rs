@@ -144,8 +144,8 @@ impl IsoToJson for SasScheduleTuple {
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get("id")?;
-        let mut payload = SasScheduleTuple::new(id);
+        let description = jsonc.get("description")?;
+        let mut payload = SasScheduleTuple::new(description);
 
         if let Some(values) = jsonc.optional::<JsoncObj>("pmaxs")? {
             for idx in 0..values.count()? {
@@ -167,7 +167,7 @@ impl IsoToJson for ParamDiscoveryRequest {
         jsonc.add("transfer_mode", self.get_transfert_energy_mode().to_label())?;
 
         if let Some(value) = self.get_max_schedule_tuple() {
-            jsonc.add("max_shed_tuple", value as u32)?;
+            jsonc.add("max_shed_tuple", value)?;
         }
 
         if let Some(param) = self.get_ac_charge_param() {
@@ -179,14 +179,15 @@ impl IsoToJson for ParamDiscoveryRequest {
         }
 
         if let Some(param) = self.get_ev_charge_param() {
-            jsonc.add("param", param.to_jsonc()?)?;
+            jsonc.add("ev_param", param.to_jsonc()?)?;
         }
 
         Ok(jsonc)
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let transfer_mode = EngyTransfertMode::from_label(jsonc.get("transfert_mode")?)?;
+
+        let transfer_mode = EngyTransfertMode::from_label(jsonc.get("transfer_mode")?)?;
         let mut payload = ParamDiscoveryRequest::new(transfer_mode);
 
         if let Some(value) = jsonc.optional("max_shed_tuple")? {

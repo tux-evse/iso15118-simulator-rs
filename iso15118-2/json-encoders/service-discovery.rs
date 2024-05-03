@@ -17,6 +17,7 @@ use iso15118::prelude::iso2::*;
 impl IsoToJson for ServiceCharging {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
+        jsonc.add("id", self.get_id())?;
         jsonc.add("isfree", self.get_isfree())?;
         if let Some(value) = self.get_name() {
             jsonc.add("name", value)?;
@@ -58,7 +59,7 @@ impl IsoToJson for ServiceOther {
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let id = jsonc.get("id")?;
         let isfree = jsonc.get("isfree")?;
-        let category = ServiceCategory::from_label(jsonc.get("categoty")?)?;
+        let category = ServiceCategory::from_label(jsonc.get("category")?)?;
         let mut payload = ServiceOther::new(id, category, isfree);
         if let Some(value) = jsonc.optional("name")? {
             payload.set_name(value)?;

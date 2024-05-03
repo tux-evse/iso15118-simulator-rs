@@ -18,6 +18,7 @@
 #[cfg(not(afbv4))]
 extern crate afbv4;
 
+
 #[path = "verbs.rs"]
 mod verbs;
 
@@ -84,6 +85,9 @@ mod session_stop;
 #[path = "json-encoders/welding-detection.rs"]
 mod welding_detection;
 
+#[cfg(test)]
+#[path = "json-encoders/encoders-test.rs"]
+mod encoders_test;
 
 pub(crate) mod prelude {
     pub use crate::binding::*;

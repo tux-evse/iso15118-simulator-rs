@@ -33,8 +33,6 @@ impl IsoToJson for SupportedAppProtocolConf {
     }
 }
 
-
-
 impl IsoToJson for EmaidType {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
@@ -43,9 +41,9 @@ impl IsoToJson for EmaidType {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get::<&str>("id")?;
-        let data = jsonc.get::<&str>("data")?;
-        Ok(Box::new(EmaidType::new(id, &data)?))
+        let id = jsonc.get("id")?;
+        let data = jsonc.get("data")?;
+        Ok(Box::new(EmaidType::new(id, data)?))
     }
 }
 
@@ -59,7 +57,7 @@ impl IsoToJson for PrivateKeyType {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get::<&str>("id")?;
+        let id = jsonc.get("id")?;
         let base64 = jsonc.get::<&str>("data")?;
         let data = match general_purpose::STANDARD.decode(base64) {
             Ok(value) => value,
@@ -78,9 +76,10 @@ impl IsoToJson for CertificateData {
         jsonc.add("serial", self.get_serial())?;
         Ok(jsonc)
     }
+
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let issuer = jsonc.get::<&str>("issuer")?;
-        let serial = jsonc.get::<i32>("serial")?;
+        let issuer = jsonc.get("issuer")?;
+        let serial = jsonc.get("serial")?;
         Ok(Box::new(CertificateData::new(issuer, serial)))
     }
 }
@@ -95,7 +94,7 @@ impl IsoToJson for DhPublicKeyType {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get::<&str>("id")?;
+        let id = jsonc.get("id")?;
         let base64 = jsonc.get::<&str>("data")?;
         let data = match general_purpose::STANDARD.decode(base64) {
             Ok(value) => value,
@@ -109,15 +108,12 @@ impl IsoToJson for DhPublicKeyType {
 
 impl IsoToJson for CertificateRootList {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
-        let jsonc = JsoncObj::new();
-
         let certs = self.get_certs()?;
         if certs.len() == 0 {
             return afb_error!("certificate-root-to-jsonc", "(hoops) empty chain list");
         }
 
-        let jcerts = JsoncObj::array();
-        jsonc.add("certs", jcerts)?;
+        let jsonc = JsoncObj::array();
         for cert in certs {
             jsonc.insert(cert.to_jsonc()?)?;
         }
@@ -132,11 +128,11 @@ impl IsoToJson for CertificateRootList {
         }
 
         let jcert = jsonc.index::<JsoncObj>(0)?;
-        let mut root_list = CertificateRootList::new(&*CertificateData::from_jsonc(jcert)?)?;
+        let mut root_list = CertificateRootList::new(CertificateData::from_jsonc(jcert)?.as_ref())?;
 
         for idx in 1..jsonc.count()? {
-            let jcert = jsonc.index::<JsoncObj>(idx)?;
-            root_list.add_cert(&*CertificateData::from_jsonc(jcert)?)?;
+            root_list
+                .add_cert(CertificateData::from_jsonc(jsonc.index::<JsoncObj>(idx)?)?.as_ref())?;
         }
         Ok(Box::new(root_list))
     }
@@ -172,7 +168,7 @@ impl IsoToJson for CertificateChainType {
         };
         let mut cert_chain = CertificateChainType::new(&data)?;
 
-        if let Some(value)= jsonc.optional::<&str>("id")? {
+        if let Some(value) = jsonc.optional::<&str>("id")? {
             cert_chain.set_id(value)?;
         }
 
@@ -220,7 +216,7 @@ impl IsoToJson for MeterInfoType {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get::<&str>("id")?;
+        let id = jsonc.get("id")?;
         let mut meter_info = MeterInfoType::new(id)?;
 
         if let Some(value) = jsonc.optional::<u64>("reading")? {
@@ -257,9 +253,9 @@ impl IsoToJson for DcEvStatusType {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let ready = jsonc.get::<bool>("ready")?;
-        let error = DcEvErrorCode::from_label(jsonc.get::<&str>("error")?)?;
-        let evresssoc = jsonc.get::<i8>("evresssoc")?;
+        let ready = jsonc.get("ready")?;
+        let error = DcEvErrorCode::from_label(jsonc.get("error")?)?;
+        let evresssoc = jsonc.get("evresssoc")?;
         Ok(Box::new(DcEvStatusType::new(ready, error, evresssoc)))
     }
 }
@@ -274,10 +270,10 @@ impl IsoToJson for EvseStatusType {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let notification = EvseNotification::from_label(jsonc.get::<&str>("notification")?)?;
-        let delay = jsonc.get::<u16>("delay")?;
-        let ac_status = AcEvseStatusType::from_jsonc(jsonc.get::<JsoncObj>("ac_status")?)?;
-        let dc_status = DcEvseStatusType::from_jsonc(jsonc.get::<JsoncObj>("dc_status")?)?;
+        let notification = EvseNotification::from_label(jsonc.get("notification")?)?;
+        let delay = jsonc.get("delay")?;
+        let ac_status = AcEvseStatusType::from_jsonc(jsonc.get("ac_status")?)?;
+        let dc_status = DcEvseStatusType::from_jsonc(jsonc.get("dc_status")?)?;
         Ok(Box::new(EvseStatusType::new(
             notification,
             delay,
@@ -296,9 +292,9 @@ impl IsoToJson for AcEvseStatusType {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let notification = EvseNotification::from_label(jsonc.get::<&str>("notification")?)?;
-        let delay = jsonc.get::<u16>("delay")?;
-        let rcd = jsonc.get::<bool>("rcd")?;
+        let notification = EvseNotification::from_label(jsonc.get("notification")?)?;
+        let delay = jsonc.get("delay")?;
+        let rcd = jsonc.get("rcd")?;
         Ok(Box::new(AcEvseStatusType::new(notification, delay, rcd)))
     }
 }
@@ -308,15 +304,23 @@ impl IsoToJson for DcEvseStatusType {
         let jsonc = JsoncObj::new();
         jsonc.add("error", self.get_error().to_label())?;
         jsonc.add("notification", self.get_notification().to_label())?;
-        jsonc.add("delay", self.get_delay() as u32)?;
+        jsonc.add("delay", self.get_delay())?;
+
+        if let Some(value) = self.get_isolation_status() {
+            jsonc.add("isolation_status", value.to_label())?;
+        }
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let error = DcEvseErrorCode::from_label(jsonc.get::<&str>("error")?)?;
-        let notification = EvseNotification::from_label(jsonc.get::<&str>("error")?)?;
-        let delay = jsonc.get::<u16>("delay")?;
-        let status = DcEvseStatusType::new(error, notification, delay);
-        Ok(Box::new(status))
+        let error = DcEvseErrorCode::from_label(jsonc.get("error")?)?;
+        let notification = EvseNotification::from_label(jsonc.get("notification")?)?;
+        let delay = jsonc.get("delay")?;
+        let mut payload = DcEvseStatusType::new(error, notification, delay);
+
+        if let Some(value) = jsonc.optional("isolation_status")? {
+            payload.set_isolation_status(IsolationStatus::from_label(value)?);
+        }
+        Ok(Box::new(payload))
     }
 }
 
@@ -327,7 +331,7 @@ impl IsoToJson for DcEvseChargeParam {
         jsonc.add("max_voltage", self.get_max_voltage().to_jsonc()?)?;
         jsonc.add("min_voltage", self.get_min_voltage().to_jsonc()?)?;
         jsonc.add("max_current", self.get_max_current().to_jsonc()?)?;
-        jsonc.add("min_voltage", self.get_min_current().to_jsonc()?)?;
+        jsonc.add("min_current", self.get_min_current().to_jsonc()?)?;
         jsonc.add("max_power", self.get_max_power().to_jsonc()?)?;
         jsonc.add("current_ripple", self.get_peak_current_ripple().to_jsonc()?)?;
 
@@ -341,13 +345,13 @@ impl IsoToJson for DcEvseChargeParam {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let status = DcEvseStatusType::from_jsonc(jsonc.get::<JsoncObj>("status")?)?;
-        let max_voltage = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("max_voltage")?)?;
-        let min_voltage = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("min_voltage")?)?;
-        let max_current = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("max_current")?)?;
-        let min_current = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("min_current")?)?;
-        let max_power = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("max_power")?)?;
-        let current_ripple = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("current_ripple")?)?;
+        let status = DcEvseStatusType::from_jsonc(jsonc.get("status")?)?;
+        let max_voltage = PhysicalValue::from_jsonc(jsonc.get("max_voltage")?)?;
+        let min_voltage = PhysicalValue::from_jsonc(jsonc.get("min_voltage")?)?;
+        let max_current = PhysicalValue::from_jsonc(jsonc.get("max_current")?)?;
+        let min_current = PhysicalValue::from_jsonc(jsonc.get("min_current")?)?;
+        let max_power = PhysicalValue::from_jsonc(jsonc.get("max_power")?)?;
+        let current_ripple = PhysicalValue::from_jsonc(jsonc.get("current_ripple")?)?;
         let param = DcEvseChargeParam::new(
             &*status,
             &*max_voltage,
@@ -371,14 +375,11 @@ impl IsoToJson for AcEvseChargeParam {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let status = AcEvseStatusType::from_jsonc(jsonc.get::<JsoncObj>("status")?)?;
-        let nom_voltage = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("max_voltage")?)?;
-        let max_current = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("max_current")?)?;
-        let param = AcEvseChargeParam::new(
-            status.as_ref(),
-            nom_voltage.as_ref(),
-            max_current.as_ref(),
-        );
+        let status = AcEvseStatusType::from_jsonc(jsonc.get("status")?)?;
+        let nom_voltage = PhysicalValue::from_jsonc(jsonc.get("max_voltage")?)?;
+        let max_current = PhysicalValue::from_jsonc(jsonc.get("max_current")?)?;
+        let param =
+            AcEvseChargeParam::new(status.as_ref(), nom_voltage.as_ref(), max_current.as_ref());
         Ok(Box::new(param))
     }
 }
@@ -412,25 +413,25 @@ impl IsoToJson for DcEvChargeParam {
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let status = DcEvStatusType::from_jsonc(jsonc.get::<JsoncObj>("ea_mount")?)?;
-        let max_voltage = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("max_voltage")?)?;
-        let max_current = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("min_voltage")?)?;
-        let mut param = DcEvChargeParam::new(&*status, &*max_voltage, &*max_current)?;
+        let status = DcEvStatusType::from_jsonc(jsonc.get("status")?)?;
+        let max_voltage = PhysicalValue::from_jsonc(jsonc.get("max_voltage")?)?;
+        let max_current = PhysicalValue::from_jsonc(jsonc.get("max_current")?)?;
+        let mut param = DcEvChargeParam::new(status.as_ref(), max_voltage.as_ref(), max_current.as_ref())?;
 
-        if let Ok(jvalue) = jsonc.get::<JsoncObj>("max_power") {
-            param.set_max_power(&*PhysicalValue::from_jsonc(jvalue)?);
+        if let Ok(jvalue) = jsonc.get("max_power") {
+            param.set_max_power(PhysicalValue::from_jsonc(jvalue)?.as_ref())?;
         }
-        if let Ok(jvalue) = jsonc.get::<JsoncObj>("energy_capacity") {
-            param.set_energy_capacity(&*PhysicalValue::from_jsonc(jvalue)?);
+        if let Ok(jvalue) = jsonc.get("energy_capacity") {
+            param.set_energy_capacity(PhysicalValue::from_jsonc(jvalue)?.as_ref())?;
         }
-        if let Ok(value) = jsonc.get::<u32>("departure_time") {
+        if let Ok(value) = jsonc.get("departure_time") {
             param.set_departure_time(value);
         }
-        if let Ok(value) = jsonc.get::<i8>("bulk_soc") {
+        if let Ok(value) = jsonc.get("bulk_soc") {
             param.set_bulk_soc(value);
         }
-        if let Ok(value) = jsonc.get::<i8>("full_soc") {
-            param.set_full_soc(value as i8);
+        if let Ok(value) = jsonc.get("full_soc") {
+            param.set_full_soc(value);
         }
         Ok(Box::new(param))
     }
@@ -449,10 +450,10 @@ impl IsoToJson for AcEvChargeParam {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let ea_mount = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("ea_mount")?)?;
-        let max_voltage = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("max_voltage")?)?;
-        let max_current = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("min_voltage")?)?;
-        let min_current = PhysicalValue::from_jsonc(jsonc.get::<JsoncObj>("min_current")?)?;
+        let ea_mount = PhysicalValue::from_jsonc(jsonc.get("ea_mount")?)?;
+        let max_voltage = PhysicalValue::from_jsonc(jsonc.get("max_voltage")?)?;
+        let max_current = PhysicalValue::from_jsonc(jsonc.get("max_current")?)?;
+        let min_current = PhysicalValue::from_jsonc(jsonc.get("min_current")?)?;
         let mut param = AcEvChargeParam::new(&ea_mount, &max_voltage, &max_current, &min_current)?;
         if let Ok(value) = jsonc.get::<u32>("departure_time") {
             param.set_departure_time(value);
@@ -460,7 +461,6 @@ impl IsoToJson for AcEvChargeParam {
         Ok(Box::new(param))
     }
 }
-
 
 impl IsoToJson for EvChargeParam {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -473,8 +473,9 @@ impl IsoToJson for EvChargeParam {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let ac_param = AcEvChargeParam::from_jsonc(jsonc.get::<JsoncObj>("ac_param")?)?;
-        let dc_param = DcEvChargeParam::from_jsonc(jsonc.get::<JsoncObj>("ac_param")?)?;
+
+        let ac_param = AcEvChargeParam::from_jsonc(jsonc.get("ac_param")?)?;
+        let dc_param = DcEvChargeParam::from_jsonc(jsonc.get("dc_param")?)?;
         let mut param = EvChargeParam::new(&ac_param, &dc_param);
         if let Ok(value) = jsonc.get::<u32>("departure_time") {
             param.set_departure_time(value);
@@ -493,7 +494,7 @@ impl IsoToJson for PhysicalValue {
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let unit = PhysicalUnit::from_label(jsonc.get::<&str>("unit")?)?;
+        let unit = PhysicalUnit::from_label(jsonc.get("unit")?)?;
         let multiplier = jsonc.default::<i8>("multiplier", 1)?;
         let value = jsonc.get::<i16>("value")?;
         Ok(Box::new(PhysicalValue::new(value, multiplier, unit)))
@@ -522,7 +523,7 @@ impl IsoToJson for ParamSet {
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let id = jsonc.get::<i16>("id")?;
         let mut this = ParamSet::new(id);
-        if let Some(jvalue) = jsonc.optional::<JsoncObj>("psets")? {
+        if let Some(jvalue) = jsonc.optional::<JsoncObj>("prms")? {
             for idx in 0..jvalue.count()? {
                 let jprm = jvalue.index::<JsoncObj>(idx)?;
                 let name = jprm.get::<&str>("name")?;
@@ -567,14 +568,14 @@ impl IsoToJson for ParamValue {
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let this = match jsonc.get::<&str>("type")? {
+        let this = match jsonc.get("type")? {
             "bool" => {
-                let value = jsonc.get::<bool>("value")?;
+                let value = jsonc.get("value")?;
                 ParamValue::Bool(value)
             }
 
             "i8" => {
-                let value = jsonc.get::<i8>("value")?;
+                let value = jsonc.get("value")?;
                 ParamValue::Int8(value)
             }
 
@@ -584,20 +585,26 @@ impl IsoToJson for ParamValue {
             }
 
             "i32" => {
-                let value = jsonc.get::<i32>("value")?;
+                let value = jsonc.get("value")?;
                 ParamValue::Int32(value)
             }
 
             "physical" => {
-                let value = jsonc.get::<JsoncObj>("value")?;
+                let value = jsonc.get("value")?;
                 ParamValue::PhyValue(*PhysicalValue::from_jsonc(value)?)
+            }
+
+            "string" => {
+                let value = jsonc.get::<String>("value")?;
+                ParamValue::Text(value)
             }
 
             _ => {
                 return afb_error!(
                     "param-value-from-json",
-                    "invalid value type:{}",
-                    jsonc.get::<&str>("type")?
+                    "invalid value type:{} value:{}",
+                    jsonc.get::<JsoncObj>("type")?,
+                    jsonc.get::<JsoncObj>("value")?
                 )
             }
         };

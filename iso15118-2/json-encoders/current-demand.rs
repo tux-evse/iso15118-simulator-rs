@@ -49,12 +49,32 @@ impl IsoToJson for CurrentDemandRequest {
         let current_target = PhysicalValue::from_jsonc(jsonc.get("current_target")?)?;
         let voltage_target = PhysicalValue::from_jsonc(jsonc.get("voltage_target")?)?;
         let charging_complete = jsonc.get("charging_complete")?;
-        let payload = CurrentDemandRequest::new(
+        let mut payload = CurrentDemandRequest::new(
             dc_status.as_ref(),
             current_target.as_ref(),
             voltage_target.as_ref(),
             charging_complete,
         );
+
+        if let Some(value) = jsonc.optional("voltage_limit")? {
+            payload.set_voltage_limit(PhysicalValue::from_jsonc(value)?.as_ref())?;
+        }
+
+        if let Some(value) = jsonc.optional("current_limit")? {
+            payload.set_current_limit(PhysicalValue::from_jsonc(value)?.as_ref())?;
+        }
+
+        if let Some(value) = jsonc.optional("power_limit")? {
+            payload.set_power_limit(PhysicalValue::from_jsonc(value)?.as_ref())?;
+        }
+        if let Some(value) = jsonc.optional("bulk_complete")? {
+            payload.set_bulk_complete(value);
+        }
+
+        if let Some(value) = jsonc.optional("time_to_bulk_sock")? {
+            payload.set_time_to_bulk_sock(PhysicalValue::from_jsonc(value)?.as_ref())?;
+        }
+
         Ok(Box::new(payload))
     }
 }
@@ -86,6 +106,11 @@ impl IsoToJson for CurrentDemandResponse {
         if let Some(value) = self.get_receipt_require() {
             jsonc.add("receipt_require", value)?;
         }
+
+        if let Some(value) = self.get_meter_info() {
+            jsonc.add("meter_info", value.to_jsonc()?)?;
+        }
+
         Ok(jsonc)
     }
 
@@ -100,7 +125,7 @@ impl IsoToJson for CurrentDemandResponse {
         let power_limit = jsonc.get("power_limit_reach")?;
         let schd_tuple_id = jsonc.get("tuple_id")?;
 
-        let payload = CurrentDemandResponse::new(
+        let mut payload = CurrentDemandResponse::new(
             rcode,
             evse_id,
             dc_status.as_ref(),
@@ -111,6 +136,26 @@ impl IsoToJson for CurrentDemandResponse {
             power_limit,
             schd_tuple_id,
         )?;
+
+        if let Some(value) = jsonc.optional("voltage_limit")? {
+            payload.set_voltage_limit(PhysicalValue::from_jsonc(value)?.as_ref())?;
+        }
+
+        if let Some(value) = jsonc.optional("current_limit")? {
+            payload.set_current_limit(PhysicalValue::from_jsonc(value)?.as_ref())?;
+        }
+
+        if let Some(value) = jsonc.optional("power_limit")? {
+            payload.set_power_limit(PhysicalValue::from_jsonc(value)?.as_ref())?;
+        }
+
+        if let Some(value) = jsonc.optional("receipt_require")? {
+            payload.set_receipt_require(value);
+        }
+
+        if let Some(value) = jsonc.optional("meter_info")? {
+            payload.set_meter_info(MeterInfoType::from_jsonc(value)?.as_ref());
+        }
 
         Ok(Box::new(payload))
     }

@@ -12,13 +12,13 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::{iso2::*, *};
+use iso15118::prelude::iso2::*;
 
 impl IsoToJson for SessionSetupRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         let id = self.get_id();
-        let data = dump_hexa(id);
+        let data = bytes_to_hexa(id);
         jsonc.add("id", data.as_str())?;
         Ok(jsonc)
     }
