@@ -42,8 +42,8 @@ impl IsoToJson for CertificateUpdateResponse {
         jsonc.add("rcode", self.get_rcode().to_label())?;
         jsonc.add("contract", self.get_contract_chain().to_jsonc()?)?;
         jsonc.add("provisioning", self.get_provisioning_chain().to_jsonc()?)?;
-        jsonc.add("private", self.get_private_key().to_jsonc()?)?;
-        jsonc.add("dh_private", self.get_public_key().to_jsonc()?)?;
+        jsonc.add("private_key", self.get_private_key().to_jsonc()?)?;
+        jsonc.add("public_key", self.get_public_key().to_jsonc()?)?;
         jsonc.add("emaid", self.get_emaid().to_jsonc()?)?;
         Ok(jsonc)
     }

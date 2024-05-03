@@ -437,6 +437,130 @@ fn certificate_install_response() -> Result<(), AfbError> {
 }
 
 #[test]
+fn certificate_update_request() -> Result<(), AfbError> {
+    // Encoding api
+    let issuer_tst0 = "IoT.bzh";
+    let serial_tst0 = 1234;
+    let issuer_tst1 = "Redpesk.bzh";
+    let serial_tst1 = 5678;
+    let cert0 = CertificateData::new(issuer_tst0, serial_tst0);
+    let mut root_certs = CertificateRootList::new(&cert0)?;
+    root_certs.add_cert(&CertificateData::new(issuer_tst1, serial_tst1))?;
+
+    let id_tst = "tux-evse";
+    let emaid = "tux-emaid";
+    let contract_id_tst = "Contract-TuxEvSE";
+    let contract_main_tst = [0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6];
+    let contract_sub_tst0 = [0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6];
+    let contract_sub_tst1 = [0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6];
+    let mut contract_chain_tst = CertificateChainType::new(&contract_main_tst)?;
+    contract_chain_tst
+        .set_id(contract_id_tst)?
+        .add_subcert(&contract_sub_tst0)?
+        .add_subcert(&contract_sub_tst1)?;
+    let jsonc =
+        CertificateUpdateRequest::new(id_tst, &contract_chain_tst, emaid, &root_certs)?.to_jsonc()?;
+    println!("{}:{}", func_name!(), jsonc);
+
+    // Decoding API
+    let payload= CertificateUpdateRequest::from_jsonc(jsonc)?;
+    let contract_chain_rec = payload.get_contract_chain();
+    let root_certs_rec = payload.get_root_certs().get_certs()?;
+
+    assert!(id_tst == payload.get_id()?);
+    assert!(emaid == payload.get_emaid()?);
+
+    let root_certs_in = root_certs.get_certs()?;
+    for idx in 0..root_certs_rec.len() {
+        assert!(root_certs_rec[idx].get_issuer() == root_certs_in[idx].get_issuer());
+        assert!(root_certs_rec[idx].get_serial() == root_certs_in[idx].get_serial());
+    }
+    assert!(contract_chain_rec.get_id() == contract_chain_tst.get_id());
+    assert!(contract_chain_rec.get_cert() == contract_chain_tst.get_cert());
+    Ok(())
+}
+
+#[test]
+fn certificate_update_response() -> Result<(), AfbError> {
+    // Encoding api
+
+    // Encoding api
+    let cert_id_tst = "Cert-TuxEvSE";
+    let cert_main_tst = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06];
+    let cert_sub_tst0 = [0x11, 0x12, 0x13, 0x14, 0x15, 0x16];
+    let cert_sub_tst1 = [0x21, 0x22, 0x23, 0x24, 0x25, 0x26];
+
+    let mut cert_chain_tst = CertificateChainType::new(&cert_main_tst)?;
+    cert_chain_tst
+        .set_id(cert_id_tst)?
+        .add_subcert(&cert_sub_tst0)?
+        .add_subcert(&cert_sub_tst1)?;
+
+    let contract_id_tst = "Contract-TuxEvSE";
+    let contract_main_tst = [0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6];
+    let contract_sub_tst0 = [0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6];
+    let contract_sub_tst1 = [0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6];
+    let mut contract_chain_tst = CertificateChainType::new(&contract_main_tst)?;
+    contract_chain_tst
+        .set_id(contract_id_tst)?
+        .add_subcert(&contract_sub_tst0)?
+        .add_subcert(&contract_sub_tst1)?;
+
+    let private_id_tst = "Private_TuxEvSe";
+    let private_data_tst = [0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6];
+    let private_key_tst = PrivateKeyType::new(private_id_tst, &private_data_tst)?;
+
+    let public_id_tst = "public_TuxEvSe";
+    let public_data_tst = [0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6];
+    let public_key_tst = DhPublicKeyType::new(public_id_tst, &public_data_tst)?;
+
+    let emaid_id_tst = "emaid_TuxEvSE";
+    let emaid_str_tst = "my emaid testing string";
+    let emaid_tst = EmaidType::new(emaid_id_tst, emaid_str_tst)?;
+
+    let rcode = ResponseCode::NewSession;
+
+    let jsonc = CertificateUpdateResponse::new(
+        rcode,
+        &contract_chain_tst,
+        &cert_chain_tst,
+        &private_key_tst,
+        &public_key_tst,
+        &emaid_tst,
+    )
+    .to_jsonc()?;
+    println!("{}:{}", func_name!(), jsonc);
+
+
+    // Decoding API
+    let payload= CertificateUpdateResponse::from_jsonc(jsonc)?;
+    let rcode_rec = payload.get_rcode();
+    let cert_chain_rec = payload.get_provisioning_chain();
+    let contract_chain_rec = payload.get_contract_chain();
+    let private_key_rec = payload.get_private_key();
+    let public_key_rec = payload.get_public_key();
+    let emaid_rec = payload.get_emaid();
+
+    // assert input == output
+    assert!(rcode_rec == rcode);
+    assert!(cert_chain_rec.get_id() == cert_chain_tst.get_id());
+    assert!(cert_chain_rec.get_cert() == cert_chain_tst.get_cert());
+    assert!(contract_chain_rec.get_id() == contract_chain_tst.get_id());
+    assert!(contract_chain_rec.get_cert() == contract_chain_tst.get_cert());
+    assert!(private_key_rec.get_id()? == private_key_tst.get_id()?);
+    assert!(private_key_rec.get_data() == private_key_tst.get_data());
+    assert!(public_key_rec.get_id()? == public_key_tst.get_id()?);
+    assert!(private_key_rec.get_data() == private_key_tst.get_data());
+    assert!(emaid_rec.get_id()? == emaid_tst.get_id()?);
+    assert!(emaid_rec.get_data()? == emaid_tst.get_data()?);
+    let certs_sub_rec = cert_chain_rec.get_subcerts();
+    assert!(certs_sub_rec[0] == cert_sub_tst0);
+    assert!(certs_sub_rec[1] == cert_sub_tst1);
+
+    Ok(())
+}
+
+#[test]
 fn current_demand_request() -> Result<(), AfbError> {
     // Encoding API
     let dc_ready = true;
@@ -750,7 +874,7 @@ fn param_discovery_response() -> Result<(), AfbError> {
         .set_evse_dc_charge_param(&charge_param)
         .to_jsonc()?;
 
-    println!("{}:{:#}", func_name!(), jsonc);
+    println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
     let payload = ParamDiscoveryResponse::from_jsonc(jsonc)?;

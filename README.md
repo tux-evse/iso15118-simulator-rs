@@ -44,3 +44,9 @@ This module is under deep development. Initial version supports ISO-2, the other
 
 The simulator might be used in standalone mode to in conjunction with injector-binding-rs to automate testing scenarios.
 
+## Test
+
+```bash
+cargo test --package iso15118-2 --lib -- encoders_test --show-output
+```
+
