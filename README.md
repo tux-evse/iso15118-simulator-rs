@@ -36,7 +36,7 @@ sdp_port:    15118     # default 15118
     psk_log: /tmp/tls-keys-simu.log
 ```
 
-** Api Json/Yaml input query as well as response use JSOn, but configuration on top of JSON also accept YAML.
+## Api Json/Yaml input query as well as response use JSOn, but configuration on top of JSON also accept YAML.
 
 * iso15118-2 Requests
     * [json](iso15118-2/docs/api-req.json)
