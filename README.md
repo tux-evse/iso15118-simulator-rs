@@ -36,6 +36,16 @@ sdp_port:    15118     # default 15118
     psk_log: /tmp/tls-keys-simu.log
 ```
 
+** Api Json/Yaml input query as well as response use JSOn, but configuration on top of JSON also accept YAML.
+
+* iso15118-2 Requests
+    * [json](iso15118-2/docs/api-req.json)
+    * [yaml](iso15118-2/docs/api-req.yaml)
+* iso15118-2 Responses
+    * [json](iso15118-2/docs/api-res.json)
+    * [yaml](iso15118-2/docs/api-res.yaml)
+
+
 ## Current development status
 
 This module is under deep development. Initial version supports ISO-2, the other stacks (Iso-20, Din) will come as soon as iso15118-encoder-rs implements them.
