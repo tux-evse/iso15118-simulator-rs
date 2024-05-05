@@ -297,7 +297,7 @@ fn cable_check_response() -> Result<(), AfbError> {
     let processing_tst = EvseProcessing::Ongoing;
 
     let dc_rcode = DcEvseErrorCode::Ready;
-    let notification_tst = EvseNotification::ReNegociation;
+    let notification_tst = EvseNotification::ReNegotiation;
     let delay_tst = 160;
     let status_tst = DcEvseStatusType::new(dc_rcode, notification_tst, delay_tst);
     let jsonc = CableCheckResponse::new(rcode, &status_tst, processing_tst).to_jsonc()?;
@@ -849,7 +849,7 @@ fn param_discovery_response() -> Result<(), AfbError> {
     sched_b.add_pmax(&pmax_b1)?.add_pmax(&pmax_b2)?;
 
     let dc_rcode = DcEvseErrorCode::Ready;
-    let dc_notification = EvseNotification::ReNegociation;
+    let dc_notification = EvseNotification::ReNegotiation;
     let dc_delay = 160;
     let dc_status = DcEvseStatusType::new(dc_rcode, dc_notification, dc_delay);
     let max_voltage = PhysicalValue::new(250, 1, PhysicalUnit::Volt);
@@ -1079,7 +1079,7 @@ fn pre_charge_request() -> Result<(), AfbError> {
 fn pre_charge_response() -> Result<(), AfbError> {
     // Encoding API
     let rcode = ResponseCode::CertificateExpiresSoon;
-    let notification = EvseNotification::ReNegociation;
+    let notification = EvseNotification::ReNegotiation;
     let delay = 160;
     let dc_status = DcEvseErrorCode::Reserve8;
     let evse_voltage = PhysicalValue::new(400, 1, PhysicalUnit::Volt);
@@ -1156,7 +1156,7 @@ fn welding_detection_response() -> Result<(), AfbError> {
     let rcode = ResponseCode::NewSession;
 
     let dc_rcode = DcEvseErrorCode::Ready;
-    let dc_notification = EvseNotification::ReNegociation;
+    let dc_notification = EvseNotification::ReNegotiation;
     let dc_delay = 160;
     let dc_status = DcEvseStatusType::new(dc_rcode, dc_notification, dc_delay);
     let dc_voltage = PhysicalValue::new(400, 1, PhysicalUnit::Volt);

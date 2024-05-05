@@ -190,7 +190,7 @@ pub fn api_from_tagid(msg_api: &'static str) -> Result<ApiMsgInfo, AfbError> {
             msg_id,
             name: msg_api,
             info: "§8.4.5.2.3 [V2G2-251][V2G2-252]",
-            sample: Some("{'rcode':'new_session','status':{'error':'ready','notification':'re_negociation','delay':160},'processing':'ongoing'}"),
+            sample: Some("{'rcode':'new_session','status':{'error':'ready','notification':'re_negotiation','delay':160},'processing':'ongoing'}"),
         },
         MessageTagId::CertificateInstallReq => ApiMsgInfo {
             uid: to_static_str(msg_uid),
@@ -232,7 +232,7 @@ pub fn api_from_tagid(msg_api: &'static str) -> Result<ApiMsgInfo, AfbError> {
             msg_id,
             name: msg_api,
             info: "8.4.3.8.3 [V2G2-218]..[V2G2-220]",
-            sample: Some("{'rcode':'ok','processing':'ongoing','tuples':[{'description':1,'pmax':[{'start':1,'duration':2,'value':{'value':240,'multiplier':1,'unit':'volt'}},{'start':1,'duration':2,'value':{'value':10,'multiplier':1,'unit':'ampere'}}]},{'description':1,'pmax':[{'start':1,'duration':2,'value':{'value':400,'multiplier':1,'unit':'volt'}},{'start':1,'duration':2,'value':{'value':100,'multiplier':1,'unit':'ampere'}}]}],'evse_dc_charge_param':{'status':{'error':'ready','notification':'re_negociation','delay':160},'max_voltage':{'value':250,'multiplier':1,'unit':'volt'},'min_voltage':{'value':200,'multiplier':1,'unit':'volt'},'max_current':{'value':64,'multiplier':1,'unit':'ampere'},'min_current':{'value':10,'multiplier':1,'unit':'ampere'},'max_power':{'value':6400,'multiplier':100,'unit':'watt'},'current_ripple':{'value':1,'multiplier':1,'unit':'volt'}}}"),
+            sample: Some("{'rcode':'ok','processing':'ongoing','tuples':[{'description':1,'pmax':[{'start':1,'duration':2,'value':{'value':240,'multiplier':1,'unit':'volt'}},{'start':1,'duration':2,'value':{'value':10,'multiplier':1,'unit':'ampere'}}]},{'description':1,'pmax':[{'start':1,'duration':2,'value':{'value':400,'multiplier':1,'unit':'volt'}},{'start':1,'duration':2,'value':{'value':100,'multiplier':1,'unit':'ampere'}}]}],'evse_dc_charge_param':{'status':{'error':'ready','notification':'re_negotiation','delay':160},'max_voltage':{'value':250,'multiplier':1,'unit':'volt'},'min_voltage':{'value':200,'multiplier':1,'unit':'volt'},'max_current':{'value':64,'multiplier':1,'unit':'ampere'},'min_current':{'value':10,'multiplier':1,'unit':'ampere'},'max_power':{'value':6400,'multiplier':100,'unit':'watt'},'current_ripple':{'value':1,'multiplier':1,'unit':'volt'}}}"),
         },
         MessageTagId::ChargingStatusReq => ApiMsgInfo {
             uid: to_static_str(msg_uid),
@@ -316,7 +316,7 @@ pub fn api_from_tagid(msg_api: &'static str) -> Result<ApiMsgInfo, AfbError> {
             msg_id,
             name: msg_api,
             info: "§8.4.3.9.3 [V2G2-223]..[V2G2-226]",
-            sample: Some("{'rcode':'certificate_expires_soon','status':{'error':'reserve8','notification':'re_negociation','delay':160,'isolation_status':'warning'},'voltage':{'value':400,'multiplier':1,'unit':'volt'}}"),
+            sample: Some("{'rcode':'certificate_expires_soon','status':{'error':'reserve8','notification':'re_negotiation','delay':160,'isolation_status':'warning'},'voltage':{'value':400,'multiplier':1,'unit':'volt'}}"),
         },
         MessageTagId::PreChargeReq => ApiMsgInfo {
             uid: to_static_str(msg_uid),
@@ -359,7 +359,7 @@ pub fn api_from_tagid(msg_api: &'static str) -> Result<ApiMsgInfo, AfbError> {
             msg_id,
             name: msg_api,
             info: "§8.4.5.5.3 [V2G2-263][V2G2-264]",
-            sample: Some("{'rcode':'new_session','status':{'error':'ready','notification':'re_negociation','delay':160},'voltage':{'value':400,'multiplier':1,'unit':'volt'}}"),
+            sample: Some("{'rcode':'new_session','status':{'error':'ready','notification':'re_negotiation','delay':160},'voltage':{'value':400,'multiplier':1,'unit':'volt'}}"),
         },
 
         _ => return afb_error!("hoops", "Unknown message"),
