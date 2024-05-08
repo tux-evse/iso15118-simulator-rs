@@ -2,5 +2,7 @@
 resolver = "2"
 
 members = [
-    "iso15118-2",
+    "binding-15118-2",
+    "iso15118-jsonc",
+    "iso15118-pcap",
 ]

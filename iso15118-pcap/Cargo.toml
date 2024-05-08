@@ -1,0 +1,32 @@
+[package]
+name = "iso15118-pcap"
+version = "0.0.1"
+edition = "2021"
+authors = ["Fulup Le Foll <fulup@iot.bzh>"]
+publish = false
+build = "capi/build.rs"
+
+[features]
+default = []
+afbmock=[]
+
+
+[dependencies]
+afbv4 = {git= "https://github.com/redpesk-common/afb-librust", branch="master", optional = true}
+iso15118_jsonc = {path ="../iso15118-jsonc"}
+iso15118= {path ="../../iso15118-encoders-rs"}
+
+[build-dependencies]
+bindgen    = ">=0.6"
+system-deps = "2.0"
+cc = "1"
+
+[package.metadata.system-deps]
+libpcap= "1.10"
+
+[[bin]]
+name = "pcap-iso15118"
+path = "src/pcap-import.rs"
+
+
+

@@ -24,5 +24,28 @@
                 "settings set target.disable-aslr false"
             ]
         },
+                {
+            "name": "pcap-2",
+            "type": "lldb",
+            "preLaunchTask": "binding-native-build",
+            "request": "launch",
+            "program": "${env:HOME}/.cargo/build/debug/pcap-iso15118",
+            "env": {
+                "LD_LIBRARY_PATH": "/usr/local/lib64",
+            },
+            "args": [
+                "--pcapfile=./iso15118-pcap/samples/ABB-Normal.pcapng",
+                "--tcpport=53537",
+                "--logfile=/tmp/iso15118-scenario.json",
+            ],
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "target stop-hook add -n _start -o continue",
+                "settings set target.disable-aslr false"
+            ]
+        },
     ]
 }
+
+~/.cargo/build/debug/pcap-scenario --tcpport=53537 --pcapfile= ./iso15118-pcap/samples/ABB-Normal.pcapng  --logfile=/tmp/scenario.js
+on

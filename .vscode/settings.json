@@ -3,6 +3,8 @@
     "html.format.wrapLineLength": 140,
     "rust-analyzer.showUnlinkedFileNotification": false,
     "cSpell.words": [
+        "cbuffer",
+        "cglue",
         "conjustion",
         "evse",
         "rcode"
