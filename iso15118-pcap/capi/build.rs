@@ -15,6 +15,8 @@ fn main() {
     // invalidate the built crate whenever the wrapper changes
     println!("cargo:rustc-link-search=/usr/local/lib64");
     println!("cargo:rustc-link-arg=-lpcap");
+    println!("cargo:rustc-link-arg=-lgnutls");
+    println!("cargo:rustc-link-arg=-lnettle");
     println!("cargo:rustc-link-arg=-liso15118");
 
     if let Ok(value) = env::var("CARGO_TARGET_DIR") {
@@ -42,8 +44,13 @@ fn main() {
         .allowlist_item("pcap_.*")
         .allowlist_var("PCAP_.*")
         .allowlist_item("C_.*")
+        .allowlist_item("TLS_.*")
+        .allowlist_var("TLS1_3_.*")
+        .allowlist_item("GNUTLS_.*")
+        .allowlist_item("gnutls_.*")
         .allowlist_item(".*_header")
         .allowlist_function("ntoh.*")
+        .allowlist_function("nettle_memxor")
         .generate()
         .expect("Unable to generate _capi_pcap.rs");
 

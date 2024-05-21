@@ -12,8 +12,8 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::{iso2::*, v2g::*, *};
-use iso15118_jsonc::prelude::*;
+use iso15118::prelude::{iso2_exi::*, v2g::*, *};
+use iso15118_jsonc::prelude::{*,iso2_jsonc::*};
 use nettls::prelude::*;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::{mem, net};
@@ -332,11 +332,11 @@ impl Controller {
         }
 
         // build exi payload from json
-        let header= Iso2MessageHeader::new(&ctx.ctrl.session)?;
+        let header= ExiMessageHeader::new(&ctx.ctrl.session)?;
         let body = body_from_jsonc(ctx.msg_id, jbody)?;
 
         let mut stream = self.stream.lock_stream();
-        Iso2MessageDoc::new(&header, &body).encode_to_stream(&mut stream)?;
+        ExiMessageDoc::new(&header, &body).encode_to_stream(&mut stream)?;
 
         // if request expect a response let delay verb response
         let res_id = ctx.msg_id.match_res_id();
@@ -455,7 +455,7 @@ impl Controller {
                 protocol.to_jsonc()?
             }
             v2g::ProtocolTagId::Iso2 => {
-                let message = Iso2MessageDoc::decode_from_stream(&lock)?;
+                let message = ExiMessageDoc::decode_from_stream(&lock)?;
                 let body = message.get_body()?;
                 if msg_id != body.get_tagid() {
                     return afb_error!(
@@ -465,7 +465,7 @@ impl Controller {
                         msg_id
                     );
                 }
-                body_to_jsonc(&body)?
+                iso2_jsonc::body_to_jsonc(&body)?
             }
             _ => {
                 return afb_error!(

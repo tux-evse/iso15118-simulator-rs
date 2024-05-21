@@ -10,10 +10,10 @@
  *
  */
 
-use super::prelude::*;
+use crate::prelude::*;
 use afbv4::prelude::*;
 use base64::{engine::general_purpose, Engine as _};
-use iso15118::prelude::iso2::*;
+use iso15118::prelude::iso2_exi::*;
 
 impl IsoToJson for CertificateInstallRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {

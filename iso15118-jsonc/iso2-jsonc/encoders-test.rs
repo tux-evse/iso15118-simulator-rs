@@ -1,5 +1,5 @@
-use super::prelude::*;
-use iso15118::prelude::iso2::*;
+use crate::prelude::*;
+use iso15118::prelude::iso2_exi::*;
 use iso15118::prelude::*;
 
 #[test]
@@ -326,9 +326,9 @@ fn certificate_install_request() -> Result<(), AfbError> {
     let serial_tst0 = 1234;
     let issuer_tst1 = "Redpesk.bzh";
     let serial_tst1 = 5678;
-    let cert0 = CertificateData::new(issuer_tst0, serial_tst0);
+    let cert0 = IssuerSerialType::new(issuer_tst0, serial_tst0);
     let mut list_tst = CertificateRootList::new(&cert0)?;
-    list_tst.add_cert(&CertificateData::new(issuer_tst1, serial_tst1))?;
+    list_tst.add_cert(&IssuerSerialType::new(issuer_tst1, serial_tst1))?;
 
     let id_tst = "tux-evse";
     let provisioning_tst = [0x1, 0x2, 0x3, 0x4, 0x5, 0x6];
@@ -443,9 +443,9 @@ fn certificate_update_request() -> Result<(), AfbError> {
     let serial_tst0 = 1234;
     let issuer_tst1 = "Redpesk.bzh";
     let serial_tst1 = 5678;
-    let cert0 = CertificateData::new(issuer_tst0, serial_tst0);
+    let cert0 = IssuerSerialType::new(issuer_tst0, serial_tst0);
     let mut root_certs = CertificateRootList::new(&cert0)?;
-    root_certs.add_cert(&CertificateData::new(issuer_tst1, serial_tst1))?;
+    root_certs.add_cert(&IssuerSerialType::new(issuer_tst1, serial_tst1))?;
 
     let id_tst = "tux-evse";
     let emaid = "tux-emaid";
@@ -948,8 +948,8 @@ fn payment_detail_response() -> Result<(), AfbError> {
 fn payment_selection_request() -> Result<(), AfbError> {
     let service_contract = PaymentOption::Contract;
     // Encoding API
-    let service_option_0 = PaymentServiceOpt::new(1234, Some(4321));
-    let service_option_1 = PaymentServiceOpt::new(4321, Some(9876));
+    let service_option_0 = SelectedService::new(1234, Some(4321));
+    let service_option_1 = SelectedService::new(4321, Some(9876));
     let jsonc = PaymentSelectionRequest::new(service_contract)
         .add_service(&service_option_0)?
         .add_service(&service_option_1)?

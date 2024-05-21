@@ -73,9 +73,9 @@ mod welding_detection;
 
 #[cfg(test)]
 #[path = "encoders-test.rs"]
-mod encoders_test;
+pub mod encoders_test;
 
-pub mod prelude {
+pub mod iso2_jsonc {
     pub use super::sub_types::*;
     pub use super::authorization::*;
     pub use super::cable_check::*;
@@ -95,5 +95,4 @@ pub mod prelude {
     pub use super::session_stop::*;
     pub use super::welding_detection::*;
     pub use super::body_encoder::*;
-
 }

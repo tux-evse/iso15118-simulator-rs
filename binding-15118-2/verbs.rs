@@ -12,8 +12,8 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::{iso2::*, v2g::*, *};
-use iso15118_jsonc::prelude::*;
+use iso15118::prelude::{iso2_exi::*, v2g::*, *};
+use iso15118_jsonc::prelude::iso2_jsonc::*;
 use nettls::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;

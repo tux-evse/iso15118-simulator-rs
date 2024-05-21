@@ -10,9 +10,9 @@
  *
  */
 
-use super::prelude::*;
+use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::iso2::*;
+use iso15118::prelude::iso2_exi::*;
 
 impl IsoToJson for PreChargeRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {

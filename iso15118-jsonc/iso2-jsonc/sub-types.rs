@@ -11,13 +11,9 @@
  */
 
 use afbv4::prelude::*;
+use crate::prelude::*;
 use base64::{engine::general_purpose, Engine as _};
-use iso15118::prelude::{iso2::*, v2g::SupportedAppProtocolConf};
-
-pub trait IsoToJson {
-    fn to_jsonc(&self) -> Result<JsoncObj, AfbError>;
-    fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError>;
-}
+use iso15118::prelude::{iso2_exi::*, v2g::SupportedAppProtocolConf};
 
 impl IsoToJson for SupportedAppProtocolConf {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -69,10 +65,10 @@ impl IsoToJson for PrivateKeyType {
     }
 }
 
-impl IsoToJson for CertificateData {
+impl IsoToJson for IssuerSerialType {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
-        jsonc.add("issuer", self.get_issuer())?;
+        jsonc.add("issuer", self.get_issuer()?)?;
         jsonc.add("serial", self.get_serial())?;
         Ok(jsonc)
     }
@@ -80,7 +76,7 @@ impl IsoToJson for CertificateData {
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let issuer = jsonc.get("issuer")?;
         let serial = jsonc.get("serial")?;
-        Ok(Box::new(CertificateData::new(issuer, serial)))
+        Ok(Box::new(IssuerSerialType::new(issuer, serial)?))
     }
 }
 
@@ -128,11 +124,11 @@ impl IsoToJson for CertificateRootList {
         }
 
         let jcert = jsonc.index::<JsoncObj>(0)?;
-        let mut root_list = CertificateRootList::new(CertificateData::from_jsonc(jcert)?.as_ref())?;
+        let mut root_list = CertificateRootList::new(IssuerSerialType::from_jsonc(jcert)?.as_ref())?;
 
         for idx in 1..jsonc.count()? {
             root_list
-                .add_cert(CertificateData::from_jsonc(jsonc.index::<JsoncObj>(idx)?)?.as_ref())?;
+                .add_cert(IssuerSerialType::from_jsonc(jsonc.index::<JsoncObj>(idx)?)?.as_ref())?;
         }
         Ok(Box::new(root_list))
     }
@@ -511,8 +507,8 @@ impl IsoToJson for ParamSet {
             for idx in 0..prms.len() {
                 let prm = &prms[idx];
                 let jprm = JsoncObj::new();
-                jprm.add("name", prm.get_name())?;
-                jprm.add("set", prm.get_value().to_jsonc()?)?;
+                jprm.add("name", prm.get_name()?)?;
+                jprm.add("value", prm.get_value()?.to_jsonc()?)?;
                 jprms.insert(jprm)?;
             }
             jsonc.add("prms", jprms)?;
@@ -526,9 +522,10 @@ impl IsoToJson for ParamSet {
         if let Some(jvalue) = jsonc.optional::<JsoncObj>("prms")? {
             for idx in 0..jvalue.count()? {
                 let jprm = jvalue.index::<JsoncObj>(idx)?;
-                let name = jprm.get::<&str>("name")?;
-                let prm = ParamValue::from_jsonc(jprm.get::<JsoncObj>("set")?)?;
-                this.add_param(name, prm.as_ref())?;
+                let name = jprm.get("name")?;
+                let value = jprm.get("value")?;
+                let prm = ParamTuple::new(name, ParamValue::from_jsonc(value)?.as_ref())?;
+                this.add_param(&prm)?;
             }
         }
         Ok(Box::new(this))

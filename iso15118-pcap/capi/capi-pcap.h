@@ -23,7 +23,9 @@
 #include <netinet/udp.h>
 #include <arpa/inet.h>
 
-
+#include <gnutls/gnutls.h>
+#include <gnutls/crypto.h>
+#include <nettle/memxor.h>
 #include <pcap.h>
 
 const size_t C_PCAP_ERRBUF_SIZE= PCAP_ERRBUF_SIZE;
@@ -40,3 +42,14 @@ typedef struct ip6_hdr ip6_header;
 typedef struct ether_header ether_header;
 typedef struct tcphdr tcp_header;
 typedef struct udphdr udp_header;
+
+const size_t TLS_RECORD_HEADER_SIZE= 5;
+const size_t TLS_HANDSHAKE_HEADER_SIZE= 4;
+const size_t TLS_MAX_CIPHER_IV_SIZE= 16;
+
+enum TLS_MSG_TAG {
+    HANDSHAKE= 0x16,
+    APPDATA= 0x17,
+    ALERT=0x15,
+    CIPHER_CHANGE=0x20,
+};

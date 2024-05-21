@@ -17,20 +17,22 @@ extern crate afbv4;
 include!("../capi/capi-pcap.rs");
 
 use afbv4::prelude::*;
+use iso15118::prelude::*;
 use iso15118_jsonc::prelude::*;
 use std::env;
 use std::io::Write;
 
 #[track_caller]
 fn err_usage(uid: &str, data: &str) -> Result<(), AfbError> {
-    println!("usage: pcap-scenario --tcpport=xxx --pcapfile=xxx.pcap --logfile=scenario.json [--maxcount=xx]");
+    println!("usage: pcap-scenario --tcpport=xxx --pcapfile=xxx.pcap --logfile=scenario.json [--maxcount=xx] [--verbose=1] [--psklog=/xxx/master-key.log]");
     return afb_error!(uid, "invalid argument: {}", data);
 }
 
 struct LoggerCtx {
     outfile: Option<File>,
     timestamp: Duration,
-    protocol: v2g::ProtocolTagId,
+    session_protocol: v2g::ProtocolTagId,
+    supported_protocols: Vec<v2g::AppHandAppProtocolType>,
 }
 
 impl LoggerCtx {
@@ -78,29 +80,64 @@ fn packet_handler(
     let delay = (timestamp - ctx.timestamp).as_millis();
     ctx.timestamp = timestamp;
 
-    match ctx.protocol {
+    match ctx.session_protocol {
         // decode message
         v2g::ProtocolTagId::Unknown => {
             let v2g_msg = v2g::SupportedAppProtocolExi::decode_from_stream(stream)?;
             match v2g_msg {
-                v2g::V2gMsgBody::Response(_body) => {
-                    ctx.protocol = v2g::ProtocolTagId::Iso2;
-                    println!("{}: SupportAppProtocolRes", count)
+                v2g::V2gMsgBody::Response(payload) => {
+                    // Fulup TBD handle joining old session, ...
+                    let rcode = payload.get_rcode();
+                    if let v2g::ResponseCode::Success = rcode {
+                        let schema = payload.get_schema();
+                        for idx in 0..ctx.supported_protocols.len() {
+                            let proto = &ctx.supported_protocols[idx];
+                            if schema == proto.get_schema() {
+                                let proto_name = proto.get_name()?;
+                                ctx.session_protocol = v2g::ProtocolTagId::from_urn(proto_name)?;
+                            }
+                        }
+                    }
+                    println!("pck:{} SupportAppProtocolRes:{:?}", count, payload)
                 }
-                v2g::V2gMsgBody::Request(_body) => {
-                    println!("{}: SupportAppProtocolReq", count)
+                v2g::V2gMsgBody::Request(payload) => {
+                    ctx.supported_protocols = payload.get_protocols();
+                    println!("pck:{} SupportAppProtocolReq:{:?}", count, payload);
                 }
             }
         }
 
-        v2g::ProtocolTagId::Iso2 => {
-            let iso2_msg = iso2::Iso2MessageDoc::decode_from_stream(stream)?;
-            let _header = iso2_msg.get_header();
-            let body = iso2_msg.get_body()?;
-            println!("{}: body:{} delay:{}", count, body_to_jsonc(&body)?, delay);
+        v2g::ProtocolTagId::Din => {
+            let din_msg = din_exi::ExiMessageDoc::decode_from_stream(stream)?;
+            let _header = din_msg.get_header();
+            let body = din_msg.get_body()?;
+            println!(
+                "pkg:{} delay:{} din-msg:{} ",
+                count,
+                delay,
+                din_jsonc::body_to_jsonc(&body)?
+            );
         }
 
-        _ => return afb_error!("packet-handler-protocol", "packet:{} unsupported exi document type", count),
+        v2g::ProtocolTagId::Iso2 => {
+            let iso2_msg = iso2_exi::ExiMessageDoc::decode_from_stream(stream)?;
+            let _header = iso2_msg.get_header();
+            let body = iso2_msg.get_body()?;
+            println!(
+                "pkg:{} delay:{} iso2-msg:{} ",
+                count,
+                delay,
+                iso2_jsonc::body_to_jsonc(&body)?
+            );
+        }
+
+        _ => {
+            return afb_error!(
+                "packet-handler-session_protocol",
+                "packet:{} unsupported exi document type",
+                count
+            )
+        }
     }
 
     Ok(())
@@ -114,7 +151,8 @@ fn main() -> Result<(), AfbError> {
 
     let mut pcaps = PcapHandle::new();
     let mut logger = LoggerCtx {
-        protocol: v2g::ProtocolTagId::Unknown,
+        session_protocol: v2g::ProtocolTagId::Unknown,
+        supported_protocols: Vec::new(),
         timestamp: Duration::new(0, 0),
         outfile: None,
     };
@@ -145,12 +183,22 @@ fn main() -> Result<(), AfbError> {
                 };
                 pcaps.set_tcp_port(port);
             }
+            "--psklog" => {
+                pcaps.set_psk_log(parts[1])?;
+            }
             "--maxcount" => {
                 let count = match parts[1].parse() {
                     Ok(value) => value,
                     Err(_) => return err_usage("invalid-port", arg.as_str()),
                 };
                 pcaps.set_max_packets(count);
+            }
+            "--verbose" => {
+                let verbose = match parts[1].parse() {
+                    Ok(value) => value,
+                    Err(_) => return err_usage("invalid-verbosity_level", arg.as_str()),
+                };
+                pcaps.set_verbose(verbose);
             }
             _ => return err_usage("invalid-argument", arg.as_str()),
         }

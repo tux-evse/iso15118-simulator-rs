@@ -10,9 +10,9 @@
  *
  */
 
-use super::prelude::*;
+use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::iso2::*;
+use iso15118::prelude::iso2_exi::*;
 
 impl IsoToJson for SaleTariffEntry {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -104,20 +104,47 @@ impl IsoToJson for SalesTariff {
     }
 }
 
-impl IsoToJson for PMaxScheduleEntry {
+impl IsoToJson for RelativeTimeInterval {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("start", self.get_start())?;
-        jsonc.add("duration", self.get_duration())?;
-        jsonc.add("value", self.get_value().to_jsonc()?)?;
+        if let Some(value) = self.get_duration() {
+            jsonc.add("duration", value)?;
+        }
         Ok(jsonc)
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let start = jsonc.get("start")?;
-        let duration = jsonc.get("duration")?;
-        let value = PhysicalValue::from_jsonc(jsonc.get("value")?)?;
-        let payload = PMaxScheduleEntry::new(start, duration, *value);
+        let start= jsonc.get("start")?;
+        let duration= jsonc.optional("duration")?;
+        let mut payload= RelativeTimeInterval:: new(start);
+        if let Some(value) = duration {
+            payload.set_duration(value);
+        }
+        Ok(Box::new(payload))
+    }
+}
+
+impl IsoToJson for PMaxScheduleEntry {
+    fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
+        let jsonc = JsoncObj::new();
+        jsonc.add("pmax", self.get_pmax().to_jsonc()?)?;
+
+        if let Some(value) = self.get_relative_time_interval() {
+            jsonc.add("time_interval", value.to_jsonc()?)?;
+        }
+        Ok(jsonc)
+    }
+
+    fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
+        let pmax = PhysicalValue::from_jsonc(jsonc.get("pmax")?)?;
+        let time_interval = jsonc.optional("time_interval")?;
+        let mut payload = PMaxScheduleEntry::new(pmax.as_ref());
+        if let Some(value) = time_interval {
+            let time= RelativeTimeInterval::from_jsonc(value)?;
+            payload.set_relative_time_interval (time.as_ref());
+        }
+
         Ok(Box::new(payload))
     }
 }
@@ -186,7 +213,6 @@ impl IsoToJson for ParamDiscoveryRequest {
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-
         let transfer_mode = EngyTransfertMode::from_label(jsonc.get("transfer_mode")?)?;
         let mut payload = ParamDiscoveryRequest::new(transfer_mode);
 
@@ -242,13 +268,11 @@ impl IsoToJson for ParamDiscoveryResponse {
         Ok(jsonc)
     }
 
-
-
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
-        let processing= EvseProcessing::from_label(jsonc.get("processing")?)?;
+        let processing = EvseProcessing::from_label(jsonc.get("processing")?)?;
 
-        let mut payload= ParamDiscoveryResponse::new(rcode, processing);
+        let mut payload = ParamDiscoveryResponse::new(rcode, processing);
 
         if let Some(value) = jsonc.optional("schedules")? {
             payload.set_schedules(value);
@@ -259,8 +283,10 @@ impl IsoToJson for ParamDiscoveryResponse {
         }
 
         if let Some(values) = jsonc.optional::<JsoncObj>("tuples")? {
-            for idx in 0 .. values.count()? {
-                payload.add_schedule_tuple(SasScheduleTuple::from_jsonc(values.index(idx)?)?.as_ref())?;
+            for idx in 0..values.count()? {
+                payload.add_schedule_tuple(
+                    SasScheduleTuple::from_jsonc(values.index(idx)?)?.as_ref(),
+                )?;
             }
         }
 

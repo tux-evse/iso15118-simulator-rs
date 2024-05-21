@@ -60,3 +60,9 @@ The simulator might be used in standalone mode to in conjunction with injector-b
 cargo test --package iso15118-2 --lib -- encoders_test --show-output
 ```
 
+FULUP: TBD
+------------
+
+ - Din -> Json (session request)
+ - porter DIN
+ - checker la logique du protocol

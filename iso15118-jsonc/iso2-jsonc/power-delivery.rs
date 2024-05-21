@@ -10,27 +10,29 @@
  *
  */
 
-use super::prelude::*;
+use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::iso2::*;
+use iso15118::prelude::iso2_exi::*;
 
 impl IsoToJson for ChargingProfileEntry {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("start", self.get_start())?;
         jsonc.add("power_max", self.get_power_max().to_jsonc()?)?;
-        if let Some(value) = self.get_phases_max() {
-            jsonc.add("phases_max", value)?;
+        if let Some(value) = self.get_phases_used() {
+            jsonc.add("phases_used", value)?;
         }
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let start = jsonc.get("start")?;
         let power_max = PhysicalValue::from_jsonc(jsonc.get("power_max")?)?;
-        let phase_max = jsonc.optional::<i8>("phases_max")?;
-        Ok(Box::new(ChargingProfileEntry::new(
-            start, *power_max, phase_max,
-        )))
+        let phase_max = jsonc.optional::<i8>("phases_used")?;
+        let mut payload = ChargingProfileEntry::new(start, power_max.as_ref())?;
+        if let Some(value) = phase_max {
+            payload.set_phases_used(value);
+        }
+        Ok(Box::new(payload))
     }
 }
 
@@ -47,12 +49,13 @@ impl IsoToJson for DcEvPowerDeliveryParam {
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let status = DcEvStatusType::from_jsonc(jsonc.get("status")?)?;
         let charge_complete = jsonc.get("charge_complete")?;
-        let bulk_complete = jsonc.optional::<bool>("charge_complete")?;
-        Ok(Box::new(DcEvPowerDeliveryParam::new(
-            *status,
-            charge_complete,
-            bulk_complete,
-        )))
+        let bulk_complete = jsonc.optional("bulk_complete")?;
+
+        let mut payload = DcEvPowerDeliveryParam::new(status.as_ref(), charge_complete);
+        if let Some(value) = bulk_complete {
+            payload.set_bulk_complete(value);
+        }
+        Ok(Box::new(payload))
     }
 }
 

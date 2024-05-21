@@ -10,23 +10,26 @@
  *
  */
 
-use super::prelude::*;
+use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::iso2::*;
+use iso15118::prelude::iso2_exi::*;
 
-impl IsoToJson for PaymentServiceOpt {
+impl IsoToJson for SelectedService {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("service_id", self.get_service_id())?;
         if let Some(value) = self.get_param_id() {
-            jsonc.add("param_id",value)?;
+            jsonc.add("param_id", value)?;
         }
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let service_id= jsonc.get("service_id")?;
-        let param_id= jsonc.optional("param_id")?;
-        let payload= PaymentServiceOpt::new(service_id, param_id);
+        let service_id = jsonc.get("service_id")?;
+        let param_id = jsonc.optional("param_id")?;
+        let mut payload = SelectedService::new(service_id);
+        if let Some(value) = param_id {
+            payload.set_param_id(value);
+        }
         Ok(Box::new(payload))
     }
 }
@@ -46,12 +49,12 @@ impl IsoToJson for PaymentSelectionRequest {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let option= PaymentOption::from_label(jsonc.get("option")?)?;
+        let option = PaymentOption::from_label(jsonc.get("option")?)?;
         let mut payload = PaymentSelectionRequest::new(option);
-        if let Some(values) = jsonc.optional::<JsoncObj>("services")?{
-            for idx in 0 .. values.count()? {
-                let value= values.index(idx)?;
-                payload.add_service(PaymentServiceOpt::from_jsonc(value)?.as_ref())?;
+        if let Some(values) = jsonc.optional::<JsoncObj>("services")? {
+            for idx in 0..values.count()? {
+                let value = values.index(idx)?;
+                payload.add_service(SelectedService::from_jsonc(value)?.as_ref())?;
             }
         }
         Ok(Box::new(payload))
@@ -66,7 +69,7 @@ impl IsoToJson for PaymentSelectionResponse {
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
-        let payload= PaymentSelectionResponse::new(rcode);
+        let payload = PaymentSelectionResponse::new(rcode);
         Ok(Box::new(payload))
     }
 }
