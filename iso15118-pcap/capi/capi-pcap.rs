@@ -43,6 +43,7 @@ use std::slice;
 use std::str;
 use std::sync::MutexGuard;
 use std::time::Duration;
+use  std::ffi::c_void;
 
 // return iteration on file buffer
 fn get_lines(filename: &str) -> io::Result<io::Lines<io::BufReader<File>>> {
@@ -63,7 +64,7 @@ fn read_uint16(data: &[u8]) -> u16 {
 }
 
 #[track_caller]
-fn encode_nonce(number: u64, data: &mut[u8]) {
+fn encode_nonce(number: u64, data: &mut [u8]) {
     data[0] = (number >> 56 & 0xFF) as u8;
     data[1] = (number >> 48 & 0xFF) as u8;
     data[2] = (number >> 40 & 0xFF) as u8;
@@ -73,7 +74,6 @@ fn encode_nonce(number: u64, data: &mut[u8]) {
     data[6] = (number >> 8 & 0xFF) as u8;
     data[7] = (number & 0xFF) as u8;
 }
-
 
 #[track_caller]
 fn slice_shift(buffer: &[u8], start: usize, len: usize) -> (usize, &[u8]) {
@@ -390,7 +390,7 @@ impl TlsCipherSuite {
     }
 }
 
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, unused)]
 #[derive(Debug, Clone, Copy)]
 #[repr(u32)]
 enum TlsCipherHmac {
@@ -400,7 +400,7 @@ enum TlsCipherHmac {
     GNUTLS_MAC_SHA512 = cglue::gnutls_mac_algorithm_t_GNUTLS_MAC_SHA512,
 }
 
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, unused)]
 #[derive(Debug, Clone, Copy)]
 #[repr(u32)]
 enum TlsCipherDigest {
@@ -422,6 +422,47 @@ fn hexa_to_vec(keytext: &[u8]) -> Vec<u8> {
         .map(|slot| byte(slot))
         .collect();
     result
+}
+
+#[allow(non_camel_case_types, unused)]
+enum DatumLabel {
+    EARLY_TRAFFIC_LABEL,
+    EXT_BINDER_LABEL,
+    RES_BINDER_LABEL,
+    EARLY_EXPORTER_MASTER_LABEL,
+    HANDSHAKE_CLIENT_TRAFFIC_LABEL,
+    HANDSHAKE_SERVER_TRAFFIC_LABEL,
+    DERIVED_LABEL,
+    APPLICATION_CLIENT_TRAFFIC_LABEL,
+    APPLICATION_SERVER_TRAFFIC_LABEL,
+    APPLICATION_TRAFFIC_UPDATE,
+    EXPORTER_MASTER_LABEL,
+    RMS_MASTER_LABEL,
+    EXPORTER_LABEL,
+    RESUMPTION_LABEL,
+}
+
+impl DatumLabel {
+    fn get_data(&self) -> cglue::gnutls_datum_t {
+        use DatumLabel::*;
+        let label = match self {
+            EARLY_TRAFFIC_LABEL => cglue::TLS_EARLY_TRAFFIC_LABEL as &[u8],
+            EXT_BINDER_LABEL => cglue::TLS_EXT_BINDER_LABEL as &[u8],
+            RES_BINDER_LABEL => cglue::TLS_RES_BINDER_LABEL as &[u8],
+            EARLY_EXPORTER_MASTER_LABEL => cglue::TLS_EARLY_EXPORTER_MASTER_LABEL as &[u8],
+            HANDSHAKE_CLIENT_TRAFFIC_LABEL => cglue::TLS_HANDSHAKE_CLIENT_TRAFFIC_LABEL as &[u8],
+            HANDSHAKE_SERVER_TRAFFIC_LABEL => cglue::TLS_HANDSHAKE_SERVER_TRAFFIC_LABEL as &[u8],
+            DERIVED_LABEL => cglue::TLS_DERIVED_LABEL as &[u8],
+            APPLICATION_CLIENT_TRAFFIC_LABEL => cglue::TLS_APPLICATION_CLIENT_TRAFFIC_LABEL as &[u8],
+            APPLICATION_SERVER_TRAFFIC_LABEL => cglue::TLS_APPLICATION_SERVER_TRAFFIC_LABEL as &[u8],
+            APPLICATION_TRAFFIC_UPDATE => cglue::TLS_APPLICATION_TRAFFIC_UPDATE as &[u8],
+            EXPORTER_MASTER_LABEL => cglue::TLS_EXPORTER_MASTER_LABEL as &[u8],
+            RMS_MASTER_LABEL => cglue::TLS_RMS_MASTER_LABEL as &[u8],
+            EXPORTER_LABEL => cglue::TLS_EXPORTER_LABEL as &[u8],
+            RESUMPTION_LABEL => cglue::TLS_RESUMPTION_LABEL as &[u8],
+        };
+        Datum::new(label[0..label.len() - 1].to_vec()).get_data()
+    }
 }
 
 struct Datum {
@@ -462,7 +503,7 @@ struct TlsSession {
     random: Vec<PskMasterKey>,
     version: TlsVersion,
     cipher: TlsCipherSuite,
-    pkg_count: u32,
+    sequence_num: usize,
     client_random: Vec<u8>,
     server_random: Vec<u8>,
     client_aead: cglue::gnutls_aead_cipher_hd_t,
@@ -512,7 +553,7 @@ impl TlsSession {
             client: client_keys,
             server: server_keys,
             random: random_keys,
-            pkg_count: 0,
+            sequence_num: 0,
             client_random: Vec::new(),
             server_random: Vec::new(),
             client_aead: unsafe { mem::zeroed::<cglue::gnutls_aead_cipher_hd_t>() },
@@ -629,13 +670,12 @@ impl TlsSession {
                 // see https://security.stackexchange.com/questions/184739/tls-1-3-server-handshake-traffic-secret-calculation?rq=1
                 let client_secret = {
                     let key_size = unsafe { cglue::gnutls_cipher_get_key_size(self.cipher as u32) };
-                    let server_random = Datum::new(self.server_random.clone());
                     let mut buffer = vec![0u8; key_size];
                     let status = unsafe {
                         cglue::gnutls_hkdf_expand(
                             self.cipher.get_hmac() as u32,
                             &master_secret.get_data(),
-                            &server_random.get_data(),
+                            &DatumLabel::APPLICATION_CLIENT_TRAFFIC_LABEL.get_data(),
                             buffer.as_mut_ptr() as *mut std::ffi::c_void,
                             key_size,
                         )
@@ -681,19 +721,17 @@ impl TlsSession {
     }
 
     fn application_data(&mut self, pkg_count: u32, tls_data: &[u8]) -> Option<Vec<u8>> {
-        println!("pkg:{} crypt data:{}",pkg_count, bytes_to_hexa(tls_data));
-        let tls_seq_num=1;
-        //unsafe {cglue::nettle_memxor () }
+        println!("pkg:{} crypt data:{}", pkg_count, bytes_to_hexa(tls_data));
 
         // for tls-1.3 nonce size should be 12
-        let nonce_size = unsafe { cglue::gnutls_cipher_get_iv_size(self.cipher as u32) as usize};
-        let mut nonce = vec![0u8;nonce_size];
-        encode_nonce (tls_seq_num, &mut nonce[(nonce_size-8)..nonce_size]);
+        let nonce_size = unsafe { cglue::gnutls_cipher_get_iv_size(self.cipher as u32) as usize };
+        let mut nonce = vec![0u8; nonce_size];
+        encode_nonce(self.sequence_num as u64, &mut nonce[(nonce_size - 8)..nonce_size]);
+        unsafe {cglue::nettle_memxor (nonce.as_ptr() as *mut c_void, self.client_random.as_ptr() as *const c_void, nonce_size as usize) };
 
-        println!("tls_seq:{} nonce:{}", tls_seq_num, bytes_to_hexa(&nonce));
+        println!("tls_seq:{} nonce:{}", self.sequence_num, bytes_to_hexa(&nonce));
 
-
-        let tag_size=  unsafe { cglue::gnutls_cipher_get_tag_size(self.cipher as u32) };
+        let tag_size = unsafe { cglue::gnutls_cipher_get_tag_size(self.cipher as u32) };
 
         //let status = unsafe {cglue::gnutls_aead_cipher_decrypt(self.server_aead, &none, &none.len)};
 

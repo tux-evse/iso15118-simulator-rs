@@ -47,6 +47,21 @@ const size_t TLS_RECORD_HEADER_SIZE= 5;
 const size_t TLS_HANDSHAKE_HEADER_SIZE= 4;
 const size_t TLS_MAX_CIPHER_IV_SIZE= 16;
 
+#define TLS_EARLY_TRAFFIC_LABEL "c e traffic"
+#define TLS_EXT_BINDER_LABEL "ext binder"
+#define TLS_RES_BINDER_LABEL "res binder"
+#define TLS_EARLY_EXPORTER_MASTER_LABEL "e exp master"
+#define TLS_HANDSHAKE_CLIENT_TRAFFIC_LABEL "c hs traffic"
+#define TLS_HANDSHAKE_SERVER_TRAFFIC_LABEL "s hs traffic"
+#define TLS_DERIVED_LABEL "derived"
+#define TLS_APPLICATION_CLIENT_TRAFFIC_LABEL "c ap traffic"
+#define TLS_APPLICATION_SERVER_TRAFFIC_LABEL "s ap traffic"
+#define TLS_APPLICATION_TRAFFIC_UPDATE "traffic upd"
+#define TLS_EXPORTER_MASTER_LABEL "exp master"
+#define TLS_RMS_MASTER_LABEL "res master"
+#define TLS_EXPORTER_LABEL "exporter"
+#define TLS_RESUMPTION_LABEL "resumption"
+
 enum TLS_MSG_TAG {
     HANDSHAKE= 0x16,
     APPDATA= 0x17,
