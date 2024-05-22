@@ -23,6 +23,7 @@ cc = "1"
 
 [package.metadata.system-deps]
 libpcap= "1.10"
+libgnutls="3.7"
 
 [[bin]]
 name = "pcap-iso15118"

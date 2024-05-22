@@ -34,6 +34,7 @@ mod cglue {
 }
 
 //use afbv4::prelude::*;
+use std::ffi::c_void;
 use std::ffi::{CStr, CString};
 use std::fs::File;
 use std::io::{self, BufRead};
@@ -43,7 +44,6 @@ use std::slice;
 use std::str;
 use std::sync::MutexGuard;
 use std::time::Duration;
-use  std::ffi::c_void;
 
 // return iteration on file buffer
 fn get_lines(filename: &str) -> io::Result<io::Lines<io::BufReader<File>>> {
@@ -355,6 +355,7 @@ enum TlsCipherSuite {
     TLS_AES_128_CCM_8_SHA256 = cglue::gnutls_cipher_algorithm_GNUTLS_CIPHER_AES_128_CCM_8,
 }
 
+#[allow(unused)]
 impl TlsCipherSuite {
     pub fn from_tagid(tagid: u16) -> Self {
         match tagid {
@@ -453,8 +454,12 @@ impl DatumLabel {
             HANDSHAKE_CLIENT_TRAFFIC_LABEL => cglue::TLS_HANDSHAKE_CLIENT_TRAFFIC_LABEL as &[u8],
             HANDSHAKE_SERVER_TRAFFIC_LABEL => cglue::TLS_HANDSHAKE_SERVER_TRAFFIC_LABEL as &[u8],
             DERIVED_LABEL => cglue::TLS_DERIVED_LABEL as &[u8],
-            APPLICATION_CLIENT_TRAFFIC_LABEL => cglue::TLS_APPLICATION_CLIENT_TRAFFIC_LABEL as &[u8],
-            APPLICATION_SERVER_TRAFFIC_LABEL => cglue::TLS_APPLICATION_SERVER_TRAFFIC_LABEL as &[u8],
+            APPLICATION_CLIENT_TRAFFIC_LABEL => {
+                cglue::TLS_APPLICATION_CLIENT_TRAFFIC_LABEL as &[u8]
+            }
+            APPLICATION_SERVER_TRAFFIC_LABEL => {
+                cglue::TLS_APPLICATION_SERVER_TRAFFIC_LABEL as &[u8]
+            }
             APPLICATION_TRAFFIC_UPDATE => cglue::TLS_APPLICATION_TRAFFIC_UPDATE as &[u8],
             EXPORTER_MASTER_LABEL => cglue::TLS_EXPORTER_MASTER_LABEL as &[u8],
             RMS_MASTER_LABEL => cglue::TLS_RMS_MASTER_LABEL as &[u8],
@@ -470,6 +475,7 @@ struct Datum {
     payload: cglue::gnutls_datum_t,
 }
 
+#[allow(unused)]
 impl Datum {
     pub fn new(buffer: Vec<u8>) -> Self {
         let mut payload = unsafe { mem::zeroed::<cglue::gnutls_datum_t>() };
@@ -491,10 +497,11 @@ impl Datum {
     }
 }
 
+#[allow(unused)]
 enum MasterKeySecret {
-    RandomTls1_2,
-    ClientTls1_3,
-    ServerTls1_3,
+    Random,
+    Client,
+    Server,
 }
 
 struct TlsSession {
@@ -563,15 +570,86 @@ impl TlsSession {
 
     fn get_master_key(&self, label: MasterKeySecret, random: &[u8]) -> Option<Vec<u8>> {
         let hash_table = match label {
-            MasterKeySecret::RandomTls1_2 => &self.random,
-            MasterKeySecret::ClientTls1_3 => &self.client,
-            MasterKeySecret::ServerTls1_3 => &self.server,
+            MasterKeySecret::Random => &self.random,
+            MasterKeySecret::Client => &self.client,
+            MasterKeySecret::Server => &self.server,
         };
 
         match hash_table.binary_search_by(|key| key.random.cmp(&Vec::from(random))) {
             Ok(index) => Some(hash_table[index].secret.clone()),
             Err(_) => None,
         }
+    }
+
+    fn aead_cipher_init(
+        &self,
+        pkg_count: u32,
+        secret: MasterKeySecret,
+    ) -> Option<cglue::gnutls_aead_cipher_hd_t> {
+        // compute secret from master secret and client random
+        // see https://security.stackexchange.com/questions/184739/tls-1-3-server-handshake-traffic-secret-calculation?rq=1
+
+        let label = match secret {
+            MasterKeySecret::Server => DatumLabel::APPLICATION_SERVER_TRAFFIC_LABEL,
+            MasterKeySecret::Client => DatumLabel::APPLICATION_CLIENT_TRAFFIC_LABEL,
+            _ => return None,
+        };
+
+        // extract master key from SSLKEYLOG stored data
+        let master_secret = match self.get_master_key(secret, &self.client_random) {
+            Some(value) => Datum::new(value),
+            None => {
+                eprintln!(
+                    "tls-packet-hello: packet:{} fail to find server psk:{}",
+                    pkg_count,
+                    bytes_to_hexa(&self.client_random),
+                );
+                return None;
+            }
+        };
+
+        let client_secret = {
+            let key_size = unsafe { cglue::gnutls_cipher_get_key_size(self.cipher as u32) };
+            let mut buffer = vec![0u8; key_size];
+            let status = unsafe {
+                cglue::gnutls_hkdf_expand(
+                    self.cipher.get_hmac() as u32,
+                    &master_secret.get_data(),
+                    &label.get_data(),
+                    buffer.as_mut_ptr() as *mut std::ffi::c_void,
+                    key_size,
+                )
+            };
+            if status < 0 {
+                eprintln!(
+                    "tls-packet-hello:  packet:{} fail gnutls_hkdf_expand error:{}",
+                    pkg_count,
+                    gtls_perror(status)
+                );
+                return None;
+            }
+            Datum::new(buffer)
+        };
+
+        // println! ("secret size:{} hexa:{}", client_secret.get_size(), client_secret.get_hexa());
+        // let tag_size = unsafe { cglue::gnutls_cipher_get_tag_size(cipher as u32) };
+        let mut aead_handle = unsafe { mem::zeroed::<cglue::gnutls_aead_cipher_hd_t>() };
+        let status = unsafe {
+            cglue::gnutls_aead_cipher_init(
+                &mut aead_handle,
+                self.cipher as u32,
+                &client_secret.get_data(),
+            )
+        };
+        if status < 0 {
+            eprintln!(
+                "tls-packet-hello:  packet:{} fail gnutls_aead_cipher_init error:{}",
+                pkg_count,
+                gtls_perror(status)
+            );
+            return None;
+        }
+        return Some(aead_handle);
     }
 
     fn process_handshake(&mut self, pkg_count: u32, tls_data: &[u8]) {
@@ -652,62 +730,27 @@ impl TlsSession {
                     return;
                 }
 
-                // extract master key from SSLKEYLOG stored data
-                let master_secret =
-                    match self.get_master_key(MasterKeySecret::ServerTls1_3, &self.client_random) {
-                        Some(value) => Datum::new(value),
-                        None => {
-                            eprintln!(
-                                "tls-packet-hello: packet:{} fail to find server psk:{}",
-                                pkg_count,
-                                bytes_to_hexa(&self.client_random),
-                            );
-                            return;
-                        }
-                    };
-
-                // compute secret from master secret and client random
-                // see https://security.stackexchange.com/questions/184739/tls-1-3-server-handshake-traffic-secret-calculation?rq=1
-                let client_secret = {
-                    let key_size = unsafe { cglue::gnutls_cipher_get_key_size(self.cipher as u32) };
-                    let mut buffer = vec![0u8; key_size];
-                    let status = unsafe {
-                        cglue::gnutls_hkdf_expand(
-                            self.cipher.get_hmac() as u32,
-                            &master_secret.get_data(),
-                            &DatumLabel::APPLICATION_CLIENT_TRAFFIC_LABEL.get_data(),
-                            buffer.as_mut_ptr() as *mut std::ffi::c_void,
-                            key_size,
-                        )
-                    };
-                    if status < 0 {
+                // create aead_cipher handles for client and server channel
+                match self.aead_cipher_init(pkg_count, MasterKeySecret::Client) {
+                    Some(value) => self.client_aead = value,
+                    None => {
                         eprintln!(
-                            "tls-packet-hello:  packet:{} fail gnutls_hkdf_expand error:{}",
-                            pkg_count,
-                            gtls_perror(status)
+                            "tls-packet-hello: packet:{} client fail gnutls_aead_cipher_init",
+                            pkg_count
                         );
                         return;
                     }
-                    Datum::new(buffer)
-                };
+                }
 
-                // println! ("secret size:{} hexa:{}", client_secret.get_size(), client_secret.get_hexa());
-                // let tag_size = unsafe { cglue::gnutls_cipher_get_tag_size(cipher as u32) };
-
-                let status = unsafe {
-                    cglue::gnutls_aead_cipher_init(
-                        &mut self.server_aead,
-                        self.cipher as u32,
-                        &client_secret.get_data(),
-                    )
-                };
-                if status < 0 {
-                    eprintln!(
-                        "tls-packet-hello:  packet:{} fail gnutls_aead_cipher_init error:{}",
-                        pkg_count,
-                        gtls_perror(status)
-                    );
-                    return;
+                match self.aead_cipher_init(pkg_count, MasterKeySecret::Server) {
+                    Some(value) => self.server_aead = value,
+                    None => {
+                        eprintln!(
+                            "tls-packet-hello: packet:{} server fail gnutls_aead_cipher_init",
+                            pkg_count
+                        );
+                        return;
+                    }
                 }
             }
             _ => {
@@ -726,12 +769,25 @@ impl TlsSession {
         // for tls-1.3 nonce size should be 12
         let nonce_size = unsafe { cglue::gnutls_cipher_get_iv_size(self.cipher as u32) as usize };
         let mut nonce = vec![0u8; nonce_size];
-        encode_nonce(self.sequence_num as u64, &mut nonce[(nonce_size - 8)..nonce_size]);
-        unsafe {cglue::nettle_memxor (nonce.as_ptr() as *mut c_void, self.client_random.as_ptr() as *const c_void, nonce_size as usize) };
+        encode_nonce(
+            self.sequence_num as u64,
+            &mut nonce[(nonce_size - 8)..nonce_size],
+        );
+        unsafe {
+            cglue::nettle_memxor(
+                nonce.as_ptr() as *mut c_void,
+                self.client_random.as_ptr() as *const c_void,
+                nonce_size as usize,
+            )
+        };
 
-        println!("tls_seq:{} nonce:{}", self.sequence_num, bytes_to_hexa(&nonce));
+        println!(
+            "tls_seq:{} nonce:{}",
+            self.sequence_num,
+            bytes_to_hexa(&nonce)
+        );
 
-        let tag_size = unsafe { cglue::gnutls_cipher_get_tag_size(self.cipher as u32) };
+        let _tag_size = unsafe { cglue::gnutls_cipher_get_tag_size(self.cipher as u32) };
 
         //let status = unsafe {cglue::gnutls_aead_cipher_decrypt(self.server_aead, &none, &none.len)};
 

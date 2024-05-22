@@ -9,6 +9,12 @@ Provide a JSON Afb-V4 api to ISO15118-encoders. Each ISO message is exposed a Af
 * https://github.com/tux-evse/iso15118-encoders-rs
 * https://github.com/redpesk-common/afb-librust
 
+## Compilation
+
+```
+    cargo build --features afbv4
+```
+
 ## Configuration
 
 Configuration relies on standard binding/binder json/yaml config file. The config splits into three main part:
