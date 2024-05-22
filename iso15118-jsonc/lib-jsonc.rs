@@ -11,6 +11,8 @@ pub trait IsoToJson {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError>;
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError>;
 }
+#[path = "sdp-jsonc/encoders-lib.rs"]
+pub mod sdp_jsonc;
 
 #[path = "din-jsonc/encoders-lib.rs"]
 pub mod din_jsonc;
@@ -20,6 +22,7 @@ pub mod iso2_jsonc;
 
 pub mod prelude {
     pub use crate::IsoToJson;
+    pub use crate::sdp_jsonc::sdp_jsonc;
     pub use crate::din_jsonc::din_jsonc;
     pub use crate::iso2_jsonc::iso2_jsonc;
 }

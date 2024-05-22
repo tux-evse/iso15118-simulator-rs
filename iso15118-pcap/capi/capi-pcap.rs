@@ -194,7 +194,7 @@ pub extern "C" fn api_pcap_cb(
             if data_len == 0 {
                 if handle.verbose > 0 {
                     eprintln!(
-                        "pkg:{} ip-packet-type: ignoring empty packet ack:{} src:{} seq:{} next:{}",
+                        "pkg:{} tcp-packet-type: ignoring empty packet ack:{} src:{} seq:{} next:{}",
                         handle.count,
                         tcp_header.get_ack(),
                         tcp_header.get_src(),
@@ -205,15 +205,17 @@ pub extern "C" fn api_pcap_cb(
                 return;
             }
 
-            eprintln!(
-                "pkg:{} tcp-packet-type: len:{} ack:{} src:{} seq:{} next:{}",
-                handle.count,
-                data_len,
-                tcp_header.get_ack(),
-                tcp_header.get_src(),
-                tcp_header.get_seq(),
-                tcp_header.get_ack_seq(),
-            );
+            if handle.verbose > 1 {
+                eprintln!(
+                    "pkg:{} tcp-packet-data: len:{} ack:{} src:{} seq:{} next:{}",
+                    handle.count,
+                    data_len,
+                    tcp_header.get_ack(),
+                    tcp_header.get_src(),
+                    tcp_header.get_seq(),
+                    tcp_header.get_ack_seq(),
+                );
+            }
 
             let data = unsafe {
                 slice::from_raw_parts(

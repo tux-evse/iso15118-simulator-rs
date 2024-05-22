@@ -3,90 +3,17 @@
  * Author: Fulup Ar Foll <fulup@iot.bzh>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
+ * you may not use payload file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *   http://www.apache.org/licenses/LICENSE-2.0
  *
  */
 
-use afbv4::prelude::*;
 use crate::prelude::*;
+use afbv4::prelude::*;
 use base64::{engine::general_purpose, Engine as _};
-use iso15118::prelude::iso2_exi::*;
-
-impl IsoToJson for EmaidType {
-    fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
-        let jsonc = JsoncObj::new();
-        jsonc.add("id", self.get_id()?)?;
-        jsonc.add("data", self.get_data()?)?;
-        Ok(jsonc)
-    }
-    fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get("id")?;
-        let data = jsonc.get("data")?;
-        Ok(Box::new(EmaidType::new(id, data)?))
-    }
-}
-
-impl IsoToJson for PrivateKeyType {
-    fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
-        let jsonc = JsoncObj::new();
-        jsonc.add("id", self.get_id()?)?;
-        let mut encode = String::new();
-        general_purpose::STANDARD.encode_string(self.get_data(), &mut encode);
-        jsonc.add("data", &encode)?;
-        Ok(jsonc)
-    }
-    fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get("id")?;
-        let base64 = jsonc.get::<&str>("data")?;
-        let data = match general_purpose::STANDARD.decode(base64) {
-            Ok(value) => value,
-            Err(_error) => {
-                return afb_error!("private-key-from-jsonc", "fail to decode base64 data",)
-            }
-        };
-        Ok(Box::new(PrivateKeyType::new(id, &data)?))
-    }
-}
-
-impl IsoToJson for IssuerSerialType {
-    fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
-        let jsonc = JsoncObj::new();
-        jsonc.add("issuer", self.get_issuer()?)?;
-        jsonc.add("serial", self.get_serial())?;
-        Ok(jsonc)
-    }
-
-    fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let issuer = jsonc.get("issuer")?;
-        let serial = jsonc.get("serial")?;
-        Ok(Box::new(IssuerSerialType::new(issuer, serial)?))
-    }
-}
-
-impl IsoToJson for DhPublicKeyType {
-    fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
-        let jsonc = JsoncObj::new();
-        jsonc.add("id", self.get_id()?)?;
-        let mut encode = String::new();
-        general_purpose::STANDARD.encode_string(self.get_data(), &mut encode);
-        jsonc.add("data", &encode)?;
-        Ok(jsonc)
-    }
-    fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get("id")?;
-        let base64 = jsonc.get::<&str>("data")?;
-        let data = match general_purpose::STANDARD.decode(base64) {
-            Ok(value) => value,
-            Err(_error) => {
-                return afb_error!("dh-private-key-from-jsonc", "fail to decode base64 data",)
-            }
-        };
-        Ok(Box::new(DhPublicKeyType::new(id, &data)?))
-    }
-}
+use iso15118::prelude::din_exi::*;
 
 impl IsoToJson for CertificateRootList {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -97,48 +24,37 @@ impl IsoToJson for CertificateRootList {
 
         let jsonc = JsoncObj::array();
         for cert in certs {
-            jsonc.insert(cert.to_jsonc()?)?;
+            jsonc.insert(cert.as_str())?;
         }
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        if !jsonc.is_type(Jtype::Array) || jsonc.count()? == 0 {
-            return afb_error!(
-                "certificate-root-from-jsonc",
-                "(hoops) chain should be an array of root cert"
-            );
+        if jsonc.count()? < 1 {
+            return afb_error!("certificate-root-from-jsonc", "(hoops) empty chain list");
         }
 
-        let jcert = jsonc.index::<JsoncObj>(0)?;
-        let mut root_list = CertificateRootList::new(IssuerSerialType::from_jsonc(jcert)?.as_ref())?;
+        // certificate list should contain at least one certificate
+        let mut payload = CertificateRootList::new(jsonc.index(0)?)?;
 
         for idx in 1..jsonc.count()? {
-            root_list
-                .add_cert(IssuerSerialType::from_jsonc(jsonc.index::<JsoncObj>(idx)?)?.as_ref())?;
+            payload.add_cert(jsonc.index(idx)?)?;
         }
-        Ok(Box::new(root_list))
+        Ok(Box::new(payload))
     }
 }
 
 impl IsoToJson for CertificateChainType {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
-        if let Some(value) = self.get_id() {
-            jsonc.add("id", value)?;
-        }
-        let mut encode = String::new();
-        general_purpose::STANDARD.encode_string(self.get_cert(), &mut encode);
-        jsonc.add("cert", &encode)?;
 
-        let subcerts = self.get_subcerts();
-        if subcerts.len() > 0 {
-            let jsubcerts = JsoncObj::array();
-            for subcert in subcerts {
-                let mut encode = String::new();
-                general_purpose::STANDARD.encode_string(subcert, &mut encode);
-                jsubcerts.insert(&encode)?;
-            }
-            jsonc.add("sub_certs", jsubcerts)?;
+        let mut base64 = String::new();
+        general_purpose::STANDARD.encode_string(self.get_cert(), &mut base64);
+        jsonc.add("cert", base64.as_str())?;
+
+        if let Some(value) = self.get_subcert() {
+            let mut base64 = String::new();
+            general_purpose::STANDARD.encode_string(value, &mut base64);
+            jsonc.add("subcert", base64.as_str())?;
         }
         Ok(jsonc)
     }
@@ -148,30 +64,16 @@ impl IsoToJson for CertificateChainType {
             Ok(decoded) => decoded,
             Err(error) => return afb_error!("mater-info-from_jsonc", error.to_string()),
         };
-        let mut cert_chain = CertificateChainType::new(&data)?;
+        let mut payload = CertificateChainType::new(&data)?;
 
-        if let Some(value) = jsonc.optional::<&str>("id")? {
-            cert_chain.set_id(value)?;
+        if let Some(base64) = jsonc.optional::<&str>("sub_cert")? {
+            let data = match general_purpose::STANDARD.decode(base64) {
+                Ok(decoded) => decoded,
+                Err(error) => return afb_error!("mater-info-from_jsonc", error.to_string()),
+            };
+            payload.set_subcert(&data)?;
         }
-
-        if let Some(jsub_certs) = jsonc.optional::<JsoncObj>("sub_certs")? {
-            for idx in 0..jsub_certs.count()? {
-                let data = jsub_certs.index::<&str>(idx)?;
-                match general_purpose::STANDARD.decode(data) {
-                    Ok(value) => {
-                        cert_chain.add_subcert(&value)?;
-                    }
-                    Err(_error) => {
-                        return afb_error!(
-                            "certificate-chain-from-jsonc",
-                            "fail to decode subcert idx:{}",
-                            idx
-                        )
-                    }
-                }
-            }
-        }
-        Ok(Box::new(cert_chain))
+        Ok(Box::new(payload))
     }
 }
 
@@ -181,7 +83,7 @@ impl IsoToJson for MeterInfoType {
         jsonc.add("id", self.get_id()?)?;
 
         if let Some(value) = self.get_reading() {
-            jsonc.add("reading", value as i64)?;
+            jsonc.add("reading", value.to_jsonc()?)?;
         }
         if let Some(value) = self.get_status() {
             jsonc.add("status", value as i32)?;
@@ -202,7 +104,7 @@ impl IsoToJson for MeterInfoType {
         let mut meter_info = MeterInfoType::new(id)?;
 
         if let Some(value) = jsonc.optional("reading")? {
-            meter_info.set_reading(value);
+            meter_info.set_reading(PhysicalValue::from_jsonc(value)?.as_ref());
         }
 
         if let Some(value) = jsonc.optional("status")? {
@@ -242,26 +144,13 @@ impl IsoToJson for DcEvStatusType {
     }
 }
 
+// unused in DIN
 impl IsoToJson for EvseStatusType {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
-        let jsonc = JsoncObj::new();
-        jsonc.add("notification", self.get_notification().to_label())?;
-        jsonc.add("delay", self.get_delay() as u32)?;
-        jsonc.add("ac_status", self.get_ac_status().to_jsonc()?)?;
-        jsonc.add("dc_status", self.get_dc_status().to_jsonc()?)?;
-        Ok(jsonc)
+        Ok(JsoncObj::new())
     }
-    fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let notification = EvseNotification::from_label(jsonc.get("notification")?)?;
-        let delay = jsonc.get("delay")?;
-        let ac_status = AcEvseStatusType::from_jsonc(jsonc.get("ac_status")?)?;
-        let dc_status = DcEvseStatusType::from_jsonc(jsonc.get("dc_status")?)?;
-        Ok(Box::new(EvseStatusType::new(
-            notification,
-            delay,
-            &ac_status,
-            &dc_status,
-        )))
+    fn from_jsonc(_jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
+       Ok(Box::new(EvseStatusType::new(0)))
     }
 }
 
@@ -351,18 +240,20 @@ impl IsoToJson for AcEvseChargeParam {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("status", self.get_status().to_jsonc()?)?;
-        jsonc.add("nom_voltage", self.get_nominate_voltage().to_jsonc()?)?;
+        jsonc.add("max_voltage", self.get_maximum_voltage().to_jsonc()?)?;
         jsonc.add("max_current", self.get_max_current().to_jsonc()?)?;
+        jsonc.add("min_current", self.get_min_current().to_jsonc()?)?;
 
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let status = AcEvseStatusType::from_jsonc(jsonc.get("status")?)?;
-        let nom_voltage = PhysicalValue::from_jsonc(jsonc.get("max_voltage")?)?;
+        let max_voltage = PhysicalValue::from_jsonc(jsonc.get("max_voltage")?)?;
         let max_current = PhysicalValue::from_jsonc(jsonc.get("max_current")?)?;
-        let param =
-            AcEvseChargeParam::new(status.as_ref(), nom_voltage.as_ref(), max_current.as_ref());
-        Ok(Box::new(param))
+        let min_current = PhysicalValue::from_jsonc(jsonc.get("min_current")?)?;
+        let payload =
+            AcEvseChargeParam::new(status.as_ref(), max_voltage.as_ref(), max_current.as_ref(), min_current.as_ref())?;
+        Ok(Box::new(payload))
     }
 }
 
@@ -382,9 +273,6 @@ impl IsoToJson for DcEvChargeParam {
         if let Some(value) = self.get_energy_request() {
             jsonc.add("energy_request", &value.to_jsonc()?)?;
         }
-        if let Some(value) = self.get_departure_time() {
-            jsonc.add("departure_time", value)?;
-        }
         if let Some(value) = self.get_bulk_soc() {
             jsonc.add("bulk_soc", value)?;
         }
@@ -398,24 +286,22 @@ impl IsoToJson for DcEvChargeParam {
         let status = DcEvStatusType::from_jsonc(jsonc.get("status")?)?;
         let max_voltage = PhysicalValue::from_jsonc(jsonc.get("max_voltage")?)?;
         let max_current = PhysicalValue::from_jsonc(jsonc.get("max_current")?)?;
-        let mut param = DcEvChargeParam::new(status.as_ref(), max_voltage.as_ref(), max_current.as_ref())?;
+        let mut payload =
+            DcEvChargeParam::new(status.as_ref(), max_voltage.as_ref(), max_current.as_ref())?;
 
         if let Ok(jvalue) = jsonc.get("max_power") {
-            param.set_max_power(PhysicalValue::from_jsonc(jvalue)?.as_ref())?;
+            payload.set_max_power(PhysicalValue::from_jsonc(jvalue)?.as_ref())?;
         }
         if let Ok(jvalue) = jsonc.get("energy_capacity") {
-            param.set_energy_capacity(PhysicalValue::from_jsonc(jvalue)?.as_ref())?;
-        }
-        if let Ok(value) = jsonc.get("departure_time") {
-            param.set_departure_time(value);
+            payload.set_energy_capacity(PhysicalValue::from_jsonc(jvalue)?.as_ref())?;
         }
         if let Ok(value) = jsonc.get("bulk_soc") {
-            param.set_bulk_soc(value);
+            payload.set_bulk_soc(value);
         }
         if let Ok(value) = jsonc.get("full_soc") {
-            param.set_full_soc(value);
+            payload.set_full_soc(value);
         }
-        Ok(Box::new(param))
+        Ok(Box::new(payload))
     }
 }
 
@@ -426,9 +312,6 @@ impl IsoToJson for AcEvChargeParam {
         jsonc.add("max_voltage", self.get_max_voltage().to_jsonc()?)?;
         jsonc.add("max_current", self.get_max_current().to_jsonc()?)?;
         jsonc.add("min_current", self.get_min_current().to_jsonc()?)?;
-        if let Some(value) = self.get_departure_time() {
-            jsonc.add("departure_time", value)?;
-        }
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
@@ -436,33 +319,20 @@ impl IsoToJson for AcEvChargeParam {
         let max_voltage = PhysicalValue::from_jsonc(jsonc.get("max_voltage")?)?;
         let max_current = PhysicalValue::from_jsonc(jsonc.get("max_current")?)?;
         let min_current = PhysicalValue::from_jsonc(jsonc.get("min_current")?)?;
-        let mut param = AcEvChargeParam::new(&ea_mount, &max_voltage, &max_current, &min_current)?;
-        if let Ok(value) = jsonc.get("departure_time") {
-            param.set_departure_time(value);
-        }
-        Ok(Box::new(param))
+        let payload = AcEvChargeParam::new(&ea_mount, &max_voltage, &max_current, &min_current)?;
+        Ok(Box::new(payload))
     }
 }
 
+// unused in Din
 impl IsoToJson for EvChargeParam {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
-        jsonc.add("ac_param", self.get_ac_param().to_jsonc()?)?;
-        jsonc.add("dc_param", self.get_dc_param().to_jsonc()?)?;
-        if let Some(value) = self.get_departure_time() {
-            jsonc.add("departure_time", value)?;
-        }
         Ok(jsonc)
     }
-    fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-
-        let ac_param = AcEvChargeParam::from_jsonc(jsonc.get("ac_param")?)?;
-        let dc_param = DcEvChargeParam::from_jsonc(jsonc.get("dc_param")?)?;
-        let mut param = EvChargeParam::new(&ac_param, &dc_param);
-        if let Ok(value) = jsonc.get("departure_time") {
-            param.set_departure_time(value);
-        }
-        Ok(Box::new(param))
+    fn from_jsonc(_jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
+        let payload = EvChargeParam::new(0);
+        Ok(Box::new(payload))
     }
 }
 
@@ -480,41 +350,6 @@ impl IsoToJson for PhysicalValue {
         let multiplier = jsonc.default::<i8>("multiplier", 1)?;
         let value = jsonc.get::<i16>("value")?;
         Ok(Box::new(PhysicalValue::new(value, multiplier, unit)))
-    }
-}
-
-impl IsoToJson for ParamSet {
-    fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
-        let jsonc = JsoncObj::new();
-        jsonc.add("id", self.get_id())?;
-        let prms = self.get_params()?;
-        if prms.len() > 0 {
-            let jprms = JsoncObj::array();
-            for idx in 0..prms.len() {
-                let prm = &prms[idx];
-                let jprm = JsoncObj::new();
-                jprm.add("name", prm.get_name()?)?;
-                jprm.add("value", prm.get_value()?.to_jsonc()?)?;
-                jprms.insert(jprm)?;
-            }
-            jsonc.add("prms", jprms)?;
-        }
-
-        Ok(jsonc)
-    }
-    fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id = jsonc.get("id")?;
-        let mut this = ParamSet::new(id);
-        if let Some(jvalue) = jsonc.optional::<JsoncObj>("prms")? {
-            for idx in 0..jvalue.count()? {
-                let jprm = jvalue.index::<JsoncObj>(idx)?;
-                let name = jprm.get("name")?;
-                let value = jprm.get("value")?;
-                let prm = ParamTuple::new(name, ParamValue::from_jsonc(value)?.as_ref())?;
-                this.add_param(&prm)?;
-            }
-        }
-        Ok(Box::new(this))
     }
 }
 
@@ -551,7 +386,7 @@ impl IsoToJson for ParamValue {
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let this = match jsonc.get("type")? {
+        let payload = match jsonc.get("type")? {
             "bool" => {
                 let value = jsonc.get("value")?;
                 ParamValue::Bool(value)
@@ -591,6 +426,38 @@ impl IsoToJson for ParamValue {
                 )
             }
         };
-        Ok(Box::new(this))
+        Ok(Box::new(payload))
     }
 }
+
+
+impl IsoToJson for ParamTuple {
+    fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
+        let jsonc = JsoncObj::new();
+        jsonc.add("name", self.get_name()?)?;
+        jsonc.add("value", self.get_value()?.to_jsonc()?)?;
+        Ok(jsonc)
+    }
+    fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
+        let name = jsonc.get("name")?;
+        let value= jsonc.get("value")?;
+        let  payload = ParamTuple::new(name, ParamValue::from_jsonc(value)?.as_ref())?;
+        Ok(Box::new(payload))
+    }
+}
+
+impl IsoToJson for ParamSet {
+    fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
+        let jsonc = JsoncObj::new();
+        jsonc.add("id", self.get_id())?;
+        jsonc.add("param", self.get_param().to_jsonc()?)?;
+        Ok(jsonc)
+    }
+    fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
+        let id = jsonc.get("id")?;
+        let param= jsonc.get("param")?;
+        let payload = ParamSet::new(id, ParamTuple::from_jsonc(param)?.as_ref());
+         Ok(Box::new(payload))
+    }
+}
+
