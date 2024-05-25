@@ -46,7 +46,9 @@ impl IsoToJson for CertificateUpdateResponse {
         jsonc.add("private_key", self.get_private_key().to_jsonc()?)?;
         jsonc.add("public_key", self.get_public_key().to_jsonc()?)?;
         jsonc.add("emaid", self.get_emaid().to_jsonc()?)?;
-        jsonc.add("rcount", self.get_rcount())?;
+        if let Some(value) = self.get_rcount() {
+            jsonc.add("rcount", value)?;
+        }
 
         Ok(jsonc)
     }
@@ -57,17 +59,20 @@ impl IsoToJson for CertificateUpdateResponse {
         let private = PrivateKeyType::from_jsonc(jsonc.get("private_key")?)?;
         let public = DhPublicKeyType::from_jsonc(jsonc.get("public_key")?)?;
         let emaid = EmaidType::from_jsonc(jsonc.get("emaid")?)?;
-        let rcount= jsonc.get("rcount")?;
 
-        let payload = CertificateUpdateResponse::new(
+        let mut payload = CertificateUpdateResponse::new(
             rcode,
             contract_chain.as_ref(),
             provisioning_chain.as_ref(),
             private.as_ref(),
             public.as_ref(),
             emaid.as_ref(),
-            rcount,
         );
+
+        if let Some(value) =  jsonc.optional("rcount")? {
+            payload.set_rcount(value);
+        }
+
         Ok(Box::new(payload))
     }
 }
