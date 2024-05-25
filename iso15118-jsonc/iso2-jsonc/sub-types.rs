@@ -175,7 +175,7 @@ impl IsoToJson for CertificateChainType {
     }
 }
 
-impl IsoToJson for MeterInfoType {
+impl IsoToJson for MeterInfo {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("id", self.get_id()?)?;
@@ -199,7 +199,7 @@ impl IsoToJson for MeterInfoType {
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let id = jsonc.get("id")?;
-        let mut meter_info = MeterInfoType::new(id)?;
+        let mut meter_info = MeterInfo::new(id)?;
 
         if let Some(value) = jsonc.optional("reading")? {
             meter_info.set_reading(value);

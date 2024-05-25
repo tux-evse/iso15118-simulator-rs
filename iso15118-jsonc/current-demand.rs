@@ -12,7 +12,7 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::iso2_exi::*;
+use iso15118::prelude::din_exi::*;
 
 impl IsoToJson for CurrentDemandRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -83,10 +83,10 @@ impl IsoToJson for CurrentDemandResponse {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("rcode", self.get_rcode().to_label())?;
-        jsonc.add("evse_id", self.get_evse_id()?)?;
+        jsonc.add("id", self.get_id()?)?;
         jsonc.add("status", self.get_status().to_jsonc()?)?;
-        jsonc.add("voltage", self.get_voltage_present().to_jsonc()?)?;
-        jsonc.add("current", self.get_current_present().to_jsonc()?)?;
+        jsonc.add("voltage", self.get_voltage().to_jsonc()?)?;
+        jsonc.add("current", self.get_current().to_jsonc()?)?;
         jsonc.add("current_limit_reach", self.get_current_limit_reach())?;
         jsonc.add("voltage_limit_reach", self.get_voltage_limit_reach())?;
         jsonc.add("power_limit_reach", self.get_power_limit_reach())?;
@@ -115,7 +115,7 @@ impl IsoToJson for CurrentDemandResponse {
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let evse_id = jsonc.get("evse_id")?;
+        let evse_id = jsonc.get("id")?;
         let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
         let dc_status = DcEvseStatusType::from_jsonc(jsonc.get("status")?)?;
         let current = PhysicalValue::from_jsonc(jsonc.get("current")?)?;

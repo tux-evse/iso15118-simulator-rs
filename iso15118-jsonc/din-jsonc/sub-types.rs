@@ -77,7 +77,7 @@ impl IsoToJson for CertificateChainType {
     }
 }
 
-impl IsoToJson for MeterInfoType {
+impl IsoToJson for MeterInfo {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("id", self.get_id()?)?;
@@ -101,7 +101,7 @@ impl IsoToJson for MeterInfoType {
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let id = jsonc.get("id")?;
-        let mut meter_info = MeterInfoType::new(id)?;
+        let mut meter_info = MeterInfo::new(id)?;
 
         if let Some(value) = jsonc.optional("reading")? {
             meter_info.set_reading(PhysicalValue::from_jsonc(value)?.as_ref());
@@ -133,14 +133,27 @@ impl IsoToJson for DcEvStatusType {
         let jsonc = JsoncObj::new();
         jsonc.add("ready", self.get_ready())?;
         jsonc.add("error", self.get_error().to_label())?;
-        jsonc.add("evresssoc", self.get_evresssoc() as i32)?;
+        jsonc.add("evress_soc", self.get_evress_soc())?;
+        if let Some(value)= self.get_evcabin_conditioning() {
+           jsonc.add("evcabin_conditioning", value)?;
+        }
+        if let Some(value)= self.get_evress_conditioning() {
+           jsonc.add("evress_conditioning", value)?;
+        }
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let ready = jsonc.get("ready")?;
         let error = DcEvErrorCode::from_label(jsonc.get("error")?)?;
-        let evresssoc = jsonc.get("evresssoc")?;
-        Ok(Box::new(DcEvStatusType::new(ready, error, evresssoc)))
+        let evress_soc = jsonc.get("evress_soc")?;
+        let mut payload= DcEvStatusType::new(ready, error, evress_soc);
+        if let Some(value) =  jsonc.optional("evcabin_conditioning")? {
+            payload.set_evcabin_conditioning(value);
+        }
+        if let Some(value) =  jsonc.optional("evress_conditioning")? {
+            payload.set_evress_conditioning(value);
+        }
+        Ok(Box::new(payload))
     }
 }
 

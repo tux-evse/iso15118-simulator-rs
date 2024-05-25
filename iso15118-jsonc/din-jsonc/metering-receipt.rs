@@ -12,7 +12,7 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::iso2_exi::*;
+use iso15118::prelude::din_exi::*;
 
 impl IsoToJson for MeteringReceiptRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -50,37 +50,15 @@ impl IsoToJson for MeteringReceiptResponse {
         let jsonc = JsoncObj::new();
 
         jsonc.add("rcode", self.get_rcode().to_label())?;
-
-        if let Some(value) = self.get_ac_evse_status() {
-            jsonc.add("ac_status", value.to_jsonc()?)?;
-        }
-
-        if let Some(value) = self.get_dc_evse_status() {
-            jsonc.add("dc_status", value.to_jsonc()?)?;
-        }
-
-        if let Some(value) = self.get_evse_status() {
-            jsonc.add("evse_status", value.to_jsonc()?)?;
-        }
+        jsonc.add("ac_status", self.get_ac_evse_status().to_jsonc()?)?;
         Ok(jsonc)
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
-        let mut payload= MeteringReceiptResponse::new(rcode);
+        let ac_status= AcEvseStatusType::from_jsonc(jsonc.get("ac_status")?)?;
 
-        if let Some(value) = jsonc.optional("ac_status")? {
-            payload.set_ac_evse_status(AcEvseStatusType::from_jsonc(value)?.as_ref());
-        }
-
-        if let Some(value) = jsonc.optional("dc_status")? {
-            payload.set_dc_evse_status(DcEvseStatusType::from_jsonc(value)?.as_ref());
-        }
-
-        if let Some(value) = jsonc.optional("evse_status")? {
-            payload.set_evse_status(EvseStatusType::from_jsonc(value)?.as_ref());
-        }
-
+        let payload= MeteringReceiptResponse::new(rcode, ac_status.as_ref());
         Ok(Box::new(payload))
     }
 }

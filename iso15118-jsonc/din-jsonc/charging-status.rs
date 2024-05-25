@@ -12,7 +12,7 @@
 
 use crate::prelude::IsoToJson;
 use afbv4::prelude::*;
-use iso15118::prelude::iso2_exi::*;
+use iso15118::prelude::din_exi::*;
 
 impl IsoToJson for ChargingStatusRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -31,13 +31,15 @@ impl IsoToJson for ChargingStatusResponse {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("rcode", self.get_rcode().to_label())?;
-        jsonc.add("evse_id", self.get_evse_id()?)?;
+        jsonc.add("evse_id", bytes_to_hexa(self.get_evse_id()).as_str())?;
         jsonc.add("tuple_id", self.get_tuple_id() as u32)?;
         jsonc.add("status", &self.get_ac_evse_status().to_jsonc()?)?;
+        jsonc.add("receipt_require", self.get_receipt_require())?;
 
         if let Some(value) = self.get_max_current() {
             jsonc.add("max_current", value.to_jsonc()?)?;
         }
+
         if let Some(value) = self.get_meter_info() {
             jsonc.add("meter_info", value.to_jsonc()?)?;
         }
@@ -45,10 +47,13 @@ impl IsoToJson for ChargingStatusResponse {
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
-        let evse_id = jsonc.get("evse_id")?;
+        let mut evse_id = [0; 38];
+        hexa_to_bytes(jsonc.get("evse_id")?, &mut evse_id)?;
         let tuple_id = jsonc.get("tuple_id")?;
         let status = AcEvseStatusType::from_jsonc(jsonc.get("status")?)?;
-        let mut payload = ChargingStatusResponse::new(rcode, evse_id, tuple_id, &status)?;
+        let receipt_require = jsonc.get("receipt_require")?;
+        let mut payload =
+            ChargingStatusResponse::new(rcode, &evse_id, tuple_id, receipt_require, &status)?;
 
         if let Some(value) = jsonc.optional("max_current")? {
             payload.set_max_current(PhysicalValue::from_jsonc(value)?.as_ref());

@@ -691,7 +691,7 @@ fn metering_receipt_request() -> Result<(), AfbError> {
     let payload_id = "fulup-iot-bzh";
     let signature = [0xa, 0xb, 0xc, 0xd, 0xe];
 
-    let mut meter_info = MeterInfoType::new(meeter_id)?;
+    let mut meter_info = MeterInfo::new(meeter_id)?;
     meter_info
         .set_reading(64)
         .set_status(255)

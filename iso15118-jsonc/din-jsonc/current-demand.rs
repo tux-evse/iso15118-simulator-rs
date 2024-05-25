@@ -12,7 +12,7 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::iso2_exi::*;
+use iso15118::prelude::din_exi::*;
 
 impl IsoToJson for CurrentDemandRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -83,14 +83,12 @@ impl IsoToJson for CurrentDemandResponse {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("rcode", self.get_rcode().to_label())?;
-        jsonc.add("evse_id", self.get_evse_id()?)?;
         jsonc.add("status", self.get_status().to_jsonc()?)?;
         jsonc.add("voltage", self.get_voltage_present().to_jsonc()?)?;
         jsonc.add("current", self.get_current_present().to_jsonc()?)?;
         jsonc.add("current_limit_reach", self.get_current_limit_reach())?;
         jsonc.add("voltage_limit_reach", self.get_voltage_limit_reach())?;
         jsonc.add("power_limit_reach", self.get_power_limit_reach())?;
-        jsonc.add("tuple_id", self.get_tuple_id() as u32)?;
 
         if let Some(value) = self.get_voltage_limit() {
             jsonc.add("voltage_limit", value.to_jsonc()?)?;
@@ -103,38 +101,27 @@ impl IsoToJson for CurrentDemandResponse {
         if let Some(value) = self.get_power_limit() {
             jsonc.add("power_limit", value.to_jsonc()?)?;
         }
-        if let Some(value) = self.get_receipt_require() {
-            jsonc.add("receipt_require", value)?;
-        }
-
-        if let Some(value) = self.get_meter_info() {
-            jsonc.add("meter_info", value.to_jsonc()?)?;
-        }
 
         Ok(jsonc)
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let evse_id = jsonc.get("evse_id")?;
         let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
         let dc_status = DcEvseStatusType::from_jsonc(jsonc.get("status")?)?;
-        let current = PhysicalValue::from_jsonc(jsonc.get("current")?)?;
-        let voltage = PhysicalValue::from_jsonc(jsonc.get("voltage")?)?;
-        let current_limit = jsonc.get("current_limit_reach")?;
-        let voltage_limit = jsonc.get("voltage_limit_reach")?;
-        let power_limit = jsonc.get("power_limit_reach")?;
-        let schd_tuple_id = jsonc.get("tuple_id")?;
+        let voltage_present = PhysicalValue::from_jsonc(jsonc.get("voltage")?)?;
+        let current_present = PhysicalValue::from_jsonc(jsonc.get("current")?)?;
+        let current_limit_reach = jsonc.get("current_limit_reach")?;
+        let voltage_limit_reach = jsonc.get("voltage_limit_reach")?;
+        let power_limit_reach = jsonc.get("power_limit_reach")?;
 
         let mut payload = CurrentDemandResponse::new(
             rcode,
-            evse_id,
             dc_status.as_ref(),
-            current.as_ref(),
-            current_limit,
-            voltage.as_ref(),
-            voltage_limit,
-            power_limit,
-            schd_tuple_id,
+            voltage_present.as_ref(),
+            current_present.as_ref(),
+            voltage_limit_reach,
+            current_limit_reach,
+            power_limit_reach,
         )?;
 
         if let Some(value) = jsonc.optional("voltage_limit")? {
@@ -147,14 +134,6 @@ impl IsoToJson for CurrentDemandResponse {
 
         if let Some(value) = jsonc.optional("power_limit")? {
             payload.set_power_limit(PhysicalValue::from_jsonc(value)?.as_ref())?;
-        }
-
-        if let Some(value) = jsonc.optional("receipt_require")? {
-            payload.set_receipt_require(value);
-        }
-
-        if let Some(value) = jsonc.optional("meter_info")? {
-            payload.set_meter_info(MeterInfo::from_jsonc(value)?.as_ref());
         }
 
         Ok(Box::new(payload))

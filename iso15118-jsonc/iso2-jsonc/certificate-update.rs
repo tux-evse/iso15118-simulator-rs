@@ -21,6 +21,7 @@ impl IsoToJson for CertificateUpdateRequest {
         jsonc.add("emaid", self.get_emaid()?)?;
         jsonc.add("contract", self.get_contract_chain().to_jsonc()?)?;
         jsonc.add("root_certs", self.get_root_certs().to_jsonc()?)?;
+
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
@@ -45,6 +46,8 @@ impl IsoToJson for CertificateUpdateResponse {
         jsonc.add("private_key", self.get_private_key().to_jsonc()?)?;
         jsonc.add("public_key", self.get_public_key().to_jsonc()?)?;
         jsonc.add("emaid", self.get_emaid().to_jsonc()?)?;
+        jsonc.add("rcount", self.get_rcount())?;
+
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
@@ -54,6 +57,8 @@ impl IsoToJson for CertificateUpdateResponse {
         let private = PrivateKeyType::from_jsonc(jsonc.get("private_key")?)?;
         let public = DhPublicKeyType::from_jsonc(jsonc.get("public_key")?)?;
         let emaid = EmaidType::from_jsonc(jsonc.get("emaid")?)?;
+        let rcount= jsonc.get("rcount")?;
+
         let payload = CertificateUpdateResponse::new(
             rcode,
             contract_chain.as_ref(),
@@ -61,6 +66,7 @@ impl IsoToJson for CertificateUpdateResponse {
             private.as_ref(),
             public.as_ref(),
             emaid.as_ref(),
+            rcount,
         );
         Ok(Box::new(payload))
     }

@@ -205,15 +205,15 @@ impl IsoToJson for ParamDiscoveryRequest {
         jsonc.add("transfer_mode", self.get_transfert_energy_mode().to_label())?;
 
         if let Some(param) = self.get_ac_charge_param() {
-            jsonc.add("ac_param", param.to_jsonc()?)?;
+            jsonc.add("ac_evparam", param.to_jsonc()?)?;
         }
 
         if let Some(param) = self.get_dc_charge_param() {
-            jsonc.add("dc_param", param.to_jsonc()?)?;
+            jsonc.add("dc_evparam", param.to_jsonc()?)?;
         }
 
         if let Some(param) = self.get_ev_charge_param() {
-            jsonc.add("ev_param", param.to_jsonc()?)?;
+            jsonc.add("evparam", param.to_jsonc()?)?;
         }
 
         Ok(jsonc)
@@ -223,15 +223,15 @@ impl IsoToJson for ParamDiscoveryRequest {
         let transfer_mode = EvRequestTransfertMode::from_label(jsonc.get("transfer_mode")?)?;
         let mut payload = ParamDiscoveryRequest::new(transfer_mode);
 
-        if let Some(value) = jsonc.optional("ac_param")? {
+        if let Some(value) = jsonc.optional("ac_evparam")? {
             payload.set_ac_charge_param(AcEvChargeParam::from_jsonc(value)?.as_ref())?;
         }
 
-        if let Some(value) = jsonc.optional("dc_param")? {
+        if let Some(value) = jsonc.optional("dc_evparam")? {
             payload.set_dc_charge_param(DcEvChargeParam::from_jsonc(value)?.as_ref())?;
         }
 
-        if let Some(value) = jsonc.optional("ev_param")? {
+        if let Some(value) = jsonc.optional("evparam")? {
             payload.set_ev_charge_param(EvChargeParam::from_jsonc(value)?.as_ref())?;
         }
 
