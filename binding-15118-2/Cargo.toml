@@ -11,9 +11,13 @@ afbv4 = {git= "https://github.com/redpesk-common/afb-librust", branch="master", 
 serde = { version = "1.0", features = ["derive"] }
 serde_json={ version= "1.0"}
 base64={ version= "0.22"}
-iso15118= {path ="../../iso15118-encoders-rs"}
 iso15118_jsonc= {path ="../iso15118-jsonc"}
 nettls= {path ="../../iso15118-network-rs"}
+iso15118= {path ="../../iso15118-encoders-rs", default-features = false, optional = true}
+
+[features]
+default = ["iso15118","iso15118/default"]
+afbv4 = ["iso15118","iso15118/afbv4", "dep:afbv4"]
 
 [lib]
 name = "afb_iso15118_2"
