@@ -16,7 +16,7 @@
                 "-v",
                 "--monitoring",
                 "--trap-faults=0",
-                "--config=iso15118-2/etc/binding-iso2.yaml",
+                "--config=binding-15118/etc/binding-iso2.yaml",
             ],
             "cwd": "${workspaceFolder}",
             "initCommands": [
@@ -45,8 +45,8 @@
                 "settings set target.disable-aslr false"
             ]
         },
-                {
-            "name": "pcap-din",
+        {
+            "name": "pcap-din-Abb",
             "type": "lldb",
             "preLaunchTask": "binding-native-build",
             "request": "launch",
@@ -55,9 +55,52 @@
                 "LD_LIBRARY_PATH": "/usr/local/lib64:/usr/local/lib",
             },
             "args": [
-                "--pcapfile=./iso15118-pcap/trace-logs/ABB-Normal.pcapng",
-                "--verbose=1",
-                "--logfile=/tmp/iso15118-scenario.json",
+                "--pcap_path=./afb-test/trace-logs/ABB-Normal.pcapng",
+                "--log_path=/tmp/iso15118-scenario.json",
+                "--verbose=0",
+            ],
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "target stop-hook add -n _start -o continue",
+                "settings set target.disable-aslr false"
+            ]
+        },
+        {
+            "name": "pcap-din-Alpi",
+            "type": "lldb",
+            "preLaunchTask": "binding-native-build",
+            "request": "launch",
+            "program": "${env:HOME}/.cargo/build/debug/pcap-iso15118",
+            "env": {
+                "LD_LIBRARY_PATH": "/usr/local/lib64:/usr/local/lib",
+            },
+            "args": [
+                "--pcap_path=./afb-test/trace-logs/Alpi_GW366.pcapng",
+                "--log_path=/tmp/iso15118-scenario.json",
+                "--verbose=0",
+            ],
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "target stop-hook add -n _start -o continue",
+                "settings set target.disable-aslr false"
+            ]
+        },
+                {
+            "name": "simu-din-scenario",
+            "type": "lldb",
+            "preLaunchTask": "binding-native-build",
+            "request": "launch",
+            "program": "afb-binder",
+            "env": {
+                "LD_LIBRARY_PATH": "/usr/local/lib64",
+                "IFACE_SIMU": "lo",
+            },
+            "args": [
+                "-v",
+                "--monitoring",
+                "--trap-faults=0",
+                "--config=afb_binding/etc/binding-din.yaml",
+                "--config=/tmp/iso15118-scenario.json",
             ],
             "cwd": "${workspaceFolder}",
             "initCommands": [

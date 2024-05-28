@@ -22,6 +22,7 @@ pub struct BindingConfig {
     pub ip6_prefix: u16,
     pub sdp_port: u16,
     pub sdp_security: SdpSecurityModel,
+    pub protocol: &'static str,
 }
 
 // Binding init callback started at binding load time before any API exist
@@ -38,6 +39,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
     let ip6_iface = jconf.default("iface", "lo")?;
     let session_id = jconf.default("session", "[01,02,03,04,05,06]")?;
     let timeout = jconf.default("timeout", 1000)?;
+    let protocol = jconf.get("protocol")?;
 
     let tls_conf = if let Some(jtls) = jconf.optional::<JsoncObj>("tsl")? {
         let cert_chain = jtls.get("certs")?;
@@ -93,6 +95,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         sdp_security,
         timeout,
         jverbs,
+        protocol,
     };
     // create an register frontend api and register init session callback
     let api = AfbApi::new(uid)

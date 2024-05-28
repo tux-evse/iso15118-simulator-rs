@@ -24,20 +24,30 @@ use std::io::Write;
 
 #[track_caller]
 fn err_usage(uid: &str, data: &str) -> Result<(), AfbError> {
-    println!("usage: pcap-scenario --tcpport=xxx --pcapfile=xxx.pcap --logfile=scenario.json [--maxcount=xx] [--verbose=1] [--psklog=/xxx/master-key.log]");
+    println!("usage: pcap-scenario --pcap_path=xxx.pcap --log_path=scenario.json [--max_count=xx] [--verbose=1] [--psk_log=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx");
     return afb_error!(uid, "invalid argument: {}", data);
 }
 
 struct LoggerCtx {
-    outfile: Option<File>,
+    log_fd: Option<File>,
+    log_path: String,
+    pcap_path: String,
     timestamp: Duration,
+    pending_din: Option<din_exi::MessageTagId>,
+    jtransaction: JsoncObj,
+    jtransactions: JsoncObj,
     session_protocol: v2g::ProtocolTagId,
     supported_protocols: Vec<v2g::AppHandAppProtocolType>,
 }
 
 impl LoggerCtx {
+    pub fn set_pcap_file(&mut self, path: &str) -> &mut Self {
+        self.pcap_path= path.to_string();
+        self
+    }
+
     pub fn set_log_file(&mut self, filename: &str) -> Result<&mut Self, AfbError> {
-        let file = match File::create(filename) {
+        let log_fd = match File::create(filename) {
             Ok(handle) => handle,
             Err(error) => {
                 return afb_error!(
@@ -48,29 +58,120 @@ impl LoggerCtx {
                 )
             }
         };
-        self.outfile = Some(file);
+        self.log_path = filename.to_string();
+        self.log_fd = Some(log_fd);
         Ok(self)
     }
 
-    pub fn _log_data(&mut self, text: &str) -> Result<(), AfbError> {
-        match &mut self.outfile {
-            None => {
-                println!("{}", text)
-            }
-            Some(fd) => match fd.write_all(text.as_bytes()) {
-                Ok(_) => {}
-                Err(error) => {
-                    return afb_error!("gtls-config-log", "fail to push log entry error:{}", error)
+    pub fn log_to_file(&mut self, jsonc: JsoncObj) -> Result<(), AfbError> {
+        match &mut self.log_fd {
+            None => println!("--- end scenario ---"),
+            Some(fd) => {
+                let text = format!("{:#}", jsonc);
+                match fd.write_all(text.as_bytes()) {
+                    Ok(_) => {}
+                    Err(error) => {
+                        return afb_error!(
+                            "pcap-dump scenario",
+                            "fail to push log entry to:{} error:{}",
+                            self.log_path,
+                            error
+                        )
+                    }
                 }
-            },
+            }
         }
+        Ok(())
+    }
+
+    fn log_din_response(
+        &mut self,
+        pkg_count: i32,
+        delay: u128,
+        body: &din_exi::MessageBody,
+    ) -> Result<(), AfbError> {
+        use din_exi::*;
+        use din_jsonc::*;
+
+        let msg_id = body.get_tagid();
+
+        // if not response pending store msg_id and with body arguments as json
+        match &self.pending_din {
+            None => {
+                self.jtransaction = {
+                    let jsonc = JsoncObj::new();
+                    jsonc.add("uid", format!("pkg:{}", pkg_count).as_str())?;
+                    jsonc.add("verb", msg_id.to_label())?;
+                    jsonc.add("delay", delay as u64)?;
+                    jsonc.add("query", body_to_jsonc(body)?)?;
+                    jsonc
+                };
+                let res_id = msg_id.match_res_id();
+                if res_id != MessageTagId::Unsupported {
+                    self.pending_din = Some(res_id);
+                } else {
+                    self.pending_din = None;
+                }
+            }
+
+            Some(pending) => {
+                if msg_id == *pending {
+                    self.jtransaction.add("expect", body_to_jsonc(body)?)?;
+                    self.pending_din = None;
+                } else {
+                    return afb_error!(
+                        "pcap-track-din",
+                        "pkg:{} invalid response id, expected:{} got: {}",
+                        pkg_count,
+                        pending.to_label(),
+                        msg_id.to_label()
+                    );
+                }
+            }
+        };
+
+        if let None = self.pending_din {
+            match Some(&self.log_fd) {
+                Some(_fd) => {
+                    self.jtransactions.insert(self.jtransaction.clone())?;
+                }
+                None => {
+                    println!("{:#}", self.jtransaction);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn close_scenario(&mut self) -> Result<(), AfbError> {
+        let jbinding = JsoncObj::new();
+        jbinding.add("uid", &self.pcap_path)?;
+        jbinding.add("info",  &self.log_path)?;
+        jbinding.add("api", "pcap-simu")?;
+        jbinding.add("path", "${CARGO_TARGET_DIR}debug/libafb_iso15118_simulator.so")?;
+
+        let jscenarios = JsoncObj::array();
+        let jscenario = JsoncObj::new();
+        jscenario.add("uid", "scenario-1")?;
+        let target= match self.session_protocol {
+            v2g::ProtocolTagId::Din => "iso15118-din",
+            v2g::ProtocolTagId::Iso2 => "iso15118-2",
+            _ => return afb_error!("pcal-closing-log", "unsuported protocol"),
+        };
+        jscenario.add("target", target)?;
+        jscenario.add("transactions", self.jtransactions.clone())?;
+
+        jscenarios.insert(jscenario)?;
+        jbinding.add("scenarios",jscenarios)?;
+
+        self.log_to_file(jbinding)?;
         Ok(())
     }
 }
 
 fn packet_handler(
     stream: &MutexGuard<RawStream>,
-    count: u32,
+    pkg_count: i32,
     timestamp: Duration,
     user_data: &AfbCtxData,
 ) -> Result<(), AfbError> {
@@ -79,6 +180,11 @@ fn packet_handler(
     // compute message relative delay
     let delay = (timestamp - ctx.timestamp).as_millis();
     ctx.timestamp = timestamp;
+
+    // pcap file parsing stop (on error or not)
+    if pkg_count < 0 {
+        return ctx.close_scenario()
+    }
 
     match ctx.session_protocol {
         // decode message
@@ -98,11 +204,11 @@ fn packet_handler(
                             }
                         }
                     }
-                    println!("pck:{} SupportAppProtocolRes:{:?}", count, payload)
+                    println!("pkg:{} SupportAppProtocolRes:{:?}", pkg_count, payload)
                 }
                 v2g::V2gMsgBody::Request(payload) => {
                     ctx.supported_protocols = payload.get_protocols();
-                    println!("pck:{} SupportAppProtocolReq:{:?}", count, payload);
+                    println!("pkg:{} SupportAppProtocolReq:{:?}", pkg_count, payload);
                 }
             }
         }
@@ -111,21 +217,19 @@ fn packet_handler(
             let din_msg = din_exi::ExiMessageDoc::decode_from_stream(stream)?;
             let _header = din_msg.get_header();
             let body = din_msg.get_body()?;
-            println!(
-                "pkg:{} delay:{} din-msg:{} ",
-                count,
-                delay,
-                din_jsonc::body_to_jsonc(&body)?
-            );
+
+            // if no pending response track it otherwise wait for it
+            ctx.log_din_response(pkg_count, delay, &body)?;
         }
 
         v2g::ProtocolTagId::Iso2 => {
             let iso2_msg = iso2_exi::ExiMessageDoc::decode_from_stream(stream)?;
             let _header = iso2_msg.get_header();
             let body = iso2_msg.get_body()?;
+
             println!(
                 "pkg:{} delay:{} iso2-msg:{} ",
-                count,
+                pkg_count,
                 delay,
                 iso2_jsonc::body_to_jsonc(&body)?
             );
@@ -135,7 +239,7 @@ fn packet_handler(
             return afb_error!(
                 "packet-handler-session_protocol",
                 "packet:{} unsupported exi document type",
-                count
+                pkg_count
             )
         }
     }
@@ -154,7 +258,12 @@ fn main() -> Result<(), AfbError> {
         session_protocol: v2g::ProtocolTagId::Unknown,
         supported_protocols: Vec::new(),
         timestamp: Duration::new(0, 0),
-        outfile: None,
+        log_fd: None,
+        log_path: String::new(),
+        pcap_path: String::new(),
+        pending_din: None,
+        jtransaction: JsoncObj::new(),
+        jtransactions: JsoncObj::array(),
     };
 
     for idx in 1..args.len() {
@@ -170,26 +279,27 @@ fn main() -> Result<(), AfbError> {
         }
 
         match parts[0] {
-            "--pcapfile" => {
+            "--pcap_path" => {
                 pcaps.set_pcap_file(parts[1])?;
+                logger.set_pcap_file(parts[1]);
             }
-            "--logfile" => {
+            "--log_path" => {
                 logger.set_log_file(parts[1])?;
             }
-            "--tcpport" => {
+            "--tcp_port" => {
                 let port = match parts[1].parse() {
                     Ok(value) => value,
                     Err(_) => return err_usage("invalid-port", arg.as_str()),
                 };
                 pcaps.set_tcp_port(port);
             }
-            "--psklog" => {
+            "--psk_log" => {
                 pcaps.set_psk_log(parts[1])?;
             }
-            "--maxcount" => {
+            "--max_count" => {
                 let count = match parts[1].parse() {
                     Ok(value) => value,
-                    Err(_) => return err_usage("invalid-port", arg.as_str()),
+                    Err(_) => return err_usage("invalid-count", arg.as_str()),
                 };
                 pcaps.set_max_packets(count);
             }
@@ -204,10 +314,12 @@ fn main() -> Result<(), AfbError> {
         }
     }
 
-    pcaps
+    let handle = pcaps
         .set_callback(packet_handler)
         .set_context(logger)
         .finalize()?;
+
+    println!("** done pkg_count={}", handle.get_pkg_count());
 
     Ok(())
 }

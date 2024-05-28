@@ -11,6 +11,15 @@ pub trait IsoToJson {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError>;
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError>;
 }
+
+pub struct ApiMsgInfo {
+    pub uid: &'static str,
+    pub name: &'static str,
+    pub info: &'static str,
+    pub msg_id: u32,
+    pub sample: Option<&'static str>,
+}
+
 #[path = "sdp-jsonc/encoders-lib.rs"]
 pub mod sdp_jsonc;
 
@@ -21,7 +30,7 @@ pub mod din_jsonc;
 pub mod iso2_jsonc;
 
 pub mod prelude {
-    pub use crate::IsoToJson;
+    pub use crate::{IsoToJson, ApiMsgInfo};
     pub use crate::sdp_jsonc::sdp_jsonc;
     pub use crate::din_jsonc::din_jsonc;
     pub use crate::iso2_jsonc::iso2_jsonc;

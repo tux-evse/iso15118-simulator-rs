@@ -12,8 +12,8 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::{iso2_exi::*, v2g::*, *};
-use iso15118_jsonc::prelude::iso2_jsonc::*;
+use iso15118::prelude::*;
+use iso15118_jsonc::prelude::*;
 use nettls::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -45,6 +45,8 @@ fn sdp_job_cb(
     data: &AfbCtxData,
     ctx: &AfbCtxData,
 ) -> Result<(), AfbError> {
+    use v2g::*;
+
     // retrieve job post arguments
     let ctx = ctx.get_ref::<SdpJobCtx>()?;
     let data = data.get_ref::<SdpJobData>()?;
@@ -72,21 +74,18 @@ fn sdp_job_cb(
         afb_log_msg!(
             Notice,
             &data.afb_rqt,
-            "iso2-discovery-start[{}] probing v2g-msg message",
+            "v2g-discovery-start[{}] probing v2g-msg message",
             idx
         );
 
         if idx == SDP_INIT_TRY {
             let error = AfbError::new(
-                "iso2-discovery-fail",
+                "v2g-discovery-fail",
                 -100,
                 "Fail to receive ISO15118-SDP message",
             );
             data.afb_rqt.reply(error, -100);
-            return afb_error!(
-                "iso2-discovery-fail",
-                "Fail to receive ISO15118-SDP message"
-            );
+            return afb_error!("v2g-discovery-fail", "Fail to receive ISO15118-SDP message");
         }
     }
 
@@ -195,22 +194,27 @@ fn discover_evse_cb(
     Ok(())
 }
 
-pub struct Iso2MsgReqCtx {
+pub struct V2gMsgReqCtx {
+    pub protocol: v2g::ProtocolTagId,
     pub uid: &'static str,
     pub ctrl: &'static Controller,
-    pub msg_id: MessageTagId,
+    pub msg_id: u32,
     pub timeout: i64,
 }
 
-fn iso2_msg_req_cb(
+fn v2g_msg_req_cb(
     afb_rqt: &AfbRequest,
     args: &AfbRqtData,
     context: &AfbCtxData,
 ) -> Result<(), AfbError> {
-    let ctx = context.get_ref::<Iso2MsgReqCtx>()?;
+    let ctx = context.get_ref::<V2gMsgReqCtx>()?;
     let api_params = args.get::<JsoncObj>(0)?;
 
-    ctx.ctrl.iso2_send_payload(afb_rqt, &ctx, api_params)?;
+    match ctx.protocol {
+        v2g::ProtocolTagId::Din => ctx.ctrl.din_send_payload(afb_rqt, &ctx, api_params)?,
+        v2g::ProtocolTagId::Iso2 => ctx.ctrl.iso2_send_payload(afb_rqt, &ctx, api_params)?,
+        _ => return afb_error!("v2g-msg-req-cb", "invalid protocol"),
+    }
     Ok(())
 }
 
@@ -219,7 +223,9 @@ fn app_proto_req_cb(
     _args: &AfbRqtData,
     context: &AfbCtxData,
 ) -> Result<(), AfbError> {
-    let ctx = context.get_ref::<Iso2MsgReqCtx>()?;
+    use v2g::*;
+
+    let ctx = context.get_ref::<V2gMsgReqCtx>()?;
     let iso2_proto = V2G_PROTOCOLS_SUPPORTED_LIST[ProtocolTagId::Iso2 as usize];
     let v2g_body = SupportedAppProtocolReq::new(iso2_proto)?.encode();
 
@@ -233,6 +239,12 @@ pub fn register_verbs(
     ctrl: &'static Controller,
 ) -> Result<(), AfbError> {
     sdp_actions::register()?;
+
+    let protocol_conf = match config.protocol {
+        "din" => v2g::ProtocolTagId::Din,
+        "iso2" => v2g::ProtocolTagId::Iso2,
+        _ => return afb_error!("register-verb", "unsupported protocol:{}", config.protocol),
+    };
 
     let sdp_job = AfbSchedJob::new("sdp-job")
         .set_callback(sdp_job_cb)
@@ -255,15 +267,16 @@ pub fn register_verbs(
             ctrl,
         });
 
-    let app_proto_verb = AfbVerb::new("iso2-hand-shake")
+    let app_proto_verb = AfbVerb::new("v2g-hand-shake")
         .set_name("app_proto_req")
         .set_info("Announce ISO2 as only supported protocol")
         .set_callback(app_proto_req_cb)
-        .set_context(Iso2MsgReqCtx {
+        .set_context(V2gMsgReqCtx {
             ctrl,
+            protocol: v2g::ProtocolTagId::Unknown,
             uid: "app_proto_req",
             timeout: config.timeout,
-            msg_id: MessageTagId::AppProtocolReq,
+            msg_id: v2g::MessageTagId::AppProtocolReq as u32,
         });
 
     api.add_verb(connect_verb.finalize()?);
@@ -271,18 +284,24 @@ pub fn register_verbs(
 
     for idx in 0..config.jverbs.count()? {
         let msg_name = config.jverbs.index::<&'static str>(idx)?;
-        let msg_api = api_from_tagid(msg_name)?;
+
+        let msg_api = match protocol_conf {
+            v2g::ProtocolTagId::Din => din_jsonc::api_from_tagid(msg_name)?,
+            v2g::ProtocolTagId::Iso2 => iso2_jsonc::api_from_tagid(msg_name)?,
+            _ => return afb_error!("hoop", "invalid protocol"),
+        };
 
         let iso2_msg_verb = AfbVerb::new(msg_api.uid);
         iso2_msg_verb
             .set_name(msg_api.name)
             .set_info(msg_api.info)
-            .set_callback(iso2_msg_req_cb)
-            .set_context(Iso2MsgReqCtx {
+            .set_callback(v2g_msg_req_cb)
+            .set_context(V2gMsgReqCtx {
                 ctrl,
                 uid: msg_name,
                 timeout: config.timeout,
                 msg_id: msg_api.msg_id,
+                protocol: protocol_conf,
             });
 
         if let Some(sample) = msg_api.sample {

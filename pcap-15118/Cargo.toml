@@ -13,7 +13,7 @@ afbmock=[]
 
 [dependencies]
 afbv4 = {git= "https://github.com/redpesk-common/afb-librust", branch="master", optional = true}
-iso15118_jsonc = {path ="../iso15118-jsonc"}
+iso15118_jsonc = {path ="../jsonc-15118"}
 iso15118= {path ="../../iso15118-encoders-rs"}
 
 [build-dependencies]

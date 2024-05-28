@@ -12,8 +12,11 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::{iso2_exi::*, v2g::*, *};
-use iso15118_jsonc::prelude::{*,iso2_jsonc::*};
+// use iso15118::prelude::{iso2_exi::*, v2g::*, *};
+// use iso15118_jsonc::prelude::{*,iso2_jsonc::*};
+use iso15118::prelude::*;
+use iso15118_jsonc::prelude::*;
+
 use nettls::prelude::*;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::{mem, net};
@@ -22,7 +25,7 @@ pub const SDP_INIT_TIMEOUT: u64 = 3000;
 pub const SDP_INIT_TRY: u64 = 10;
 pub struct ControllerPending {
     afb_rqt: AfbRequest,
-    msg_id: MessageTagId,
+    msg_id: u32,
     job_id: i32,
 }
 
@@ -111,7 +114,7 @@ fn async_tcp_client_cb(
         ctx.ctrl.stream.finalize(&lock, ctx.payload_len)?;
         match ctx.ctrl.stream.get_payload_id(&lock) {
             // iso2 only use SAP payload-id
-            PayloadMsgId::SAP => ctx.ctrl.iso_decode_payload(state, &mut lock)?,
+            v2g::PayloadMsgId::SAP => ctx.ctrl.iso_decode_payload(state, &mut lock)?,
             _ => {
                 return afb_error!(
                     "async_tcp_client",
@@ -133,6 +136,8 @@ pub struct AsyncSdpCtx {
 
 // async function receive SDP server ipv6 addr::port for iso15118 services
 pub fn async_sdp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<(), AfbError> {
+    use v2g::*;
+
     if revent != AfbEvtFdPoll::IN.bits() {
         afb_log_msg!(Warning, None, "Unexpected SDP async event");
         return Ok(());
@@ -178,7 +183,7 @@ pub fn async_sdp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
     afb_log_msg!(
         Notice,
         None,
-        "iso-sdp-async: {}({})://{:?}:{}",
+        "v2g-sdp-async: {}({})://{:?}:{}",
         transport,
         security,
         svc_addr,
@@ -206,7 +211,7 @@ pub fn async_sdp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
             let tcp_client = TcpClient::new(remote6, svc_port, ctx.sdp_scope)?;
 
             // register asynchronous tcp callback
-            AfbEvtFd::new("iso2-tcp-client")
+            AfbEvtFd::new("v2g-tcp-client")
                 .set_fd(tcp_client.get_sockfd()?)
                 .set_events(AfbEvtFdPoll::IN | AfbEvtFdPoll::RUP)
                 .set_callback(async_tcp_client_cb)
@@ -321,25 +326,31 @@ impl Controller {
     pub fn iso2_send_payload(
         &self,
         afb_rqt: &AfbRequest,
-        ctx: &Iso2MsgReqCtx,
+        ctx: &V2gMsgReqCtx,
         jbody: JsoncObj,
     ) -> Result<(), AfbError> {
+        use iso2_exi::*;
+        use iso2_jsonc::*;
+
         // ctrl is ready let's send messages
         let mut state = self.lock_state()?;
 
         if let None = state.connection {
-            return afb_error!("iso2_send_payload", "SDP iso15118 require");
+            return afb_error!("iso2-send-payload", "SDP iso15118 require");
         }
+
+        // retrieve msg object num
+        let msg_id= MessageTagId::from_u32(ctx.msg_id);
 
         // build exi payload from json
         let header= ExiMessageHeader::new(&ctx.ctrl.session)?;
-        let body = body_from_jsonc(ctx.msg_id, jbody)?;
+        let body = body_from_jsonc(msg_id, jbody)?;
 
         let mut stream = self.stream.lock_stream();
         ExiMessageDoc::new(&header, &body).encode_to_stream(&mut stream)?;
 
         // if request expect a response let delay verb response
-        let res_id = ctx.msg_id.match_res_id();
+        let res_id = msg_id.match_res_id();
         if res_id != MessageTagId::Unsupported {
             // arm a watchdog before sending request
             let job_id = self.job_post.post(
@@ -351,7 +362,7 @@ impl Controller {
             )?;
 
             state.pending = Some(ControllerPending {
-                msg_id: res_id,
+                msg_id: res_id as u32,
                 afb_rqt: afb_rqt.add_ref(),
                 job_id,
             });
@@ -368,23 +379,33 @@ impl Controller {
         Ok(())
     }
 
-    pub fn v2g_send_payload(
+    pub fn din_send_payload(
         &self,
         afb_rqt: &AfbRequest,
-        ctx: &Iso2MsgReqCtx,
-        v2g_body: &V2gAppHandDoc,
+        ctx: &V2gMsgReqCtx,
+        jbody: JsoncObj,
     ) -> Result<(), AfbError> {
+        use din_exi::*;
+        use din_jsonc::*;
         // ctrl is ready let's send messages
         let mut state = self.lock_state()?;
+
         if let None = state.connection {
-            return afb_error!("v2g_send_payload", "SDP iso15118 require");
+            return afb_error!("din-send-payload", "SDP iso15118 require");
         }
 
+        // retrieve msg object num
+        let msg_id= MessageTagId::from_u32(ctx.msg_id);
+
+        // build exi payload from json
+        let header= ExiMessageHeader::new(&ctx.ctrl.session)?;
+        let body = body_from_jsonc(msg_id, jbody)?;
+
         let mut stream = self.stream.lock_stream();
-        SupportedAppProtocolExi::encode_to_stream(&mut stream, &v2g_body)?;
+        ExiMessageDoc::new(&header, &body).encode_to_stream(&mut stream)?;
 
         // if request expect a response let delay verb response
-        let res_id = ctx.msg_id.match_res_id();
+        let res_id = msg_id.match_res_id();
         if res_id != MessageTagId::Unsupported {
             // arm a watchdog before sending request
             let job_id = self.job_post.post(
@@ -396,7 +417,57 @@ impl Controller {
             )?;
 
             state.pending = Some(ControllerPending {
-                msg_id: res_id,
+                msg_id: res_id as u32,
+                afb_rqt: afb_rqt.add_ref(),
+                job_id,
+            });
+        } else {
+            state.pending = None;
+            afb_rqt.reply("Warning: no DIN response for this msg_id", 0);
+            return Ok(());
+        };
+
+        // send data and wipe stream
+        let cnx = state.connection.as_ref().unwrap();
+        cnx.put_data(stream.get_buffer())?;
+        stream.reset();
+        Ok(())
+    }
+
+    pub fn v2g_send_payload(
+        &self,
+        afb_rqt: &AfbRequest,
+        ctx: &V2gMsgReqCtx,
+        v2g_body: &v2g::V2gAppHandDoc,
+    ) -> Result<(), AfbError> {
+        use v2g::*;
+
+        // ctrl is ready let's send messages
+        let mut state = self.lock_state()?;
+        if let None = state.connection {
+            return afb_error!("v2g_send_payload", "SDP iso15118 require");
+        }
+
+        let mut stream = self.stream.lock_stream();
+        SupportedAppProtocolExi::encode_to_stream(&mut stream, &v2g_body)?;
+
+        // retrieve msg object num
+        let msg_id= MessageTagId::from_u32(ctx.msg_id);
+
+        // if request expect a response let delay verb response
+        let res_id = msg_id.match_res_id();
+        if res_id != MessageTagId::Unsupported {
+            // arm a watchdog before sending request
+            let job_id = self.job_post.post(
+                ctx.timeout,
+                JobPostData {
+                    uid: ctx.uid,
+                    afb_rqt: afb_rqt.add_ref(),
+                },
+            )?;
+
+            state.pending = Some(ControllerPending {
+                msg_id: res_id as u32,
                 afb_rqt: afb_rqt.add_ref(),
                 job_id,
             });
@@ -418,6 +489,8 @@ impl Controller {
         mut state: MutexGuard<'_, ControllerState>,
         lock: &mut MutexGuard<RawStream>,
     ) -> Result<(), AfbError> {
+        use v2g::*;
+
         // if not waiting for a message let't ignore
         let msg_id = match &state.pending {
             None => {
@@ -455,9 +528,9 @@ impl Controller {
                 protocol.to_jsonc()?
             }
             v2g::ProtocolTagId::Iso2 => {
-                let message = ExiMessageDoc::decode_from_stream(&lock)?;
+                let message = iso2_exi::ExiMessageDoc::decode_from_stream(&lock)?;
                 let body = message.get_body()?;
-                if msg_id != body.get_tagid() {
+                if msg_id != body.get_tagid() as u32 {
                     return afb_error!(
                         "iso2-decode-payload",
                         "unexpected message got:{} waiting:{}",
@@ -466,6 +539,19 @@ impl Controller {
                     );
                 }
                 iso2_jsonc::body_to_jsonc(&body)?
+            }
+            v2g::ProtocolTagId::Din => {
+                let message = din_exi::ExiMessageDoc::decode_from_stream(&lock)?;
+                let body = message.get_body()?;
+                if msg_id != body.get_tagid() as u32 {
+                    return afb_error!(
+                        "iso2-decode-payload",
+                        "unexpected message got:{} waiting:{}",
+                        body.get_tagid(),
+                        msg_id
+                    );
+                }
+                din_jsonc::body_to_jsonc(&body)?
             }
             _ => {
                 return afb_error!(
