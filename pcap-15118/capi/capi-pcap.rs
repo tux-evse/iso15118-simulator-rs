@@ -89,6 +89,13 @@ fn gtls_perror(code: i32) -> String {
     slice.to_owned()
 }
 
+#[derive(Debug, Clone, Copy)]
+enum PacketDirection {
+    ClientToServer,
+    ServerToClient,
+    Unset,
+}
+
 #[no_mangle]
 pub extern "C" fn api_pcap_cb(
     userdata: *mut u8,
@@ -127,15 +134,15 @@ pub extern "C" fn api_pcap_cb(
             let data_len = ip_header.get_len() - tcp_header.get_len();
 
             // ignore any external packet after tcp session start
-            if handle.svc_port != 0 {
+            let pkg_dir = if handle.svc_port != 0 {
                 if handle.svc_port == tcp_header.get_dst()
                     && handle.clt_port == tcp_header.get_src()
                 {
-                    // client to server
+                    PacketDirection::ClientToServer
                 } else if handle.svc_port == tcp_header.get_src()
                     && handle.clt_port == tcp_header.get_dst()
                 {
-                    // server to client
+                    PacketDirection::ServerToClient
                 } else {
                     if handle.verbose > 1 {
                         eprintln!(
@@ -149,7 +156,9 @@ pub extern "C" fn api_pcap_cb(
                     }
                     return;
                 }
-            }
+            } else {
+                PacketDirection::Unset
+            };
 
             // new sequence check destination port and set relative timestamp
             if tcp_header.get_syn() {
@@ -185,6 +194,7 @@ pub extern "C" fn api_pcap_cb(
                 return;
             }
 
+            // Fulup TBD: sequence check is not handling all cases
             // // check packet ordering only if we did not skip packet
             // let order_valid = if tcp_header.get_src() == handle.clt_port {
             //     if handle.seq_next == tcp_header.get_seq()
@@ -311,8 +321,11 @@ pub extern "C" fn api_pcap_cb(
                                     return;
                                 }
 
-                                let _appdata =
-                                    tls_session.application_data(handle.pkg_count, tls_data);
+                                let _appdata = tls_session.application_data(
+                                    handle.pkg_count,
+                                    pkg_dir,
+                                    tls_data,
+                                );
                                 // if let Some(data) = appdata {
                                 //     stream_log_data(
                                 //         handle,
@@ -327,7 +340,7 @@ pub extern "C" fn api_pcap_cb(
                             }
 
                             cglue::TLS_MSG_TAG_CIPHER_CHANGE => {
-                                // ignore message
+                                // ignore message TBD Fulup
                             }
                             _ => eprintln!(
                                 "tls-packet-tls: unsupported TLS message tag src:{} packet:{}",
@@ -544,31 +557,54 @@ impl Datum {
 }
 
 #[allow(unused)]
-enum MasterKeySecret {
-    Random,
-    Client,
-    Server,
+enum MasterKeyTag {
+    ClientApplication,
+    ClientHandshake,
+    ServerApplication,
+    ServerHandshake,
+}
+
+// Fulup TBD do we need two aead handlers for TLS stream ???
+struct TlsStream {
+    random: Vec<u8>,
+    aead_application: cglue::gnutls_aead_cipher_hd_t,
+    aead_handshake: cglue::gnutls_aead_cipher_hd_t,
+    sequence: u32,
+}
+
+struct TlsMasterKeys {
+    client_data: Vec<PskMasterKey>,
+    client_handshake: Vec<PskMasterKey>,
+    server_data: Vec<PskMasterKey>,
+    server_handshake: Vec<PskMasterKey>,
+}
+
+impl TlsStream {
+    pub fn new() -> Self {
+        Self {
+            random: Vec::new(),
+            aead_application: unsafe { mem::zeroed::<cglue::gnutls_aead_cipher_hd_t>() },
+            aead_handshake: unsafe { mem::zeroed::<cglue::gnutls_aead_cipher_hd_t>() },
+            sequence: 0,
+        }
+    }
 }
 
 struct TlsSession {
-    client: Vec<PskMasterKey>,
-    server: Vec<PskMasterKey>,
-    random: Vec<PskMasterKey>,
     version: TlsVersion,
     cipher: TlsCipherSuite,
-    sequence_num: usize,
-    client_random: Vec<u8>,
-    server_random: Vec<u8>,
-    client_aead: cglue::gnutls_aead_cipher_hd_t,
-    server_aead: cglue::gnutls_aead_cipher_hd_t,
+    master_keys: TlsMasterKeys,
+    client: TlsStream,
+    server: TlsStream,
 }
 
 impl TlsSession {
     fn new(key_log: &str) -> Result<Self, AfbError> {
-        let mut client_keys = Vec::new();
-        let mut server_keys = Vec::new();
-        let mut random_keys = Vec::new();
-        match get_lines(key_log) {
+        let mut client_data_keys = Vec::new();
+        let mut server_data_keys = Vec::new();
+        let mut client_handshake_keys = Vec::new();
+        let mut server_handshake_keys = Vec::new();
+        let pre_shared_master_keys = match get_lines(key_log) {
             Err(error) => {
                 return afb_error!(
                     "tls-session-new",
@@ -584,41 +620,54 @@ impl TlsSession {
                     let secret = parts[2].as_bytes();
 
                     match label {
-                        "CLIENT_RANDOM" => random_keys.push(PskMasterKey::new(random, secret)),
+                        // "CLIENT_RANDOM" => random_keys.push(PskMasterKey::new(random, secret)),
+                        // "EXPORTER_SECRET" => random_keys.push(PskMasterKey::new(random, secret)),
                         "CLIENT_TRAFFIC_SECRET_0" => {
-                            client_keys.push(PskMasterKey::new(random, secret))
+                            client_data_keys.push(PskMasterKey::new(random, secret))
+                        }
+                        "CLIENT_HANDSHAKE_TRAFFIC_SECRET" => {
+                            client_handshake_keys.push(PskMasterKey::new(random, secret))
                         }
                         "SERVER_TRAFFIC_SECRET_0" => {
-                            server_keys.push(PskMasterKey::new(random, secret))
+                            server_data_keys.push(PskMasterKey::new(random, secret))
+                        }
+                        "SERVER_HANDSHAKE_TRAFFIC_SECRET" => {
+                            server_handshake_keys.push(PskMasterKey::new(random, secret))
                         }
                         _ => {} // ignore other records
                     }
                 }
+
+                // Fulup TBD what's about EXPORTER_SECRET | CLIENT_RANDOM ?
                 // sort key by client random
-                random_keys.sort_by(|a, b| a.random.cmp(&b.random));
-                client_keys.sort_by(|a, b| a.random.cmp(&b.random));
-                server_keys.sort_by(|a, b| a.random.cmp(&b.random));
+                client_data_keys.sort_by(|a, b| a.random.cmp(&b.random));
+                client_handshake_keys.sort_by(|a, b| a.random.cmp(&b.random));
+                server_data_keys.sort_by(|a, b| a.random.cmp(&b.random));
+                server_handshake_keys.sort_by(|a, b| a.random.cmp(&b.random));
+
+                TlsMasterKeys {
+                    client_data: client_data_keys,
+                    client_handshake: client_handshake_keys,
+                    server_data: server_data_keys,
+                    server_handshake: server_handshake_keys,
+                }
             }
-        }
+        };
         Ok(Self {
             version: TlsVersion::Unknown,
             cipher: TlsCipherSuite::Unknown,
-            client: client_keys,
-            server: server_keys,
-            random: random_keys,
-            sequence_num: 0,
-            client_random: Vec::new(),
-            server_random: Vec::new(),
-            client_aead: unsafe { mem::zeroed::<cglue::gnutls_aead_cipher_hd_t>() },
-            server_aead: unsafe { mem::zeroed::<cglue::gnutls_aead_cipher_hd_t>() },
+            master_keys: pre_shared_master_keys,
+            client: TlsStream::new(),
+            server: TlsStream::new(),
         })
     }
 
-    fn get_master_key(&self, label: MasterKeySecret, random: &[u8]) -> Option<Vec<u8>> {
+    fn get_master_key(&self, label: MasterKeyTag, random: &[u8]) -> Option<Vec<u8>> {
         let hash_table = match label {
-            MasterKeySecret::Random => &self.random,
-            MasterKeySecret::Client => &self.client,
-            MasterKeySecret::Server => &self.server,
+            MasterKeyTag::ClientApplication => &self.master_keys.client_data,
+            MasterKeyTag::ServerApplication => &self.master_keys.server_data,
+            MasterKeyTag::ClientHandshake => &self.master_keys.client_handshake,
+            MasterKeyTag::ServerHandshake => &self.master_keys.server_handshake,
         };
 
         match hash_table.binary_search_by(|key| key.random.cmp(&Vec::from(random))) {
@@ -630,31 +679,33 @@ impl TlsSession {
     fn aead_cipher_init(
         &self,
         pkg_count: u32,
-        secret: MasterKeySecret,
+        master_keys_tag: MasterKeyTag,
     ) -> Option<cglue::gnutls_aead_cipher_hd_t> {
         // compute secret from master secret and client random
         // see https://security.stackexchange.com/questions/184739/tls-1-3-server-handshake-traffic-secret-calculation?rq=1
 
-        let label = match secret {
-            MasterKeySecret::Server => DatumLabel::APPLICATION_SERVER_TRAFFIC_LABEL,
-            MasterKeySecret::Client => DatumLabel::APPLICATION_CLIENT_TRAFFIC_LABEL,
-            _ => return None,
+        let label = match master_keys_tag {
+            MasterKeyTag::ClientApplication => DatumLabel::APPLICATION_CLIENT_TRAFFIC_LABEL,
+            MasterKeyTag::ServerApplication => DatumLabel::APPLICATION_SERVER_TRAFFIC_LABEL,
+            MasterKeyTag::ClientHandshake => DatumLabel::HANDSHAKE_CLIENT_TRAFFIC_LABEL,
+            MasterKeyTag::ServerHandshake => DatumLabel::HANDSHAKE_SERVER_TRAFFIC_LABEL,
         };
 
         // extract master key from SSLKEYLOG stored data
-        let master_secret = match self.get_master_key(secret, &self.client_random) {
+        let master_secret = match self.get_master_key(master_keys_tag, &self.client.random) {
             Some(value) => Datum::new(value),
             None => {
                 eprintln!(
                     "tls-packet-hello: packet:{} fail to find server psk:{}",
                     pkg_count,
-                    bytes_to_hexa(&self.client_random),
+                    bytes_to_hexa(&self.client.random),
                 );
                 return None;
             }
         };
 
-        let client_secret = {
+        // move 48bytes master key to 32bytes stream key base on fix label ?
+        let stream_secret = {
             let key_size = unsafe { cglue::gnutls_cipher_get_key_size(self.cipher as u32) };
             let mut buffer = vec![0u8; key_size];
             let status = unsafe {
@@ -684,7 +735,7 @@ impl TlsSession {
             cglue::gnutls_aead_cipher_init(
                 &mut aead_handle,
                 self.cipher as u32,
-                &client_secret.get_data(),
+                &stream_secret.get_data(),
             )
         };
         if status < 0 {
@@ -712,7 +763,7 @@ impl TlsSession {
         match handshake_msg {
             cglue::gnutls_handshake_description_t_GNUTLS_HANDSHAKE_CLIENT_HELLO => {
                 let (_index, random) = slice_shift(tls_data, index, 32);
-                self.client_random = random.to_vec();
+                self.client.random = random.to_vec();
                 println!("client random:{}", bytes_to_hexa(random));
                 return;
             }
@@ -720,7 +771,7 @@ impl TlsSession {
             cglue::gnutls_handshake_description_t_GNUTLS_HANDSHAKE_SERVER_HELLO => {
                 // ignore server random
                 let (index, random) = slice_shift(tls_data, index, 32);
-                self.server_random = random.to_vec();
+                self.server.random = random.to_vec();
                 println!("server random:{}", bytes_to_hexa(random));
 
                 // ignore depreciated session id
@@ -776,20 +827,44 @@ impl TlsSession {
                     return;
                 }
 
+                // Fulup TBD how many aead_cipher do we need ?
+
                 // create aead_cipher handles for client and server channel
-                match self.aead_cipher_init(pkg_count, MasterKeySecret::Client) {
-                    Some(value) => self.client_aead = value,
+                match self.aead_cipher_init(pkg_count, MasterKeyTag::ClientApplication) {
+                    Some(value) => self.client.aead_application = value,
                     None => {
                         eprintln!(
-                            "tls-packet-hello: packet:{} client fail gnutls_aead_cipher_init",
+                            "tls-packet-hello: packet:{} client_application fail gnutls_aead_cipher_init",
                             pkg_count
                         );
                         return;
                     }
                 }
 
-                match self.aead_cipher_init(pkg_count, MasterKeySecret::Server) {
-                    Some(value) => self.server_aead = value,
+                match self.aead_cipher_init(pkg_count, MasterKeyTag::ClientHandshake) {
+                    Some(value) => self.client.aead_handshake = value,
+                    None => {
+                        eprintln!(
+                            "tls-packet-hello: packet:{} client_handshake fail gnutls_aead_cipher_init",
+                            pkg_count
+                        );
+                        return;
+                    }
+                }
+
+                match self.aead_cipher_init(pkg_count, MasterKeyTag::ServerApplication) {
+                    Some(value) => self.server.aead_application = value,
+                    None => {
+                        eprintln!(
+                            "tls-packet-hello: packet:{} server fail gnutls_aead_cipher_init",
+                            pkg_count
+                        );
+                        return;
+                    }
+                }
+
+                match self.aead_cipher_init(pkg_count, MasterKeyTag::ServerHandshake) {
+                    Some(value) => self.server.aead_handshake = value,
                     None => {
                         eprintln!(
                             "tls-packet-hello: packet:{} server fail gnutls_aead_cipher_init",
@@ -809,27 +884,53 @@ impl TlsSession {
         }
     }
 
-    fn application_data(&mut self, pkg_count: u32, tls_data: &[u8]) -> Option<Vec<u8>> {
-        println!("pkg:{} crypt data:{}", pkg_count, bytes_to_hexa(tls_data));
+    fn application_data(
+        &mut self,
+        pkg_count: u32,
+        pkg_dir: PacketDirection,
+        tls_data: &[u8],
+    ) -> Option<Vec<u8>> {
+        println!(
+            "pkg:{} dir:{:?} crypt data:{}",
+            pkg_count,
+            pkg_dir,
+            bytes_to_hexa(tls_data)
+        );
 
         // for tls-1.3 nonce size should be 12
         let nonce_size = unsafe { cglue::gnutls_cipher_get_iv_size(self.cipher as u32) as usize };
+
+        let sequence_num = match pkg_dir {
+            PacketDirection::ClientToServer => {
+                self.client.sequence += 1;
+                self.client.sequence
+            }
+            PacketDirection::ServerToClient => {
+                self.server.sequence += 1;
+                self.server.sequence
+            }
+            _ => {
+                println!("pkg:{} invalid direction:{:?}", pkg_count, pkg_dir);
+                return None;
+            }
+        };
+
         let mut nonce = vec![0u8; nonce_size];
         encode_nonce(
-            self.sequence_num as u64,
+            sequence_num as u64 - 1, // sequence start from zero
             &mut nonce[(nonce_size - 8)..nonce_size],
         );
         unsafe {
             cglue::nettle_memxor(
                 nonce.as_ptr() as *mut c_void,
-                self.client_random.as_ptr() as *const c_void,
+                self.client.random.as_ptr() as *const c_void,
                 nonce_size as usize,
             )
         };
 
         println!(
             "tls_seq:{} nonce:{}",
-            self.sequence_num,
+            sequence_num - 1,
             bytes_to_hexa(&nonce)
         );
 

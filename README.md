@@ -66,6 +66,71 @@ The simulator might be used in standalone mode to in conjunction with injector-b
 cargo test --package iso15118-2 --lib -- encoders_test --show-output
 ```
 
+## Scenarios files
+
+You may generate your scenarios directly from pcap/pcapng tcpdump files. You may find few pcap sample into afb-test/trace-logs directory and many more from https://github.com/EVerest/logfiles.git where every '*.dump' file uses pcap/wireshark syntax.
+
+Command line
+```
+iso15118 --pcap_path=./afb-test/trace-logs/abb-normal-din.pcap --log_path=/tmp/iso15118-scenario.json
+```
+
+Output file
+```jsonc
+{
+  "uid":"./afb-test/trace-logs/abb-normal-din.pcap",
+  "info":"/tmp/iso15118-scenario.json",
+  "api":"pcap-simu",
+  "path":"${CARGO_TARGET_DIR}debug/libafb_iso15118_simulator.so",
+  "scenarios":[
+    {
+      "uid":"scenario-1",
+      "target":"iso15118-din",
+      "transactions":[
+        {
+          "uid":"pkg:42",
+          "verb":"session_setup_req",
+          "delay":16,
+          "query":{
+            "id":"[02,01,02,03,04,02]",
+            "tagid":"session_setup_req"
+          },
+          "expect":{
+            "id":"[00]",
+            "rcode":"ok",
+            "stamp":0,
+            "tagid":"session_setup_res"
+          }
+        },
+        {
+          "uid":"pkg:46",
+          "verb":"service_discovery_req",
+          "delay":12,
+          "query":{
+            "category":"ev_charger",
+            "tagid":"service_discovery_req"
+          },
+          "expect":{
+            "rcode":"ok",
+            "charging":{
+              "tag":{
+                "id":1,
+                "category":"ev_charger"
+              },
+              "transfer":"dc_extended",
+              "isfree":false
+            },
+            "payments":[
+              "external"
+            ],
+            "tagid":"service_discovery_res"
+          }
+        },
+      ],
+    }
+  ]
+}
+```
 FULUP: TBD
 ------------
 

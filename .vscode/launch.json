@@ -55,7 +55,7 @@
                 "LD_LIBRARY_PATH": "/usr/local/lib64:/usr/local/lib",
             },
             "args": [
-                "--pcap_path=./afb-test/trace-logs/ABB-Normal.pcapng",
+                "--pcap_path=./afb-test/trace-logs/abb-normal-din.pcap",
                 "--log_path=/tmp/iso15118-scenario.json",
                 "--verbose=0",
             ],
@@ -75,7 +75,7 @@
                 "LD_LIBRARY_PATH": "/usr/local/lib64:/usr/local/lib",
             },
             "args": [
-                "--pcap_path=./afb-test/trace-logs/Alpi_GW366.pcapng",
+                "cd =./afb-test/trace-logs/Alpi_GW366.pcapng",
                 "--log_path=/tmp/iso15118-scenario.json",
                 "--verbose=0",
             ],
