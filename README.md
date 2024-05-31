@@ -31,7 +31,7 @@ ip6_prefix:  0         # default 0xFE80
 sdp_port:    15118     # default 15118
 ```
 
-**TLS configuration** optional pin is private key's password. PSK_LOG a user defined filepath for Wireshark pre-shared-key. PSK allows to introspect crypt TLS communication from wireshark UI as if it was a clear text TCP channel.
+**TLS configuration** optional pin is private key's password. psklog_in a user defined filepath for Wireshark pre-shared-key. PSK allows to introspect crypt TLS communication from wireshark UI as if it was a clear text TCP channel.
 
 ```yaml
     trust: ${PKI_TLS_DIR}/_trialog/
@@ -39,7 +39,7 @@ sdp_port:    15118     # default 15118
     key: ${PKI_TLS_DIR}/_trialog/secc20Cert.key
     pin: 123456
     proto: SECURE128:-VERS-SSL3.0:-VERS-TLS1.0:-ARCFOUR-128:+PSK:+DHE-PSK
-    psk_log: /tmp/tls-keys-simu.log
+    psklog_in: /tmp/tls-keys-simu.log
 ```
 
 **Api Json/Yaml** input query as well as response use JSOn, but configuration on top of JSON also accept YAML.
@@ -72,7 +72,7 @@ You may generate your scenarios directly from pcap/pcapng tcpdump files. You may
 
 Command line
 ```
-iso15118 --pcap_path=./afb-test/trace-logs/abb-normal-din.pcap --log_path=/tmp/iso15118-scenario.json
+iso15118 --pcap_in=./afb-test/trace-logs/abb-normal-din.pcap --log_path=/tmp/iso15118-scenario.json
 ```
 
 Output file

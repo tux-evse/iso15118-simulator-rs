@@ -49,7 +49,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
         let tls_psk = jtls.optional("pks")?;
         let tls_verbosity = jtls.default("verbosity", 1)?;
         let tls_proto = jtls.optional("proto")?;
-        let psk_log = jtls.optional("psk_log")?;
+        let psklog_in = jtls.optional("psklog_in")?;
 
         Some(TlsConfig::new(
             cert_chain,
@@ -58,7 +58,7 @@ pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi
             None,
             cert_format,
             tls_psk,
-            psk_log,
+            psklog_in,
             tls_verbosity,
             tls_proto,
         )?)

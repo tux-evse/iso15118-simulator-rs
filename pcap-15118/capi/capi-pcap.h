@@ -66,5 +66,5 @@ enum TLS_MSG_TAG {
     HANDSHAKE= 0x16,
     APPDATA= 0x17,
     ALERT=0x15,
-    CIPHER_CHANGE=0x20,
+    CIPHER_CHANGE=20,
 };

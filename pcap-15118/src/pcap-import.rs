@@ -24,14 +24,14 @@ use std::io::Write;
 
 #[track_caller]
 fn err_usage(uid: &str, data: &str) -> Result<(), AfbError> {
-    println!("usage: pcap-scenario --pcap_path=xxx.pcap --log_path=scenario.json [--max_count=xx] [--verbose=1] [--psk_log=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx");
+    println!("usage: pcap-scenario --pcap_in=xxx.pcap --scenario_out=scenario.json [--max_count=xx] [--verbose=1] [--psklog_in=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx");
     return afb_error!(uid, "invalid argument: {}", data);
 }
 
 struct LoggerCtx {
     log_fd: Option<File>,
-    log_path: String,
-    pcap_path: String,
+    scenario_out: String,
+    pcap_in: String,
     timestamp: Duration,
     pending_din: Option<din_exi::MessageTagId>,
     jtransaction: JsoncObj,
@@ -42,7 +42,7 @@ struct LoggerCtx {
 
 impl LoggerCtx {
     pub fn set_pcap_file(&mut self, path: &str) -> &mut Self {
-        self.pcap_path= path.to_string();
+        self.pcap_in= path.to_string();
         self
     }
 
@@ -58,7 +58,7 @@ impl LoggerCtx {
                 )
             }
         };
-        self.log_path = filename.to_string();
+        self.scenario_out = filename.to_string();
         self.log_fd = Some(log_fd);
         Ok(self)
     }
@@ -74,7 +74,7 @@ impl LoggerCtx {
                         return afb_error!(
                             "pcap-dump scenario",
                             "fail to push log entry to:{} error:{}",
-                            self.log_path,
+                            self.scenario_out,
                             error
                         )
                     }
@@ -145,8 +145,8 @@ impl LoggerCtx {
 
     fn close_scenario(&mut self) -> Result<(), AfbError> {
         let jbinding = JsoncObj::new();
-        jbinding.add("uid", &self.pcap_path)?;
-        jbinding.add("info",  &self.log_path)?;
+        jbinding.add("uid", &self.pcap_in)?;
+        jbinding.add("info",  &self.scenario_out)?;
         jbinding.add("api", "pcap-simu")?;
         jbinding.add("path", "${CARGO_TARGET_DIR}debug/libafb_iso15118_simulator.so")?;
 
@@ -259,8 +259,8 @@ fn main() -> Result<(), AfbError> {
         supported_protocols: Vec::new(),
         timestamp: Duration::new(0, 0),
         log_fd: None,
-        log_path: String::new(),
-        pcap_path: String::new(),
+        scenario_out: String::new(),
+        pcap_in: String::new(),
         pending_din: None,
         jtransaction: JsoncObj::new(),
         jtransactions: JsoncObj::array(),
@@ -279,11 +279,11 @@ fn main() -> Result<(), AfbError> {
         }
 
         match parts[0] {
-            "--pcap_path" => {
+            "--pcap_in" => {
                 pcaps.set_pcap_file(parts[1])?;
                 logger.set_pcap_file(parts[1]);
             }
-            "--log_path" => {
+            "--scenario_out" => {
                 logger.set_log_file(parts[1])?;
             }
             "--tcp_port" => {
@@ -293,7 +293,7 @@ fn main() -> Result<(), AfbError> {
                 };
                 pcaps.set_tcp_port(port);
             }
-            "--psk_log" => {
+            "--psklog_in" => {
                 pcaps.set_psk_log(parts[1])?;
             }
             "--max_count" => {

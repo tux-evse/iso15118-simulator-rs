@@ -34,10 +34,10 @@
                 "LD_LIBRARY_PATH": "/usr/local/lib64:/usr/local/lib",
             },
             "args": [
-                "--pcapfile=../iso15118-binding-rs/afb-test/trace-logs/hello-tls-1.3.pcapng",
-                "--psklog=../iso15118-binding-rs/afb-test/trace-logs/hello-tls-1.3.keylog",
+                "--pcap_in=../iso15118-binding-rs/afb-test/trace-logs/hello-tls-1.3.pcapng",
+                "--psklog_in=../iso15118-binding-rs/afb-test/trace-logs/hello-tls-1.3.keylog",
+                "--scenario_out=/tmp/iso15118-scenario.json",
                 "--verbose=1",
-                "--logfile=/tmp/iso15118-scenario.json",
             ],
             "cwd": "${workspaceFolder}",
             "initCommands": [
@@ -55,7 +55,7 @@
                 "LD_LIBRARY_PATH": "/usr/local/lib64:/usr/local/lib",
             },
             "args": [
-                "--pcap_path=./afb-test/trace-logs/abb-normal-din.pcap",
+                "--pcap_in=./afb-test/trace-logs/abb-normal-din.pcap",
                 "--log_path=/tmp/iso15118-scenario.json",
                 "--verbose=0",
             ],
