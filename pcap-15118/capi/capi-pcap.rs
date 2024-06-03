@@ -67,7 +67,7 @@ fn read_uint16(data: &[u8]) -> u16 {
 fn write_uint16(number: u16, data: &mut [u8]) -> usize {
     data[0] = (number >> 8 & 0xFF) as u8;
     data[1] = (number & 0xFF) as u8;
-    3
+    mem::size_of::<u16>()
 }
 
 #[track_caller]
@@ -75,7 +75,7 @@ fn write_text(text: &[u8], data: &mut [u8]) -> usize {
     for idx in 0..text.len() {
         data[idx] = text[idx];
     }
-    text.len() + 1
+    text.len()
 }
 
 #[track_caller]
@@ -147,6 +147,10 @@ pub extern "C" fn api_pcap_cb(
         IpProto::TCP => {
             let tcp_header = TcpHeader::new(buffer, ether_header.get_size() + ip_header.get_size());
             let data_len = ip_header.get_len() - tcp_header.get_len();
+
+            if handle.pkg_count == 12 {
+                let _a = handle.pkg_count;
+            }
 
             // ignore any external packet after tcp session start
             let pkg_dir = if handle.svc_port != 0 {
@@ -358,8 +362,11 @@ pub extern "C" fn api_pcap_cb(
                             }
 
                             cglue::TLS_MSG_TAG_CIPHER_CHANGE => {
-                                // we only start to extract packet here
-                                tls_session.cipher_changed = true;
+                                // This TLS1.3 cipher change just ignore it
+                                println! ("pkg:{} tls1.3 cipher_changed", handle.pkg_count);
+                                tls_session.cipher_changed += 1;
+                                tls_session.client.sequence = 0;
+                                tls_session.server.sequence = 0;
                             }
                             _ => eprintln!(
                                 "tls-packet-tls: unsupported TLS message tag src:{} packet:{}",
@@ -521,6 +528,13 @@ impl Datum {
         bytes_to_hexa(&self.buffer)
     }
 
+    pub fn get_string(&self) -> String {
+        match str::from_utf8(&self.buffer) {
+            Ok(value) => value.to_string(),
+            Err(_) => "Fail UTF8 conversion".to_string(),
+        }
+    }
+
     pub fn get_data(&self) -> cglue::gnutls_datum_t {
         self.payload
     }
@@ -530,6 +544,7 @@ impl Datum {
     }
 }
 
+#[derive(Clone, Debug)]
 #[allow(unused)]
 enum MasterKeyTag {
     ClientApplication,
@@ -538,6 +553,7 @@ enum MasterKeyTag {
 
 // Fulup TBD do we need two aead handlers for TLS stream ???
 struct TlsStream {
+    _tag: MasterKeyTag,
     random: Vec<u8>,
     nonce_secret: Vec<u8>,
     keys_hasht: Vec<PskMasterKey>,
@@ -546,8 +562,9 @@ struct TlsStream {
 }
 
 impl TlsStream {
-    pub fn new(keys_hasht: Vec<PskMasterKey>) -> Self {
+    pub fn new(tag: MasterKeyTag, keys_hasht: Vec<PskMasterKey>) -> Self {
         Self {
+            _tag: tag,
             aead_handle: unsafe { mem::zeroed::<cglue::gnutls_aead_cipher_hd_t>() },
             random: Vec::new(),
             nonce_secret: Vec::new(),
@@ -559,7 +576,7 @@ impl TlsStream {
 
 struct TlsSession {
     version: TlsVersion,
-    cipher_changed: bool,
+    cipher_changed: u16,
     cipher: TlsCipherSuite,
     client: TlsStream,
     server: TlsStream,
@@ -608,11 +625,11 @@ impl TlsSession {
             }
         };
         Ok(Self {
-            cipher_changed: false,
+            cipher_changed: 0,
             version: TlsVersion::Unknown,
             cipher: TlsCipherSuite::Unknown,
-            client: TlsStream::new(client_data_keys),
-            server: TlsStream::new(server_data_keys),
+            client: TlsStream::new(MasterKeyTag::ClientApplication, client_data_keys),
+            server: TlsStream::new(MasterKeyTag::ServerApplication, server_data_keys),
         })
     }
 
@@ -634,10 +651,11 @@ impl TlsSession {
 
         // create iv datum key
         let mut iv_buffer = [0 as u8; 64];
-        let index = write_uint16(key_size as u16, &mut iv_buffer);
-        let index = write_text("tls13 ".as_bytes(), &mut iv_buffer[index..]);
-        let _index = write_text(iv_label.as_bytes(), &mut iv_buffer[index..]);
-        let iv_datum = Datum::new(iv_buffer.to_vec());
+        let mut index = write_uint16(key_size as u16, &mut iv_buffer);
+        index += write_text("tls13 ".as_bytes(), &mut iv_buffer[index..]);
+        index += write_text(iv_label.as_bytes(), &mut iv_buffer[index..]);
+        let iv_datum = Datum::new(iv_buffer[0..index].to_vec());
+        println!("expand_hkdf_secret: iv_buffer:'{}' size:{}", iv_datum.get_string(), iv_datum.get_size());
 
         let mut buffer = vec![0u8; key_size];
         let status = unsafe {
@@ -681,6 +699,7 @@ impl TlsSession {
             }
         };
 
+        println!("aead_cipher_init:{:?} master={}", keys_hasht_tag, master_secret.get_hexa());
         // expand nonce iv_key used for nonce
         let nonce_secret = match self.expand_hkdf_secret(&master_secret, "iv") {
             Some(value) => value,
@@ -737,7 +756,6 @@ impl TlsSession {
                 // ignore server random
                 let (index, random) = slice_shift(tls_data, index, 32);
                 self.server.random = random.to_vec();
-                println!("server random:{}", bytes_to_hexa(random));
 
                 // ignore depreciated session id
                 let session_len = tls_data[index];
@@ -792,8 +810,6 @@ impl TlsSession {
                     return;
                 }
 
-                // Fulup TBD how many aead_cipher do we need ?
-
                 // create aead_cipher handles for client and server channel
                 match self.aead_cipher_init(pkg_count, MasterKeyTag::ClientApplication) {
                     Some((nonce_secret, aead_handle)) => {
@@ -840,13 +856,13 @@ impl TlsSession {
         tls_auth: &[u8],
         tls_data: &[u8],
     ) -> Option<Vec<u8>> {
-        if !self.cipher_changed {
-            println!("pkg:{} dir:{:?} waiting cipher_change", pkg_count, pkg_dir,);
+        if self.cipher_changed < 2 {
+            println!("application_data pkg:{} dir:{:?} waiting cipher_change", pkg_count, pkg_dir,);
             return None;
         }
 
         println!(
-            "pkg:{} dir:{:?} crypt data:{}",
+            "application_data pkg:{} dir:{:?} crypt data:{}",
             pkg_count,
             pkg_dir,
             bytes_to_hexa(tls_data)
@@ -857,7 +873,7 @@ impl TlsSession {
             PacketDirection::ClientToServer => &mut self.client,
             PacketDirection::ServerToClient => &mut self.server,
             _ => {
-                println!("pkg:{} invalid direction:{:?}", pkg_count, pkg_dir);
+                println!("application_data pkg:{} invalid direction:{:?}", pkg_count, pkg_dir);
                 return None;
             }
         };
@@ -882,7 +898,7 @@ impl TlsSession {
         };
 
         println!(
-            "tls_seq:{} nonce:{}",
+            "application_data tls_seq:{} nonce:{}",
             tls_stream.sequence - 1,
             bytes_to_hexa(&seq_nonce)
         );
@@ -907,7 +923,7 @@ impl TlsSession {
         };
 
         if status < 0 {
-            println!("pkg:{} dir:{:?} error:{}", pkg_count, pkg_dir, gtls_perror(status));
+            println!("application_data pkg:{} dir:{:?} error:{}", pkg_count, pkg_dir, gtls_perror(status));
             return None;
         }
 
