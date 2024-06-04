@@ -646,8 +646,7 @@ impl TlsSession {
         }
     }
 
-    fn expand_hkdf_secret(&self, master_secret: &Datum, iv_label: &str) -> Option<Vec<u8>> {
-        let key_size = unsafe { cglue::gnutls_cipher_get_key_size(self.cipher as u32) };
+    fn expand_hkdf_secret(&self, master_secret: &Datum, iv_label: &str, key_size: usize) -> Option<Vec<u8>> {
 
         // create iv datum key
         let mut iv_buffer = [0 as u8; 64];
@@ -701,13 +700,15 @@ impl TlsSession {
 
         println!("aead_cipher_init:{:?} master={}", keys_hasht_tag, master_secret.get_hexa());
         // expand nonce iv_key used for nonce
-        let nonce_secret = match self.expand_hkdf_secret(&master_secret, "iv") {
+        let iv_size = unsafe { cglue::gnutls_cipher_get_iv_size(self.cipher as u32) } as usize;
+        let nonce_secret = match self.expand_hkdf_secret(&master_secret, "iv", iv_size) {
             Some(value) => value,
             None => return None,
         };
 
         // expand application iv_key used for nonce
-        let application_secret = match self.expand_hkdf_secret(&master_secret, "key") {
+        let key_size = unsafe { cglue::gnutls_cipher_get_key_size(self.cipher as u32) };
+        let application_secret = match self.expand_hkdf_secret(&master_secret, "key", key_size) {
             Some(value) => Datum::new(value),
             None => return None,
         };
@@ -868,6 +869,12 @@ impl TlsSession {
             bytes_to_hexa(tls_data)
         );
 
+
+        if pkg_count == 12 {
+            let _a = pkg_count;
+        }
+
+
         // depending on direction select corresponding tls steam sub-handle
         let tls_stream = match pkg_dir {
             PacketDirection::ClientToServer => &mut self.client,
@@ -878,7 +885,9 @@ impl TlsSession {
             }
         };
 
-        // for tls-1.3 nonce size should be 12
+        tls_stream.sequence =3 ; // Fulup TBD hack
+
+        // for tls-1.3 nonce size should be 12bytes
         let nonce_size = unsafe { cglue::gnutls_cipher_get_iv_size(self.cipher as u32) as usize };
         let mut seq_nonce = vec![0u8; nonce_size];
         encode_nonce(
@@ -893,7 +902,7 @@ impl TlsSession {
             cglue::nettle_memxor(
                 seq_nonce.as_ptr() as *mut c_void,
                 tls_stream.nonce_secret.as_ptr() as *const c_void,
-                nonce_size as usize,
+                tls_stream.nonce_secret.len(),
             )
         };
 
@@ -925,6 +934,8 @@ impl TlsSession {
         if status < 0 {
             println!("application_data pkg:{} dir:{:?} error:{}", pkg_count, pkg_dir, gtls_perror(status));
             return None;
+        } else {
+            println!( "application_data pkg:{} ok", pkg_count);
         }
 
         let data = Vec::new();
