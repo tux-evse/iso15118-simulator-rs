@@ -25,7 +25,7 @@ use std::io::Write;
 
 #[track_caller]
 fn err_usage(uid: &str, data: &str) -> Result<(), AfbError> {
-    println!("usage: pcap-scenario --pcap_in=xxx.pcap --scenario_out=scenario.json [--max_count=xx] [--verbose=1] [--psklog_in=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx");
+    println!("usage: pcap-iso15118 --pcap_in=xxx.pcap --json_out=scenario.json [--max_count=xx] [--verbose=1] [--key_log_in=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx");
     return afb_error!(uid, "invalid argument: {}", data);
 }
 
@@ -239,7 +239,7 @@ impl ScenarioLog {
         }
 
         jbinding.add("uid", &ctx.pcap_in)?;
-        jbinding.add("info", &ctx.scenario_out)?;
+        jbinding.add("info", &ctx.json_out)?;
         jbinding.add("api", "pcap-simu")?;
         jbinding.add(
             "path",
@@ -259,7 +259,7 @@ struct LoggerCtx {
     data_len: usize,
     exi_len: usize,
     log_fd: Option<File>,
-    scenario_out: String,
+    json_out: String,
     pcap_in: String,
     timestamp: Duration,
     msg_delay: u128,
@@ -285,7 +285,7 @@ impl LoggerCtx {
                 )
             }
         };
-        self.scenario_out = filename.to_string();
+        self.json_out = filename.to_string();
         self.log_fd = Some(log_fd);
         Ok(self)
     }
@@ -301,7 +301,7 @@ impl LoggerCtx {
                         return afb_error!(
                             "pcap-dump scenario",
                             "fail to push log entry to:{} error:{}",
-                            self.scenario_out,
+                            self.json_out,
                             error
                         )
                     }
@@ -345,7 +345,7 @@ fn packet_handler_cb(
             ctx.log_to_file(jscenario)?;
             eprintln!(
                 "--iso15118-import done pcap_in:{} json_out:{}",
-                ctx.pcap_in, ctx.scenario_out
+                ctx.pcap_in, ctx.json_out
             );
         }
         return Ok(());
@@ -489,7 +489,7 @@ fn main() -> Result<(), AfbError> {
         supported_protocols: Vec::new(),
         timestamp: Duration::new(0, 0),
         log_fd: None,
-        scenario_out: String::new(),
+        json_out: String::new(),
         pcap_in: String::new(),
         stream: ExiStream::new(),
         data_len: 0,
@@ -514,7 +514,7 @@ fn main() -> Result<(), AfbError> {
                 pcaps.set_pcap_file(parts[1])?;
                 logger.set_pcap_file(parts[1]);
             }
-            "--scenario_out" => {
+            "--json_out" => {
                 logger.set_log_file(parts[1])?;
             }
             "--tcp_port" => {
@@ -524,7 +524,7 @@ fn main() -> Result<(), AfbError> {
                 };
                 pcaps.set_tcp_port(port);
             }
-            "--psklog_in" => {
+            "--keys_log" => {
                 pcaps.set_psk_log(parts[1])?;
             }
             "--max_count" => {

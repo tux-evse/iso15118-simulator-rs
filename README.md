@@ -15,6 +15,12 @@ Provide a JSON Afb-V4 api to ISO15118-encoders. Each ISO message is exposed a Af
     cargo build --features afbv4
 ```
 
+## OCI container (podman/docker)
+```
+cd oci-15118
+podman build -t afb-iso15118 -f Dockerfile
+```
+
 ## Configuration
 
 Configuration relies on standard binding/binder json/yaml config file. The config splits into three main part:
