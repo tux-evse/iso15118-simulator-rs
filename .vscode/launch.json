@@ -34,8 +34,8 @@
                 "LD_LIBRARY_PATH": "/usr/local/lib64:/usr/local/lib",
             },
             "args": [
-                "--pcap_in=../iso15118-binding-rs/afb-test/trace-logs/hello-tls-1.3.pcapng",
-                "--psklog_in=../iso15118-binding-rs/afb-test/trace-logs/hello-tls-1.3.keylog",
+                "--pcap_in=../iso15118-binding-rs/afb-test/trace-logs/hello3-tls-1.3.pcapng",
+                "--psklog_in=../iso15118-binding-rs/afb-test/trace-logs/hello3-tls-1.3.keylog",
                 "--scenario_out=/tmp/iso15118-scenario.json",
                 "--verbose=1",
             ],
@@ -46,7 +46,7 @@
             ]
         },
         {
-            "name": "pcap-din-Abb",
+            "name": "pcap-din-abb",
             "type": "lldb",
             "preLaunchTask": "binding-native-build",
             "request": "launch",
@@ -56,7 +56,7 @@
             },
             "args": [
                 "--pcap_in=./afb-test/trace-logs/abb-normal-din.pcap",
-                "--log_path=/tmp/iso15118-scenario.json",
+                "--scenario_out=/tmp/iso15118-scenario.json",
                 "--verbose=0",
             ],
             "cwd": "${workspaceFolder}",
@@ -66,7 +66,7 @@
             ]
         },
         {
-            "name": "pcap-din-Alpi",
+            "name": "pcap-iso2-ionic5",
             "type": "lldb",
             "preLaunchTask": "binding-native-build",
             "request": "launch",
@@ -75,8 +75,8 @@
                 "LD_LIBRARY_PATH": "/usr/local/lib64:/usr/local/lib",
             },
             "args": [
-                "cd =./afb-test/trace-logs/Alpi_GW366.pcapng",
-                "--log_path=/tmp/iso15118-scenario.json",
+                "--pcap_in=./afb-test/trace-logs/ionic5-iso2.pcap",
+                "--scenario_out=/tmp/iso15118-scenario.json",
                 "--verbose=0",
             ],
             "cwd": "${workspaceFolder}",
@@ -85,28 +85,25 @@
                 "settings set target.disable-aslr false"
             ]
         },
-                {
-            "name": "simu-din-scenario",
+        {
+            "name": "pcap-iso2-audi-dc",
             "type": "lldb",
             "preLaunchTask": "binding-native-build",
             "request": "launch",
-            "program": "afb-binder",
+            "program": "${env:HOME}/.cargo/build/debug/pcap-iso15118",
             "env": {
-                "LD_LIBRARY_PATH": "/usr/local/lib64",
-                "IFACE_SIMU": "lo",
+                "LD_LIBRARY_PATH": "/usr/local/lib64:/usr/local/lib",
             },
             "args": [
-                "-v",
-                "--monitoring",
-                "--trap-faults=0",
-                "--config=afb_binding/etc/binding-din.yaml",
-                "--config=/tmp/iso15118-scenario.json",
+                "--pcap_in=./afb-test/trace-logs/audi-dc-iso2.pcap",
+                "--scenario_out=/tmp/iso15118-scenario.json",
+                "--verbose=0",
             ],
             "cwd": "${workspaceFolder}",
             "initCommands": [
                 "target stop-hook add -n _start -o continue",
                 "settings set target.disable-aslr false"
             ]
-        },
+        }
     ]
 }

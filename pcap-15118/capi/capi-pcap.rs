@@ -21,8 +21,8 @@
  *   * tls https://lekensteyn.nl/files/wireshark-ssl-tls-decryption-secrets-sharkfest18eu.pdf
  *   * key-log-format: https://udn.realityripple.com/docs/Mozilla/Projects/NSS/Key_Log_Format
  *   * key-log-spec: https://www.ietf.org/archive/id/draft-thomson-tls-keylogfile-00.html
- *   * secret: https://security.stackexchange.com/questions/184739/tls-1-3-server-handshake-traffic-secret-calculation
- *  * tls: https://owasp.org/www-chapter-london/assets/slides/OWASPLondon20180125_TLSv1.3_Andy_Brodie.pdf
+ *   * tls: https://owasp.org/www-chapter-london/assets/slides/OWASPLondon20180125_TLSv1.3_Andy_Brodie.pdf
+ *   * decrypt: https://gist.github.com/fulup-bzh/cbca88fc07b3d92cc3e5f3a047ffde7f
  */
 
 mod cglue {
@@ -42,7 +42,6 @@ use std::mem;
 use std::os::raw::c_char;
 use std::slice;
 use std::str;
-use std::sync::MutexGuard;
 use std::time::Duration;
 
 // return iteration on file buffer
@@ -117,14 +116,14 @@ pub extern "C" fn api_pcap_cb(
     header: *const cglue::pcap_pkthdr,
     buffer: *const u8,
 ) {
-    // get Rust pacl handle from user context
+    // get Rust pcap handle from user context
     let handle = unsafe { &mut *(userdata as *mut PcapHandle) };
 
     // pcap header hold timestamp and packet len
     let pcap_header = PcapHeader::new(header);
-    handle.pkg_count += 1;
+    handle.msg.pkg_count += 1;
 
-    if handle.max_count > 0 && handle.pkg_count > handle.max_count {
+    if handle.max_count > 0 && handle.msg.pkg_count > handle.max_count {
         unsafe { cglue::pcap_breakloop(handle.pcap_raw) };
         return;
     }
@@ -134,7 +133,7 @@ pub extern "C" fn api_pcap_cb(
         if handle.verbose > 0 {
             eprintln!(
                 "ether-packet-type: ignore packet:{} {:#0x} ",
-                handle.pkg_count,
+                handle.msg.pkg_count,
                 ether_header.get_type()
             );
         }
@@ -147,10 +146,6 @@ pub extern "C" fn api_pcap_cb(
         IpProto::TCP => {
             let tcp_header = TcpHeader::new(buffer, ether_header.get_size() + ip_header.get_size());
             let data_len = ip_header.get_len() - tcp_header.get_len();
-
-            if handle.pkg_count == 12 {
-                let _a = handle.pkg_count;
-            }
 
             // ignore any external packet after tcp session start
             let pkg_dir = if handle.svc_port != 0 {
@@ -166,7 +161,7 @@ pub extern "C" fn api_pcap_cb(
                     if handle.verbose > 1 {
                         eprintln!(
                             "pkg:{} Ignore out of session TCP packet src:{} ack:{} seq:{} next:{}",
-                            handle.pkg_count,
+                            handle.msg.pkg_count,
                             tcp_header.get_src(),
                             tcp_header.get_ack(),
                             tcp_header.get_seq(),
@@ -186,7 +181,7 @@ pub extern "C" fn api_pcap_cb(
                         if handle.verbose > 1 {
                             eprintln!(
                                 "pkg:{} Ignore TCP stream src:{} ack:{} seq:{} next:{}",
-                                handle.pkg_count,
+                                handle.msg.pkg_count,
                                 tcp_header.get_src(),
                                 tcp_header.get_ack(),
                                 tcp_header.get_seq(),
@@ -196,15 +191,15 @@ pub extern "C" fn api_pcap_cb(
                         return;
                     }
 
-                    handle.start_stamp = pcap_header.get_timestamp();
-                    handle.seq_time = handle.start_stamp;
+                    handle.msg.start_stamp = pcap_header.get_timestamp();
+                    handle.seq_time = handle.msg.start_stamp;
                     handle.clt_port = tcp_header.get_src();
                     handle.svc_port = tcp_header.get_dst();
                 }
                 handle.seq_next = tcp_header.get_ack_seq();
                 eprintln!(
                     "pkg:{} New TCP stream src:{} ack:{} seq:{} next:{}",
-                    handle.pkg_count,
+                    handle.msg.pkg_count,
                     tcp_header.get_src(),
                     tcp_header.get_ack(),
                     tcp_header.get_seq(),
@@ -213,50 +208,19 @@ pub extern "C" fn api_pcap_cb(
                 return;
             }
 
-            // Fulup TBD: sequence check is not handling all cases
-            // // check packet ordering only if we did not skip packet
-            // let order_valid = if tcp_header.get_src() == handle.clt_port {
-            //     if handle.seq_next == tcp_header.get_seq()
-            //         || handle.seq_next == tcp_header.get_ack_seq()
-            //     {
-            //         true
-            //     } else {
-            //         false
-            //     }
-            // } else if tcp_header.get_src() == handle.svc_port {
-            //     if handle.seq_next == tcp_header.get_seq()
-            //         || handle.seq_next == tcp_header.get_ack_seq()
-            //     {
-            //         true
-            //     } else {
-            //         false
-            //     }
-            // } else {
-            //     false
-            // };
-
-            // if !order_valid {
-            //     eprintln!(
-            //         "pkg:{} ip-client-packet: out of stream packet ack:{} len:{} src:{} dst:{} seq:{} next:{} expected:{}",
-            //         handle.pkg_count,
-            //         tcp_header.get_ack(),
-            //         data_len,
-            //         tcp_header.get_src(),
-            //         tcp_header.get_dst(),
-            //         tcp_header.get_seq(),
-            //         tcp_header.get_ack_seq(),
-            //         handle.seq_next,
-            //     );
-            //     unsafe { cglue::pcap_breakloop(handle.pcap_raw) };
-            //     return;
-            // }
-
+            // on session hand we close current scenario and restart looping
             if tcp_header.get_fin() {
-                eprintln!(
-                    "ip-packet-type: finish tcp session src:{}",
-                    tcp_header.get_src()
-                );
-                unsafe { cglue::pcap_breakloop(handle.pcap_raw) };
+                if handle.verbose > 0 {
+                    eprintln!(
+                        "pkg:{} ip-packet-type: closing tcp session src:{}",
+                        handle.msg.pkg_count,
+                        tcp_header.get_src()
+                    );
+                }
+
+                // close scenario output with calling callback with dummy values
+                let _ =
+                    (handle.msg.callback)(handle.msg.pkg_count, &[0; 0], handle.msg.start_stamp, &handle.msg.context);
                 return;
             }
 
@@ -264,10 +228,10 @@ pub extern "C" fn api_pcap_cb(
             handle.seq_next = tcp_header.get_ack_seq();
 
             if data_len == 0 {
-                if handle.verbose > 0 {
+                if handle.verbose > 1 {
                     eprintln!(
                         "pkg:{} tcp-packet-type: ignoring empty packet ack:{} src:{} seq:{} next:{}",
-                        handle.pkg_count,
+                        handle.msg.pkg_count,
                         tcp_header.get_ack(),
                         tcp_header.get_src(),
                         tcp_header.get_seq(),
@@ -277,10 +241,10 @@ pub extern "C" fn api_pcap_cb(
                 return;
             }
 
-            if handle.verbose > 1 {
+            if handle.verbose > 8 {
                 eprintln!(
                     "pkg:{} tcp-packet-data: len:{} ack:{} src:{} seq:{} next:{}",
-                    handle.pkg_count,
+                    handle.msg.pkg_count,
                     data_len,
                     tcp_header.get_ack(),
                     tcp_header.get_src(),
@@ -299,8 +263,13 @@ pub extern "C" fn api_pcap_cb(
             };
 
             // check is SSL pre_shared key is set
-            match &mut handle.tls_session {
-                None => stream_log_data(handle, tcp_header, pcap_header.get_timestamp(), data),
+            let status = match &mut handle.tls_session {
+                None => (handle.msg.callback)(
+                    handle.msg.pkg_count,
+                    &data,
+                    pcap_header.get_timestamp(),
+                    &handle.msg.context,
+                ),
                 Some(tls_session) => {
                     let mut tls_start = 0;
 
@@ -309,17 +278,17 @@ pub extern "C" fn api_pcap_cb(
                         let (index, tls_header) =
                             slice_shift(data, tls_start, cglue::TLS_RECORD_HEADER_SIZE);
                         // Fulup TBD auth buffer
-                        let msg_handshake = tls_header[0] as u32;
+                        let msg_tag = tls_header[0] as u32;
                         let msg_major = tls_header[1];
                         let msg_minor = tls_header[2];
                         let msg_len = read_uint16(&tls_header[3..3 + 2]);
-                        let tls_auth= &tls_header[0..5];
+                        let tls_auth = &tls_header[0..5];
 
                         if msg_major < 3 {
                             eprintln!(
                                 "tls-packet-tls: SSL version < 3.x header len src:{} packet:{}",
                                 tcp_header.get_src(),
-                                handle.pkg_count
+                                handle.msg.pkg_count
                             );
                             return;
                         }
@@ -327,9 +296,28 @@ pub extern "C" fn api_pcap_cb(
                         // shift to tls data record
                         let (index, tls_data) = slice_shift(data, index, msg_len as usize);
 
-                        match msg_handshake {
+                        let status = match msg_tag {
                             cglue::TLS_MSG_TAG_HANDSHAKE => {
-                                tls_session.process_handshake(handle.pkg_count, &tls_data)
+                                tls_session.process_handshake(handle.msg.pkg_count, &tls_data)
+                            }
+
+                            cglue::TLS_MSG_TAG_ALERT => {
+                                tls_session.process_alert(handle.msg.pkg_count, &tls_data)
+                            }
+
+                            cglue::TLS_MSG_TAG_CIPHER_CHANGE => {
+                                // wait for client cipher change before starting decoding
+                                tls_session.cipher_changed += 1;
+                                match pkg_dir {
+                                    PacketDirection::ClientToServer => {
+                                        tls_session.client.sequence = 0;
+                                    }
+                                    PacketDirection::ServerToClient => {
+                                        tls_session.server.sequence = 0;
+                                    }
+                                    PacketDirection::Unset => {}
+                                }
+                                return; // ignore any sub tls packets (useless certificates)
                             }
 
                             cglue::TLS_MSG_TAG_APPDATA => {
@@ -337,51 +325,59 @@ pub extern "C" fn api_pcap_cb(
                                     eprintln!(
                                     "tls-packet-tls: SSL version < 3.3 header len src:{} packet:{}",
                                     tcp_header.get_src(),
-                                    handle.pkg_count
+                                    handle.msg.pkg_count
                                     );
                                     return;
                                 }
 
-                                let _appdata = tls_session.application_data(
-                                    handle.pkg_count,
+                                if tls_session.cipher_changed < 2 {
+                                    return;
+                                };
+
+                                let decrypted_data = tls_session.application_data(
+                                    handle.msg.pkg_count,
                                     pkg_dir,
                                     tls_auth,
                                     tls_data,
                                 );
-                                // if let Some(data) = appdata {
-                                //     stream_log_data(
-                                //         handle,
-                                //         tcp_header,
-                                //         pcap_header.get_timestamp(),
-                                //         &data,
-                                //     );
-                                // }
-                            }
-                            cglue::TLS_MSG_TAG_ALERT => {
-                                tls_session.process_alert(handle.pkg_count, &tls_data)
-                            }
 
-                            cglue::TLS_MSG_TAG_CIPHER_CHANGE => {
-                                // This TLS1.3 cipher change just ignore it
-                                println! ("pkg:{} tls1.3 cipher_changed", handle.pkg_count);
-                                tls_session.cipher_changed += 1;
-                                tls_session.client.sequence = 0;
-                                tls_session.server.sequence = 0;
+                                // if decrypt ok transfer to callback otherwise propagate error
+                                match decrypted_data {
+                                    Ok(data) => (handle.msg.callback)(
+                                        handle.msg.pkg_count,
+                                        &data,
+                                        pcap_header.get_timestamp(),
+                                        &handle.msg.context,
+                                    ),
+                                    Err(error) => Err(error),
+                                }
                             }
-                            _ => eprintln!(
-                                "tls-packet-tls: unsupported TLS message tag src:{} packet:{}",
+                            _ => afb_error!(
+                                "tls-packet-tls",
+                                "unsupported TLS message tag src:{} packet:{}",
                                 tcp_header.get_src(),
-                                handle.pkg_count
+                                handle.msg.pkg_count
                             ),
+                        };
+
+                        // when error stop lopping and propagate
+                        if let Err(error) = status {
+                            break Err(error);
                         }
 
                         // move to next tls-1.3 extension until end of tcp buffer
                         tls_start = index;
                         if tls_start == data.len() as usize {
-                            break;
+                            break Ok(());
                         }
                     }
                 }
+            };
+
+            // collect tls and non tls error
+            if let Err(error) = status {
+                eprintln!("pkg:{} error:{}", handle.msg.pkg_count, error);
+                return;
             }
         }
 
@@ -393,7 +389,10 @@ pub extern "C" fn api_pcap_cb(
             let _data =
                 unsafe { slice::from_raw_parts(buffer.wrapping_add(data_offset), data_length) };
             if handle.verbose > 0 {
-                eprintln!("ip-packet-type: ignoring packet:{} UDP", handle.pkg_count);
+                eprintln!(
+                    "ip-packet-type: ignoring packet:{} UDP",
+                    handle.msg.pkg_count
+                );
             }
         }
 
@@ -401,7 +400,7 @@ pub extern "C" fn api_pcap_cb(
             if handle.verbose > 0 {
                 eprintln!(
                     "ip-packet-type: ignoring packet:{} proto:{:#0x} ",
-                    handle.pkg_count, value
+                    handle.msg.pkg_count, value
                 );
             }
         }
@@ -580,10 +579,11 @@ struct TlsSession {
     cipher: TlsCipherSuite,
     client: TlsStream,
     server: TlsStream,
+    verbose: u8,
 }
 
 impl TlsSession {
-    fn new(key_log: &str) -> Result<Self, AfbError> {
+    fn new(key_log: &str, verbose: u8) -> Result<Self, AfbError> {
         let mut client_data_keys = Vec::new();
         let mut server_data_keys = Vec::new();
         //let mut client_handshake_keys = Vec::new();
@@ -626,6 +626,7 @@ impl TlsSession {
         };
         Ok(Self {
             cipher_changed: 0,
+            verbose,
             version: TlsVersion::Unknown,
             cipher: TlsCipherSuite::Unknown,
             client: TlsStream::new(MasterKeyTag::ClientApplication, client_data_keys),
@@ -646,15 +647,21 @@ impl TlsSession {
         }
     }
 
-    fn expand_hkdf_secret(&self, master_secret: &Datum, iv_label: &str, key_size: usize) -> Option<Vec<u8>> {
-
+    fn expand_hkdf_secret(
+        &self,
+        master_secret: &Datum,
+        iv_label: &str,
+        key_size: usize,
+    ) -> Option<Vec<u8>> {
         // create iv datum key
         let mut iv_buffer = [0 as u8; 64];
         let mut index = write_uint16(key_size as u16, &mut iv_buffer);
+        iv_buffer[index] = 6 + iv_label.len() as u8;
+        index += 1;
         index += write_text("tls13 ".as_bytes(), &mut iv_buffer[index..]);
         index += write_text(iv_label.as_bytes(), &mut iv_buffer[index..]);
+        index += 1; // extra msg non used add ""(len:0)
         let iv_datum = Datum::new(iv_buffer[0..index].to_vec());
-        println!("expand_hkdf_secret: iv_buffer:'{}' size:{}", iv_datum.get_string(), iv_datum.get_size());
 
         let mut buffer = vec![0u8; key_size];
         let status = unsafe {
@@ -698,7 +705,11 @@ impl TlsSession {
             }
         };
 
-        println!("aead_cipher_init:{:?} master={}", keys_hasht_tag, master_secret.get_hexa());
+        println!(
+            "aead_cipher_init:{:?} master={}",
+            keys_hasht_tag,
+            master_secret.get_hexa()
+        );
         // expand nonce iv_key used for nonce
         let iv_size = unsafe { cglue::gnutls_cipher_get_iv_size(self.cipher as u32) } as usize;
         let nonce_secret = match self.expand_hkdf_secret(&master_secret, "iv", iv_size) {
@@ -734,7 +745,7 @@ impl TlsSession {
         return Some((nonce_secret, aead_handle));
     }
 
-    fn process_handshake(&mut self, pkg_count: u32, tls_data: &[u8]) {
+    fn process_handshake(&mut self, pkg_count: u32, tls_data: &[u8]) -> Result<(), AfbError> {
         let handshake_msg = tls_data[0] as u32;
         let _data_len = read_uint24(&tls_data[1..1 + 3]);
         let ssl_major = tls_data[4];
@@ -749,8 +760,6 @@ impl TlsSession {
             cglue::gnutls_handshake_description_t_GNUTLS_HANDSHAKE_CLIENT_HELLO => {
                 let (_index, random) = slice_shift(tls_data, index, 32);
                 self.client.random = random.to_vec();
-                println!("client random:{}", bytes_to_hexa(random));
-                return;
             }
 
             cglue::gnutls_handshake_description_t_GNUTLS_HANDSHAKE_SERVER_HELLO => {
@@ -804,11 +813,12 @@ impl TlsSession {
 
                 self.cipher = TlsCipherSuite::from_tagid(cipher_tag);
                 if let TlsCipherSuite::Unknown = self.cipher {
-                    eprintln!(
-                        "tls-packet-hello:  packet:{} unsupported TLS cipher-tagid:{:0x}",
-                        pkg_count, cipher_tag,
+                    return afb_error!(
+                        "tls-packet-hello",
+                        "pkg:{} unsupported TLS cipher-tagid:{:0x}",
+                        pkg_count,
+                        cipher_tag
                     );
-                    return;
                 }
 
                 // create aead_cipher handles for client and server channel
@@ -818,11 +828,11 @@ impl TlsSession {
                         self.client.nonce_secret = nonce_secret;
                     }
                     None => {
-                        eprintln!(
-                            "tls-packet-hello: packet:{} client_application fail gnutls_aead_cipher_init",
+                        return afb_error!(
+                            "tls-packet-hello",
+                            "pkg:{} client_application fail gnutls_aead_cipher_init",
                             pkg_count
-                        );
-                        return;
+                        )
                     }
                 }
 
@@ -832,22 +842,23 @@ impl TlsSession {
                         self.server.nonce_secret = nonce_secret;
                     }
                     None => {
-                        eprintln!(
-                            "tls-packet-hello: packet:{} server fail gnutls_aead_cipher_init",
+                        return afb_error!(
+                            "tls-packet-hello",
+                            "pkg:{} server fail gnutls_aead_cipher_init",
                             pkg_count
-                        );
-                        return;
+                        )
                     }
                 }
             }
             _ => {
-                eprintln!(
-                    "tls-packet-tls: unsupported TLS hello-tag packet:{}",
+                return afb_error!(
+                    "tls-packet-tls",
+                    "pkg:{} unsupported TLS hello-tag",
                     pkg_count
-                );
-                return;
+                )
             }
         }
+        Ok(())
     }
 
     fn application_data(
@@ -856,36 +867,20 @@ impl TlsSession {
         pkg_dir: PacketDirection,
         tls_auth: &[u8],
         tls_data: &[u8],
-    ) -> Option<Vec<u8>> {
-        if self.cipher_changed < 2 {
-            println!("application_data pkg:{} dir:{:?} waiting cipher_change", pkg_count, pkg_dir,);
-            return None;
-        }
-
-        println!(
-            "application_data pkg:{} dir:{:?} crypt data:{}",
-            pkg_count,
-            pkg_dir,
-            bytes_to_hexa(tls_data)
-        );
-
-
-        if pkg_count == 12 {
-            let _a = pkg_count;
-        }
-
-
+    ) -> Result<Vec<u8>, AfbError> {
         // depending on direction select corresponding tls steam sub-handle
         let tls_stream = match pkg_dir {
             PacketDirection::ClientToServer => &mut self.client,
             PacketDirection::ServerToClient => &mut self.server,
             _ => {
-                println!("application_data pkg:{} invalid direction:{:?}", pkg_count, pkg_dir);
-                return None;
+                return afb_error!(
+                    "application_data",
+                    "pkg:{} invalid direction:{:?}",
+                    pkg_count,
+                    pkg_dir
+                );
             }
         };
-
-        tls_stream.sequence =3 ; // Fulup TBD hack
 
         // for tls-1.3 nonce size should be 12bytes
         let nonce_size = unsafe { cglue::gnutls_cipher_get_iv_size(self.cipher as u32) as usize };
@@ -906,15 +901,9 @@ impl TlsSession {
             )
         };
 
-        println!(
-            "application_data tls_seq:{} nonce:{}",
-            tls_stream.sequence - 1,
-            bytes_to_hexa(&seq_nonce)
-        );
-
         let tag_size = unsafe { cglue::gnutls_cipher_get_tag_size(self.cipher as u32) };
         let mut decrypted = [0 as u8; 256];
-        let mut len= decrypted.len();
+        let mut len = decrypted.len();
 
         let status = unsafe {
             cglue::gnutls_aead_cipher_decrypt(
@@ -932,71 +921,30 @@ impl TlsSession {
         };
 
         if status < 0 {
-            println!("application_data pkg:{} dir:{:?} error:{}", pkg_count, pkg_dir, gtls_perror(status));
-            return None;
+            return afb_error!(
+                "application_data",
+                "pkg:{} dir:{:?} error:{}",
+                pkg_count,
+                pkg_dir,
+                gtls_perror(status)
+            );
         } else {
-            println!( "application_data pkg:{} ok", pkg_count);
+            if self.verbose > 8 {
+                let text = str::from_utf8(&decrypted[0..len - 2]).unwrap(); // ignore "\n\0"
+                println!(
+                    "application_data pkg:{} text:'{}' len:{}",
+                    pkg_count,
+                    text,
+                    len - 2
+                );
+            }
         }
 
         let data = Vec::new();
-        Some(data)
+        Ok(data)
     }
-    fn process_alert(&mut self, _pkg_count: u32, _tls_data: &[u8]) {}
-}
-
-// New TCP client connecting
-fn stream_log_data(
-    handle: &mut PcapHandle,
-    header: TcpHeader,
-    timestamp: Duration,
-    exi_data: &[u8],
-) {
-    // move tcp socket data into exi stream buffer
-    let mut lock = handle.stream.lock_stream();
-    let (stream_idx, stream_available) = handle.stream.get_index(&lock);
-
-    if stream_available == 0 {
-        eprintln!(
-            "stream_log_data {:?}, buffer full close session",
-            header.get_src()
-        );
-        return;
-    } else {
-        // move tcp data into exi stream internal buffer
-        lock.buffer[stream_idx..exi_data.len()].copy_from_slice(exi_data)
-    }
-
-    // when facing a new exi check how much data should be read
-    if stream_idx == 0 {
-        let len = handle.stream.get_payload_len(&lock);
-        if len < 0 {
-            eprintln!(
-                "stream_log_data: packet ignored (invalid v2g header) size:{}",
-                exi_data.len()
-            );
-        } else {
-            handle.exi_len = len as usize;
-        }
-        handle.data_len = 0;
-    }
-    // if data send in chunks let's complete exi buffer before processing it
-    handle.data_len = handle.data_len + exi_data.len();
-    if handle.data_len >= handle.exi_len + v2g::SDP_V2G_HEADER_LEN {
-        // set data len and decode message and place response into stream-out (stream should not be lock_ined)
-        if let Err(error) = handle.stream.finalize(&lock, handle.exi_len as u32) {
-            eprintln!("stream-finalize: pkg:{} {:?}", handle.pkg_count, error);
-            return;
-        }
-
-        // call user defined callback
-        let delay = timestamp - handle.start_stamp;
-        if let Err(error) =
-            (handle.callback)(&lock, handle.pkg_count as i32, delay, &handle.context)
-        {
-            eprintln!("pkg:{} {:?}", handle.pkg_count, error);
-        }
-        // wipe stream for next request
-        handle.stream.reset(&lock);
+    fn process_alert(&mut self, _pkg_count: u32, _tls_data: &[u8]) -> Result<(), AfbError> {
+        Ok(())
     }
 }
 
@@ -1185,60 +1133,64 @@ impl IpHeader {
 }
 
 pub type PcapCallback = fn(
-    stream: &MutexGuard<RawStream>,
-    count: i32,
+    pkg_count: u32,
+    buffer: &[u8],
     timestamp: Duration,
     ctx: &AfbCtxData,
 ) -> Result<(), AfbError>;
 
 #[track_caller]
 fn pcap_default_cb(
-    _stream: &MutexGuard<RawStream>,
-    _count: i32,
+    _count: u32,
+    _buffer: &[u8],
     _timestamp: Duration,
     _user_data: &AfbCtxData,
 ) -> Result<(), AfbError> {
     return afb_error!("pcap-default-cb", "no pcap callback defined");
 }
 
+pub struct MsgHandle {
+    callback: PcapCallback,
+    context: AfbCtxData,
+    start_stamp: Duration,
+    pkg_count: u32,
+}
+
 pub struct PcapHandle {
     verbose: u8,
-    stream: ExiStream,
+    msg: MsgHandle,
     tls_session: Option<TlsSession>,
+    pcap_in: String,
     pcap_raw: *mut cglue::pcap_t,
+    seq_time: Duration,
     tcp_port: u16,
     clt_port: u16,
     svc_port: u16,
-    start_stamp: Duration,
-    context: AfbCtxData,
-    callback: PcapCallback,
     seq_next: u32,
-    seq_time: Duration,
-    data_len: usize,
-    exi_len: usize,
     max_count: u32,
-    pkg_count: u32,
 }
 
 impl PcapHandle {
     pub fn new() -> Self {
+        let msg_handle = MsgHandle {
+            start_stamp: Duration::new(0, 0),
+            callback: pcap_default_cb,
+            context: AfbCtxData::new(AFB_NO_DATA),
+            pkg_count: 0,
+        };
+
         PcapHandle {
             pcap_raw: 0 as *mut cglue::pcap_t,
             tls_session: None,
+            pcap_in: String::new(),
+            msg: msg_handle,
+            seq_time: Duration::new(0, 0),
             verbose: 0,
             tcp_port: 0,
             clt_port: 0,
             svc_port: 0,
-            start_stamp: Duration::new(0, 0),
-            seq_time: Duration::new(0, 0),
             seq_next: 0,
-            data_len: 0,
-            exi_len: 0,
-            pkg_count: 0,
             max_count: 0,
-            callback: pcap_default_cb,
-            context: AfbCtxData::new(AFB_NO_DATA),
-            stream: ExiStream::new(),
         }
     }
 
@@ -1247,6 +1199,9 @@ impl PcapHandle {
             Ok(value) => value,
             Err(_) => return afb_error!("pcap_open_offline", "invalid filename:{}", filename),
         };
+
+        // keep a copy of input file for info
+        self.pcap_in = filename.to_string();
 
         let pcap_raw = unsafe {
             let mut cbuffer =
@@ -1269,14 +1224,18 @@ impl PcapHandle {
         Ok(self)
     }
 
+    pub fn get_pcap_in(&self) -> &str {
+        &self.pcap_in
+    }
+
     pub fn set_psk_log(&mut self, key_log: &str) -> Result<&mut Self, AfbError> {
-        let tls_session = TlsSession::new(key_log)?;
+        let tls_session = TlsSession::new(key_log, self.verbose)?;
         self.tls_session = Some(tls_session);
         Ok(self)
     }
 
     pub fn set_callback(&mut self, callback: PcapCallback) -> &mut Self {
-        self.callback = callback;
+        self.msg.callback = callback;
         self
     }
 
@@ -1289,7 +1248,7 @@ impl PcapHandle {
     where
         T: 'static,
     {
-        self.context = AfbCtxData::new(ctx);
+        self.msg.context = AfbCtxData::new(ctx);
         self
     }
 
@@ -1304,7 +1263,7 @@ impl PcapHandle {
     }
 
     pub fn get_pkg_count(&self) -> u32 {
-        self.pkg_count
+        self.msg.pkg_count
     }
 
     pub fn finalize(&mut self) -> Result<&Self, AfbError> {
@@ -1320,15 +1279,21 @@ impl PcapHandle {
             )
         };
 
-        // close scenario output with calling callback with dummy values
-        let lock = self.stream.lock_stream();
-        if let Err(error) = (self.callback)(&lock, -1, self.start_stamp, &self.context) {
-            eprintln!("Fail closing scenario {:?}", error);
+        // close scenario output with calling callback with empty exi
+        if let Err(error) =
+            (self.msg.callback)(0, &[0; 0], self.msg.start_stamp, &self.msg.context)
+        {
+            eprintln!("pkg:{} {:?}", self.msg.pkg_count, error);
         }
 
         if result < 0 {
             let cstr = unsafe { CStr::from_ptr(cglue::pcap_geterr(self.pcap_raw)) };
-            return afb_error!("pcap_handle-loop", "{}", (cstr.to_str().unwrap()));
+            return afb_error!(
+                "pcap_handle-loop",
+                "pkg:{} error:{}",
+                self.msg.pkg_count,
+                (cstr.to_str().unwrap())
+            );
         }
 
         Ok(self)

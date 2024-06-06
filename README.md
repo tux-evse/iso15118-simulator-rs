@@ -51,6 +51,18 @@ sdp_port:    15118     # default 15118
     * [json](iso15118-2/docs/api-res.json)
     * [yaml](iso15118-2/docs/api-res.yaml)
 
+## Debug
+
+To introspect iso15118  trace use dsv2shark wireshark plugin with nss-key-log master keys.
+
+Plugin:
+ * source: https://github.com/dspace-group/dsV2Gshark
+ * binary Linux packages: https://download.redpesk.bzh/redpesk-lts/batz-2.0-update/sdk-third-party/ (dnf/zypper/apt install dsv2gshark)
+
+Using NSS-KEY-LOG master key file to decrypt TLS with wireshark
+```
+wireshark iso15118-binding-rs/afb-test/trace-logs/hello2-tls-1.3.pcapng -o tls.keylog_file:iso15118-binding-rs/afb-test/trace-logs/hello2-tls-1.3.keylog
+```
 
 ## Current development status
 
