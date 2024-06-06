@@ -9,8 +9,21 @@ Provide a testing environment for ISO15118 simulator and other iso15118 related 
 ```
 Note: IoT.bzh mostly uses podman. Nevertheless the same command should work with docker.
 
+## Send to git OCI registry
 
-## Running
+* request authentication token from: https://github.com/settings/tokens/new?scopes=write:packages
+* within your bash env ```export CR_PAT=YOUR_TOKEN```
+* echo $CR_PAT |podman/docker login ghcr.io -u USERNAME --password-stdin
+* podman push localhost/afb-iso15118:latest ghcr.io/tux-evse/iso15118-simulator
+
+## Pull/Run from git repository
+* cd /tmp
+* podman/docker pull ghcr.io/tux-evse/iso15118-simulator:latest
+* wget https://raw.githubusercontent.com/EVerest/logfiles/main/Audi/Q4/ac_iso2-1.dump
+* file ac_iso2-1.dump # should be tcpdump format
+* podman run -it  -v .:/pcap-logs:Z ghcr.io/tux-evse/iso15118-simulator pcap-iso15118 --pcap_in=/pcap-logs/ac_iso2-1.dump --json_out=/pcap-logs/ac_iso2-1.json
+* cat ac_iso2-1.json
+
 
 ### pcap-iso15118
 
