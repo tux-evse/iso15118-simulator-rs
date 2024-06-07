@@ -24,7 +24,7 @@ impl IsoToJson for CertificateRootList {
 
         let jsonc = JsoncObj::array();
         for cert in certs {
-            jsonc.insert(cert.as_str())?;
+            jsonc.append(cert.as_str())?;
         }
         Ok(jsonc)
     }

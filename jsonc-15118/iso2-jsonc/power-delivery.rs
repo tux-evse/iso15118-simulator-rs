@@ -70,7 +70,7 @@ impl IsoToJson for PowerDeliveryRequest {
             let jprofiles = JsoncObj::array();
             for idx in 0..profiles.len() {
                 let profile = &profiles[idx];
-                jprofiles.insert(profile.to_jsonc()?)?;
+                jprofiles.append(profile.to_jsonc()?)?;
             }
             jsonc.add("charging_profiles", jprofiles)?;
         }

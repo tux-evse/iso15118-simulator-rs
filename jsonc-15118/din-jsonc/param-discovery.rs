@@ -63,7 +63,7 @@ impl IsoToJson for SalesTariff {
         if entries.len() > 0 {
             let jentries = JsoncObj::array();
             for entry in entries {
-                jentries.insert(entry.to_jsonc()?)?;
+                jentries.append(entry.to_jsonc()?)?;
             }
             jsonc.add("tariff_entries", jentries)?;
         }
@@ -152,7 +152,7 @@ impl IsoToJson for PMaxSchedule {
         if entries.len() > 0 {
             let jentries = JsoncObj::array();
             for entry in entries {
-                jentries.insert(entry.to_jsonc()?)?;
+                jentries.append(entry.to_jsonc()?)?;
             }
             jsonc.add("entries", jentries)?;
         }
@@ -255,7 +255,7 @@ impl IsoToJson for ParamDiscoveryResponse {
         if tuples.len() > 0 {
             let jtuples = JsoncObj::array();
             for tuple in tuples {
-                jtuples.insert(tuple.to_jsonc()?)?;
+                jtuples.append(tuple.to_jsonc()?)?;
             }
             jsonc.add("tuples", jtuples)?;
         }

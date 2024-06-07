@@ -42,7 +42,7 @@ impl IsoToJson for PaymentSelectionRequest {
         if services.len() > 0 {
             let jservices = JsoncObj::array();
             for service in services {
-                jservices.insert(service.to_jsonc()?)?;
+                jservices.append(service.to_jsonc()?)?;
             }
             jsonc.add("services", jservices)?;
         }

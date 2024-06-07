@@ -26,7 +26,7 @@ use std::io::Write;
 #[track_caller]
 fn err_usage(uid: &str, data: &str) -> Result<(), AfbError> {
     println!("usage: pcap-iso15118 --pcap_in=xxx.pcap --json_out=scenario.json [--max_count=xx] [--verbose=1] [--key_log_in=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx");
-    return afb_error!(uid, "invalid argument: {}", data);
+    return afb_error!(uid, "{}", data);
 }
 
 struct ScenarioDin {
@@ -93,7 +93,7 @@ impl ScenarioDin {
 
         if let None = self.pending {
             if self.debug_only {
-                jtransactions.insert(self.jtransaction.clone())?;
+                jtransactions.append(self.jtransaction.clone())?;
             } else {
                 println!("{:#}", self.jtransaction);
             }
@@ -166,7 +166,7 @@ impl ScenarioIso2 {
 
         if let None = self.pending {
             if self.debug_only {
-                jtransactions.insert(self.jtransaction.clone())?;
+                jtransactions.append(self.jtransaction.clone())?;
             } else {
                 println!("{:#}", self.jtransaction);
             }
@@ -214,6 +214,12 @@ impl ScenarioLog {
             return afb_error!("pcap-session-close", "empty iso15118 session");
         }
 
+        // insert SDP discovery and append session close
+        let jsdp = JsoncObj::parse("{'uid':'sdp-evse','query':{'action':'discovery'}}")?;
+        let jend = JsoncObj::parse("{'uid':'sdp-evse','query':{'action':'forget'}}")?;
+        self.jtransactions.insert(jsdp)?;
+        self.jtransactions.append(jend)?;
+
         let jscenario = JsoncObj::new();
         let uid = format!("scenario-{}", self.jscenarios.count()? + 1);
         jscenario.add("uid", &uid)?;
@@ -226,7 +232,7 @@ impl ScenarioLog {
         jscenario.add("transactions", self.jtransactions.clone())?;
 
         // save scenario and reset transaction for next tcp/iso session
-        self.jscenarios.insert(jscenario)?;
+        self.jscenarios.append(jscenario)?;
         self.jtransactions = JsoncObj::array();
         Ok(count)
     }
@@ -478,7 +484,7 @@ fn packet_handler_cb(
 
 fn main() -> Result<(), AfbError> {
     let args: Vec<String> = env::args().collect();
-    if args.len() < 4 {
+    if args.len() < 1 {
         return err_usage("arguments missing", args[0].as_str());
     }
 
@@ -499,6 +505,10 @@ fn main() -> Result<(), AfbError> {
 
     for idx in 1..args.len() {
         let arg = &args[idx];
+
+        if arg == "--help" {
+            return err_usage("usage", "check syntax");
+        }
 
         let mut parts = arg.split('=').collect::<Vec<&str>>();
         if parts.len() == 1 {

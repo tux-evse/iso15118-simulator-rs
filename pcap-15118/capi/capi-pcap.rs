@@ -1194,6 +1194,7 @@ impl PcapHandle {
         }
     }
 
+    #[track_caller]
     pub fn set_pcap_file(&mut self, filename: &str) -> Result<&mut Self, AfbError> {
         let path = match CString::new(filename) {
             Ok(value) => value,
@@ -1212,9 +1213,8 @@ impl PcapHandle {
             if pcap == std::ptr::null_mut() {
                 let cstring = CStr::from_ptr(buffer.as_ptr());
                 return afb_error!(
-                    "pcap_open_offline",
-                    "fail open:{} error:{}",
-                    filename,
+                    "pcap_open",
+                    "error:{}",
                     cstring.to_str().unwrap()
                 );
             }
@@ -1228,6 +1228,7 @@ impl PcapHandle {
         &self.pcap_in
     }
 
+    #[track_caller]
     pub fn set_psk_log(&mut self, key_log: &str) -> Result<&mut Self, AfbError> {
         let tls_session = TlsSession::new(key_log, self.verbose)?;
         self.tls_session = Some(tls_session);

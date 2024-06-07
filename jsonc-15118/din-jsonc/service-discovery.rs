@@ -110,7 +110,7 @@ impl IsoToJson for ServiceDiscoveryResponse {
         if payments.len() > 0 {
             let jpay = JsoncObj::array();
             for payment in payments {
-                jpay.insert(payment.clone().to_label())?;
+                jpay.append(payment.clone().to_label())?;
             }
             jsonc.add("payments", jpay)?;
         }

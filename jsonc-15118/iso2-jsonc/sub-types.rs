@@ -97,7 +97,7 @@ impl IsoToJson for CertificateRootList {
 
         let jsonc = JsoncObj::array();
         for cert in certs {
-            jsonc.insert(cert.to_jsonc()?)?;
+            jsonc.append(cert.to_jsonc()?)?;
         }
         Ok(jsonc)
     }
@@ -136,7 +136,7 @@ impl IsoToJson for CertificateChainType {
             for subcert in subcerts {
                 let mut encode = String::new();
                 general_purpose::STANDARD.encode_string(subcert, &mut encode);
-                jsubcerts.insert(&encode)?;
+                jsubcerts.append(&encode)?;
             }
             jsonc.add("sub_certs", jsubcerts)?;
         }
@@ -495,7 +495,7 @@ impl IsoToJson for ParamSet {
                 let jprm = JsoncObj::new();
                 jprm.add("name", prm.get_name()?)?;
                 jprm.add("value", prm.get_value()?.to_jsonc()?)?;
-                jprms.insert(jprm)?;
+                jprms.append(jprm)?;
             }
             jsonc.add("prms", jprms)?;
         }

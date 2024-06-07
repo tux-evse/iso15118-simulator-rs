@@ -112,7 +112,7 @@ impl IsoToJson for ServiceDiscoveryResponse {
         if transfers.len() > 0 {
             let jtrans = JsoncObj::array();
             for idx in 0..transfers.len() {
-                jtrans.insert(transfers[idx].clone().to_label())?;
+                jtrans.append(transfers[idx].clone().to_label())?;
             }
             jsonc.add("transfers", jtrans)?;
         }
@@ -120,7 +120,7 @@ impl IsoToJson for ServiceDiscoveryResponse {
         if payments.len() > 0 {
             let jpay = JsoncObj::array();
             for payment in payments {
-                jpay.insert(payment.clone().to_label())?;
+                jpay.append(payment.clone().to_label())?;
             }
             jsonc.add("payments", jpay)?;
         }
@@ -128,7 +128,7 @@ impl IsoToJson for ServiceDiscoveryResponse {
         if services.len() > 0 {
             let jserv = JsoncObj::array();
             for service in services {
-                jserv.insert(service.to_jsonc()?)?;
+                jserv.append(service.to_jsonc()?)?;
             }
             jsonc.add("services", jserv)?;
         }

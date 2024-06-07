@@ -36,7 +36,7 @@ impl IsoToJson for ServiceDetailResponse {
         if psets.len() > 0 {
             let jpsets = JsoncObj::array();
             for pset in psets {
-                jpsets.insert(pset.to_jsonc()?)?;
+                jpsets.append(pset.to_jsonc()?)?;
             }
             jsonc.add("psets", jpsets)?;
         }
