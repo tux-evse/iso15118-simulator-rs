@@ -189,19 +189,23 @@ struct ScenarioLog {
 }
 
 impl ScenarioLog {
-    fn new(pkg_count: u32, protocol: v2g::ProtocolTagId, debug_only: bool) -> Self {
+    fn new(pkg_count: u32, protocol: v2g::ProtocolTagId, debug_only: bool) -> Result<Self, AfbError> {
         let protocol = match protocol {
             v2g::ProtocolTagId::Din => ScenarioProto::Din(ScenarioDin::new(debug_only)),
             v2g::ProtocolTagId::Iso2 => ScenarioProto::Iso2(ScenarioIso2::new(debug_only)),
             _ => ScenarioProto::Undef,
         };
 
-        Self {
+        let this= Self {
             protocol,
             jscenarios: JsoncObj::array(),
             jtransactions: JsoncObj::array(),
             pkg_start: pkg_count,
-        }
+        };
+
+        let jsdp = JsoncObj::parse("{'uid':'sdp-evse','query':{'action':'discovery'}}")?;
+        this.jtransactions.append(jsdp)?;
+        Ok(this)
     }
 
     fn get_pkg_start(&self) -> u32 {
@@ -214,20 +218,19 @@ impl ScenarioLog {
             return afb_error!("pcap-session-close", "empty iso15118 session");
         }
 
-        // insert SDP discovery and append session close
-        let jsdp = JsoncObj::parse("{'uid':'sdp-evse','query':{'action':'discovery'}}")?;
+        // insert sdp session close
         let jend = JsoncObj::parse("{'uid':'sdp-evse','query':{'action':'forget'}}")?;
-        self.jtransactions.insert(jsdp)?;
         self.jtransactions.append(jend)?;
 
         let jscenario = JsoncObj::new();
-        let uid = format!("scenario-{}", self.jscenarios.count()? + 1);
-        jscenario.add("uid", &uid)?;
+
         let target = match &ctx.session_protocol {
-            v2g::ProtocolTagId::Din => "iso15118-din",
-            v2g::ProtocolTagId::Iso2 => "iso15118-2",
+            v2g::ProtocolTagId::Din => "15118/din",
+            v2g::ProtocolTagId::Iso2 => "15118/iso2",
             _ => return afb_error!("pcal-closing-log", "unsupported protocol"),
         };
+        let uid = format!("scenario:{}/{}", target, self.jscenarios.count()? + 1);
+        jscenario.add("uid", &uid)?;
         jscenario.add("target", target)?;
         jscenario.add("transactions", self.jtransactions.clone())?;
 
@@ -244,18 +247,24 @@ impl ScenarioLog {
             return afb_error!("pcap-scenarios-close", "empty iso15118 scenario");
         }
 
-        jbinding.add("uid", &ctx.pcap_in)?;
-        jbinding.add("info", &ctx.json_out)?;
-        jbinding.add("api", "pcap-simu")?;
+        jbinding.add("uid", "iso15118-simulator")?;
+        jbinding.add("info", &ctx.pcap_in)?;
+        jbinding.add("api", "iso15118-replay")?;
         jbinding.add(
             "path",
-            "${CARGO_TARGET_DIR}debug/libafb_iso15118_simulator.so",
+            "${CARGO_BINDING_DIR}/libafb_injector.so",
         )?;
 
         jbinding.add("scenarios", self.jscenarios.clone())?;
         self.jscenarios = JsoncObj::array();
 
-        Ok(jbinding)
+        // finally embed binding object into binder/bindings array
+        let jbindings= JsoncObj::array();
+        jbindings.append(jbinding)?;
+        let jbinder= JsoncObj::new();
+        jbinder.add("binding",jbindings)?;
+
+        Ok(jbinder)
     }
 }
 
@@ -435,7 +444,7 @@ fn packet_handler_cb(
                         pkg_count,
                         ctx.session_protocol,
                         debug_only,
-                    ));
+                    )?);
                 }
                 v2g::V2gMsgBody::Request(payload) => {
                     ctx.supported_protocols = payload.get_protocols();
@@ -491,7 +500,7 @@ fn main() -> Result<(), AfbError> {
     let mut pcaps = PcapHandle::new();
     let mut logger = LoggerCtx {
         session_protocol: v2g::ProtocolTagId::Unknown,
-        scenario: RefCell::new(ScenarioLog::new(0, v2g::ProtocolTagId::Unknown, true)),
+        scenario: RefCell::new(ScenarioLog::new(0, v2g::ProtocolTagId::Unknown, true)?),
         supported_protocols: Vec::new(),
         timestamp: Duration::new(0, 0),
         log_fd: None,

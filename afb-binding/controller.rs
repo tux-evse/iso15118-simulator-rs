@@ -114,7 +114,7 @@ fn async_tcp_client_cb(
         ctx.ctrl.stream.finalize(&lock, ctx.payload_len)?;
         match ctx.ctrl.stream.get_payload_id(&lock) {
             // iso2 only use SAP payload-id
-            v2g::PayloadMsgId::SAP => ctx.ctrl.iso_decode_payload(state, &mut lock)?,
+            v2g::PayloadMsgId::SAP => ctx.ctrl.iso2_decode_payload(state, &mut lock)?,
             _ => {
                 return afb_error!(
                     "async_tcp_client",
@@ -484,7 +484,7 @@ impl Controller {
         Ok(())
     }
 
-    pub fn iso_decode_payload(
+    pub fn iso2_decode_payload(
         &self,
         mut state: MutexGuard<'_, ControllerState>,
         lock: &mut MutexGuard<RawStream>,

@@ -362,7 +362,7 @@ pub fn api_from_tagid(msg_api: &'static str) -> Result<ApiMsgInfo, AfbError> {
             sample: Some("{'rcode':'new_session','status':{'error':'ready','notification':'re_negotiation','delay':160},'voltage':{'value':400,'multiplier':1,'unit':'volt'}}"),
         },
 
-        _ => return afb_error!("hoops", "Unknown message"),
+        _ => return afb_error!("hoops", "Unknown Din message:{}", msg_api),
     };
     Ok(api_info)
 }

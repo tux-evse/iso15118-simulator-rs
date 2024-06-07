@@ -1,5 +1,5 @@
 [package]
-name = "iso15118-2-json"
+name = "iso15118-simulator"
 version = "0.0.1"
 edition = "2021"
 authors = ["Fulup Le Foll <fulup@iot.bzh>"]
@@ -20,6 +20,6 @@ default = ["iso15118","iso15118/default"]
 afbv4 = ["iso15118","iso15118/afbv4", "dep:afbv4"]
 
 [lib]
-name = "afb_iso15118_2"
+name = "afb_iso15118_simulator"
 crate-type = ["cdylib"]
 path = "libso.rs"

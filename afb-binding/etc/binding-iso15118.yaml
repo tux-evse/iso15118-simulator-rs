@@ -1,0 +1,63 @@
+name: afb-simu15118
+port: 1234
+httpd: true
+threads-init: 3
+alias:
+  - /devtools:/usr/share/afb-ui-devtools/binder
+binding:
+  - uid: iso15118
+    path: ${CARGO_BINDING_DIR}/libafb_iso15118_simulator.so
+    info: RUST ISO-15118 EV Simulator
+    iface: ${IFACE_SIMU}     # default lo
+    # ip6_prefix:  0xFE80    # default 0
+    # sdp_port:    15118     # default 15118
+
+    protocols:
+      - uid: din
+        info: iso15118-din no TLS
+        verbs:
+          - contract_authentication_req
+          - session_setup_req
+          - service_discovery_req
+          - service_detail_req
+          - cable_check_req
+          - certificate_install_req
+          - certificate_update_req
+          - param_discovery_req
+          - charging_status_req
+          - current_demand_req
+          - metering_receipt_req
+          - payment_details_req
+          - payment_selection_req
+          - power_delivery_req
+          - pre_charge_req
+          - session_stop_req
+          - welding_detection_req
+
+      - uid: iso2
+        info: "iso15118-2 tls-1.2"
+        tls:
+          # note client root of trust should be visible from server 'certs_trust' directory
+          certs: ${PKI_TLS_DIR}/_client.pem
+          key: ${PKI_TLS_DIR}/_client.key.pem
+          format: der #default pem
+          proto: SECURE128:-VERS-SSL3.0:-VERS-TLS1.0:-ARCFOUR-128:+PSK:+DHE-PSK
+          psklog_in: /tmp/tls-keys-client.log
+        verbs:
+          - session_setup_req
+          - service_discovery_req
+          - service_detail_req
+          - authorization_req
+          - cable_check_req
+          - certificate_install_req
+          - certificate_update_req
+          - param_discovery_req
+          - charging_status_req
+          - current_demand_req
+          - metering_receipt_req
+          - payment_details_req
+          - payment_selection_req
+          - power_delivery_req
+          - pre_charge_req
+          - session_stop_req
+          - welding_detection_req

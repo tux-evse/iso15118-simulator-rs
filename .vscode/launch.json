@@ -2,21 +2,47 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "iso-2",
+            "name": "simulator-iso15118",
             "type": "lldb",
             "preLaunchTask": "binding-native-build",
             "request": "launch",
             "program": "afb-binder",
             "env": {
+                "CARGO_BINDING_DIR": "${env:CARGO_TARGET_DIR}debug",
                 "LD_LIBRARY_PATH": "/usr/local/lib64",
-                "IFACE_SIMU": "simu-veth",
+                "IFACE_SIMU": "lo",
                 "PKI_TLS_DIR": "../iso15118-binding-rs/afb-test/certs"
             },
             "args": [
                 "-v",
                 "--monitoring",
                 "--trap-faults=0",
-                "--config=binding-15118/etc/binding-iso2.yaml",
+                "--config=afb-binding/etc/binding-iso15118.yaml",
+            ],
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "target stop-hook add -n _start -o continue",
+                "settings set target.disable-aslr false"
+            ]
+        },
+        {
+            "name": "injector-iso2",
+            "type": "lldb",
+            "preLaunchTask": "binding-native-build",
+            "request": "launch",
+            "program": "afb-binder",
+            "env": {
+                "CARGO_BINDING_DIR": "${env:CARGO_TARGET_DIR}debug",
+                "LD_LIBRARY_PATH": "/usr/local/lib64",
+                "IFACE_SIMU": "lo",
+                "PKI_TLS_DIR": "../iso15118-binding-rs/afb-test/certs",
+            },
+            "args": [
+                "-v",
+                "--monitoring",
+                "--trap-faults=0",
+                "--config=afb-test/etc/binding-iso15118.yaml",
+                "--config=afb-test/etc/audi-dc-iso2.json",
             ],
             "cwd": "${workspaceFolder}",
             "initCommands": [

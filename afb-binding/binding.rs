@@ -30,81 +30,109 @@ pub struct BindingConfig {
 pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi, AfbError> {
     afb_log_msg!(Info, rootv4, "config:{}", jconf);
 
-    let uid = jconf.default("uid", "iso15118-2")?;
-    let api = jconf.default("api", "iso-2")?;
-    let info = jconf.default("info", "iso15118-2 json API")?;
+    let uid = jconf.default("uid", "iso15118")?;
+    let api = jconf.default("api", "15118")?;
+    let info = jconf.default("info", "iso15118(2/Din) json API")?;
 
     let sdp_port = jconf.default("sdp_port", 15118)?;
-    let ip6_prefix = jconf.default("ip6_prefix", 0xFE80)?;
+    let ip6_prefix = jconf.default("ip6_prefix", 0)?;
     let ip6_iface = jconf.default("iface", "lo")?;
-    let session_id = jconf.default("session", "[01,02,03,04,05,06]")?;
-    let timeout = jconf.default("timeout", 1000)?;
-    let protocol = jconf.get("protocol")?;
 
-    let tls_conf = if let Some(jtls) = jconf.optional::<JsoncObj>("tsl")? {
-        let cert_chain = jtls.get("certs")?;
-        let cert_format = jtls.default("format", "pem")?;
-        let priv_key = jtls.get("key")?;
-        let pin_key = jtls.optional("pin")?;
-        let tls_psk = jtls.optional("pks")?;
-        let tls_verbosity = jtls.default("verbosity", 1)?;
-        let tls_proto = jtls.optional("proto")?;
-        let psklog_in = jtls.optional("psklog_in")?;
-
-        Some(TlsConfig::new(
-            cert_chain,
-            priv_key,
-            pin_key,
-            None,
-            cert_format,
-            tls_psk,
-            psklog_in,
-            tls_verbosity,
-            tls_proto,
-        )?)
-    } else {
-        None
-    };
-
-    let jverbs = jconf.get::<JsoncObj>("verbs")?;
-    if !jverbs.is_type(Jtype::Array) {
-        return afb_error!(
-            "iso2-binding-config",
-            "verbs should be a valid array of iso messages"
-        );
+    let protocols = jconf.get::<JsoncObj>("protocols")?;
+    if protocols.count()? < 1 {
+        return afb_error!("iso15118-binding-config", "protocols array empty");
     }
 
-    let sdp_security = match &tls_conf {
-        None => SdpSecurityModel::NONE,
-        Some(_) => SdpSecurityModel::TLS,
-    };
-
-    // Register ctrl
-    let controller_config = ControllerConfig {
-        tls_conf,
-        session_id,
-    };
-    let ctrl = Controller::new(controller_config)?;
-
-    // send SDP multicast packet
-
-    let binding_config = BindingConfig {
-        ip6_iface,
-        ip6_prefix,
-        sdp_port,
-        sdp_security,
-        timeout,
-        jverbs,
-        protocol,
-    };
     // create an register frontend api and register init session callback
-    let api = AfbApi::new(uid)
-        .set_name(api)
-        .set_info(info)
-        ;
+    let api = AfbApi::new(uid).set_name(api).set_info(info);
 
-    // create verbs
-    register_verbs(api, binding_config, ctrl)?;
+    for idx in 0..protocols.count()? {
+        let jproto = protocols.index::<JsoncObj>(idx)?;
+        let uid = jproto.default("uid", "iso15118")?;
+        let prefix = jproto.default("prefix", uid)?;
+        let info = jproto.default("info", "iso15118(2/Din) json API")?;
+        let protocol = jproto.default("protocol", prefix)?;
+
+        let group = AfbGroup::new(uid)
+            .set_info("timer demo api group")
+            .set_prefix(prefix)
+            .set_info(info);
+
+        let session_id = jproto.default("session", "[01,02,03,04,05,06]")?;
+        let timeout = jproto.default("timeout", 1000)?;
+
+        let tls_conf = if let Some(jtls) = jproto.optional::<JsoncObj>("tsl")? {
+            let cert_chain = jtls.get("certs")?;
+            let cert_format = jtls.default("format", "pem")?;
+            let priv_key = jtls.get("key")?;
+            let pin_key = jtls.optional("pin")?;
+            let tls_psk = jtls.optional("pks")?;
+            let tls_verbosity = jtls.default("verbosity", 1)?;
+            let tls_proto = jtls.optional("proto")?;
+            let psklog_in = jtls.optional("psklog_in")?;
+
+            Some(TlsConfig::new(
+                cert_chain,
+                priv_key,
+                pin_key,
+                None,
+                cert_format,
+                tls_psk,
+                psklog_in,
+                tls_verbosity,
+                tls_proto,
+            )?)
+        } else {
+            None
+        };
+
+        let jverbs = jproto.get::<JsoncObj>("verbs")?;
+        if !jverbs.is_type(Jtype::Array) {
+            return afb_error!(
+                "iso2-binding-config",
+                "verbs should be a valid array of iso messages"
+            );
+        }
+
+        let sdp_security = match &tls_conf {
+            None => SdpSecurityModel::NONE,
+            Some(_) => SdpSecurityModel::TLS,
+        };
+
+        // Register ctrl
+        let controller_config = ControllerConfig {
+            tls_conf,
+            session_id,
+        };
+        let ctrl = Controller::new(controller_config)?;
+
+        // send SDP multicast packet
+
+        let binding_config = BindingConfig {
+            ip6_iface,
+            ip6_prefix,
+            sdp_port,
+            sdp_security,
+            timeout,
+            jverbs,
+            protocol,
+        };
+
+        // create verbs
+        register_verbs(group, binding_config, ctrl)?;
+
+        // if acls set apply them
+        if let Some(value) = jproto.optional::<&str>("permission")? {
+            api.set_permission(AfbPermission::new(value));
+        };
+
+        if let Some(value) = jproto.optional("verbosity")? {
+            api.set_verbosity(value);
+        };
+
+        // finalize api protocol group & add it to binding api
+        api.add_group(group.finalize()?);
+    }
 
     // if acls set apply them
     if let Some(value) = jconf.optional::<&str>("permission")? {

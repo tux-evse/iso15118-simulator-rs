@@ -234,16 +234,16 @@ fn app_proto_req_cb(
 }
 
 pub fn register_verbs(
-    api: &mut AfbApi,
+    group: &mut AfbGroup,
     config: BindingConfig,
     ctrl: &'static Controller,
 ) -> Result<(), AfbError> {
     sdp_actions::register()?;
 
-    let protocol_conf = match config.protocol {
+    let protocol_conf = match config.protocol.to_lowercase().as_str() {
         "din" => v2g::ProtocolTagId::Din,
         "iso2" => v2g::ProtocolTagId::Iso2,
-        _ => return afb_error!("register-verb", "unsupported protocol:{}", config.protocol),
+        _ => return afb_error!("register-verb", "unsupported iso15118 expect:din|iso2 got:{}", config.protocol),
     };
 
     let sdp_job = AfbSchedJob::new("sdp-job")
@@ -269,7 +269,7 @@ pub fn register_verbs(
 
     let app_proto_verb = AfbVerb::new("v2g-hand-shake")
         .set_name("app_proto_req")
-        .set_info("Announce ISO2 as only supported protocol")
+        .set_info("Announce simulated protocol")
         .set_callback(app_proto_req_cb)
         .set_context(V2gMsgReqCtx {
             ctrl,
@@ -279,35 +279,35 @@ pub fn register_verbs(
             msg_id: v2g::MessageTagId::AppProtocolReq as u32,
         });
 
-    api.add_verb(connect_verb.finalize()?);
-    api.add_verb(app_proto_verb.finalize()?);
+    group.add_verb(connect_verb.finalize()?);
+    group.add_verb(app_proto_verb.finalize()?);
 
     for idx in 0..config.jverbs.count()? {
         let msg_name = config.jverbs.index::<&'static str>(idx)?;
 
-        let msg_api = match protocol_conf {
+        let msg_group = match protocol_conf {
             v2g::ProtocolTagId::Din => din_jsonc::api_from_tagid(msg_name)?,
             v2g::ProtocolTagId::Iso2 => iso2_jsonc::api_from_tagid(msg_name)?,
             _ => return afb_error!("hoop", "invalid protocol"),
         };
 
-        let iso2_msg_verb = AfbVerb::new(msg_api.uid);
-        iso2_msg_verb
-            .set_name(msg_api.name)
-            .set_info(msg_api.info)
+        let v2g_msg_verb = AfbVerb::new(msg_group.uid);
+        v2g_msg_verb
+            .set_name(msg_group.name)
+            .set_info(msg_group.info)
             .set_callback(v2g_msg_req_cb)
             .set_context(V2gMsgReqCtx {
                 ctrl,
                 uid: msg_name,
                 timeout: config.timeout,
-                msg_id: msg_api.msg_id,
+                msg_id: msg_group.msg_id,
                 protocol: protocol_conf,
             });
 
-        if let Some(sample) = msg_api.sample {
-            iso2_msg_verb.set_sample(sample)?;
+        if let Some(sample) = msg_group.sample {
+            v2g_msg_verb.set_sample(sample)?;
         };
-        api.add_verb(iso2_msg_verb.finalize()?);
+        group.add_verb(v2g_msg_verb.finalize()?);
     }
 
     Ok(())
