@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use iso15118::prelude::iso2_exi::*;
-use iso15118::prelude::*;
 
 #[test]
 fn session_setup_request() -> Result<(), AfbError> {

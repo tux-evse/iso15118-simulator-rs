@@ -258,7 +258,7 @@ pub fn register_verbs(
     let connect_verb = AfbVerb::new("sdp-evse")
         .set_name("sdp_evse_req")
         .set_info("Discover EVSE ISO-15118 services")
-        .set_action("['discover','forget','info']")?
+        .set_actions("['discover','forget','info']")?
         .set_callback(discover_evse_cb)
         .set_context(DiscoverEvseCtx {
             sdp_job,
