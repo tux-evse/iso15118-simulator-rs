@@ -1,5 +1,5 @@
 [package]
-name = "iso15118-simulator"
+name = "sim15118-pev-binding"
 version = "0.0.1"
 edition = "2021"
 authors = ["Fulup Le Foll <fulup@iot.bzh>"]
@@ -20,6 +20,6 @@ default = ["iso15118","iso15118/default"]
 afbv4 = ["iso15118","iso15118/afbv4", "dep:afbv4"]
 
 [lib]
-name = "afb_iso15118_simulator"
+name = "afb_sim15118_pev"
 crate-type = ["cdylib"]
-path = "libso.rs"
+path = "src/libso.rs"

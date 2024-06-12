@@ -21,4 +21,4 @@ afbv4 = ["dep:afbv4","iso15118","iso15118/afbv4","nettls","nettls/afbv4"]
 [lib]
 name = "iso15118_jsonc"
 crate-type = ["lib"]
-path = "lib-jsonc.rs"
+path = "src/lib-jsonc.rs"

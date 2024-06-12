@@ -1,5 +1,5 @@
 [package]
-name = "iso15118-binding"
+name = "sim15118-evse-binding"
 version = "0.0.1"
 edition = "2021"
 authors = ["Fulup Le Foll <fulup@iot.bzh>"]
@@ -15,6 +15,6 @@ iso15118_jsonc = {path ="../jsonc-15118"}
 nettls= {path ="../../iso15118-network-rs"}
 
 [lib]
-name = "afb_iso15118"
+name = "afb_sim15118_evse"
 crate-type = ["cdylib"]
 path = "src/libso.rs"

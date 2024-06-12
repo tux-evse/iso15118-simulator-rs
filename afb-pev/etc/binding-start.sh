@@ -2,19 +2,18 @@
 
 cd $(dirname $0)/..
 CONFDIR=`pwd`/etc
+ROOTDIR=`pwd`/.
 
 # use libafb development version if any
 export LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"
 export PATH="/usr/local/lib64:$PATH"
+export CARGO_BINDING_DIR="${CARGO_TARGET_DIR}/debug"
+export IFACE_SIMU=lo
 clear
 pwd
-export BINDING=libafb_iso15118.so
-if ! test -f $CARGO_TARGET_DIR/debug/$BINDING; then
-    echo "FATAL: missing $CARGO_TARGET_DIR/debug/$BINDING use: cargo build"
-    exit 1
-fi
 
 # start binder with test config
 afb-binder -v \
-   --config=$CONFDIR/binding-iso15118.yaml \
+    --config=$CONFDIR/binding-simu15118-pev.yaml \
+    --config=$ROOTDIR/../afb-test/etc/audi-dc-iso2.json \
    $*

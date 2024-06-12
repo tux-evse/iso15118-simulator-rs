@@ -6,7 +6,7 @@ alias:
 binding:
   - uid: iso-15118
     api: i15118
-    path: ${CARGO_TARGET_DIR}debug/libafb_iso15118.so
+    path: ${CARGO_TARGET_DIR}debug/libafb_sim15118_evse.so
     info: RUST ISO-15118 EVSE binding
     //iface: ${IFACE_EVSE} # default lo
     // ip6_prefix: 0xFE80 # default 0

@@ -27,8 +27,8 @@ pub struct BindingConfig {
 
 // Binding init callback started at binding load time before any API exist
 // -----------------------------------------
-pub fn binding_init(rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi, AfbError> {
-    afb_log_msg!(Info, rootv4, "config:{}", jconf);
+pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi, AfbError> {
+    //afb_log_msg!(Debug, rootv4, "config:{}", jconf);
 
     let uid = jconf.default("uid", "iso15118")?;
     let api = jconf.default("api", "15118")?;

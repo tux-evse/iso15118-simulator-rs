@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "simulator-iso15118",
+            "name": "evse-simu15118",
             "type": "lldb",
             "preLaunchTask": "binding-native-build",
             "request": "launch",
@@ -11,13 +11,13 @@
                 "CARGO_BINDING_DIR": "${env:CARGO_TARGET_DIR}debug",
                 "LD_LIBRARY_PATH": "/usr/local/lib64",
                 "IFACE_SIMU": "lo",
-                "PKI_TLS_DIR": "../iso15118-binding-rs/afb-test/certs"
+                //"PKI_TLS_DIR": "./afb-test/certs"
             },
             "args": [
                 "-v",
                 "--monitoring",
                 "--trap-faults=0",
-                "--config=afb-binding/etc/binding-iso15118.yaml",
+                "--config=afb-evse/etc/binding-simu15118-evse.yaml",
             ],
             "cwd": "${workspaceFolder}",
             "initCommands": [
@@ -26,7 +26,7 @@
             ]
         },
         {
-            "name": "injector-iso2",
+            "name": "pev_simu",
             "type": "lldb",
             "preLaunchTask": "binding-native-build",
             "request": "launch",
@@ -35,13 +35,13 @@
                 "CARGO_BINDING_DIR": "${env:CARGO_TARGET_DIR}debug",
                 "LD_LIBRARY_PATH": "/usr/local/lib64",
                 "IFACE_SIMU": "lo",
-                "PKI_TLS_DIR": "../iso15118-binding-rs/afb-test/certs",
+                //"PKI_TLS_DIR": "./afb_test/certs",
             },
             "args": [
                 "-v",
                 "--monitoring",
                 "--trap-faults=0",
-                "--config=afb-test/etc/binding-iso15118.yaml",
+                "--config=afb-pev/etc/binding-simu15118-pev.yaml",
                 "--config=afb-test/etc/audi-dc-iso2.json",
             ],
             "cwd": "${workspaceFolder}",
