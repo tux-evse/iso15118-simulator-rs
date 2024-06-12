@@ -61,30 +61,10 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
         let session_id = jproto.default("session", "[01,02,03,04,05,06]")?;
         let timeout = jproto.default("timeout", 1000)?;
 
-        let tls_conf = if let Some(jtls) = jproto.optional::<JsoncObj>("tsl")? {
-            let cert_chain = jtls.get("certs")?;
-            let cert_format = jtls.default("format", "pem")?;
-            let priv_key = jtls.get("key")?;
-            let pin_key = jtls.optional("pin")?;
-            let tls_psk = jtls.optional("pks")?;
-            let tls_verbosity = jtls.default("verbosity", 1)?;
-            let tls_proto = jtls.optional("proto")?;
-            let psklog_in = jtls.optional("psklog_in")?;
-
-            Some(TlsConfig::new(
-                cert_chain,
-                priv_key,
-                pin_key,
-                None,
-                cert_format,
-                tls_psk,
-                psklog_in,
-                tls_verbosity,
-                tls_proto,
-            )?)
-        } else {
-            None
-        };
+    let tls_conf = match jconf.optional::<JsoncObj>("tls")? {
+        None => None,
+        Some(jtls) => Some(TlsConfig::from_jsonc(jtls.clone())?),
+    };
 
         let jverbs = jproto.get::<JsoncObj>("verbs")?;
         if !jverbs.is_type(Jtype::Array) {

@@ -8,7 +8,7 @@ binding:
     api: i15118
     path: ${CARGO_TARGET_DIR}debug/libafb_sim15118_evse.so
     info: RUST ISO-15118 EVSE binding
-    //iface: ${IFACE_EVSE} # default lo
+    iface: ${IFACE_SIMU} # default lo
     // ip6_prefix: 0xFE80 # default 0
     sdp_port: 15118
     tcp_port: 61341

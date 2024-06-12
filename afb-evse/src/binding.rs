@@ -108,8 +108,8 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
     let uid = jconf.default("uid", "iso15118-16")?;
     let api = jconf.default("api", uid)?;
     let info = jconf.default("info", "")?;
-    let iface = jconf.default("iface", "eth2")?;
-    let prefix = jconf.default("ip6_prefix", 0xFE80)?;
+    let iface = jconf.default("iface", "lo")?;
+    let prefix = jconf.default("ip6_prefix", 0)?;
     let sdp_port = jconf.default("sdp_port", 15118)?;
     let tcp_port = jconf.default("tcp_port", 61341)?;
 
@@ -121,30 +121,9 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
     let (tls_conf, tls_port) = match jconf.optional::<JsoncObj>("tls")? {
         None => (None, 0),
         Some(jtls) => {
-            let tls_port = jconf.default("port", 64109)?;
-            let cert_format = jtls.default("format", "pem")?;
-            let cert_chain = jtls.get("certs")?;
-            let certs_trust = jtls.optional("certs_trust")?;
-            let priv_key = jtls.get("key")?;
-            let pin_key = jtls.optional("pin")?;
-            let tls_psk = jtls.optional("pks")?;
-            let tls_verbosity = jtls.default("verbosity", 1)?;
-            let tls_proto = jtls.optional("proto")?;
-            let psk_log = jtls.optional("psk_log")?;
-
             (
-                Some(TlsConfig::new(
-                    cert_chain,
-                    priv_key,
-                    pin_key,
-                    certs_trust,
-                    cert_format,
-                    tls_psk,
-                    psk_log,
-                    tls_verbosity,
-                    tls_proto,
-                )?),
-                tls_port,
+                Some(TlsConfig::from_jsonc(jtls.clone())?),
+                jtls.default("port", 64109)?,
             )
         }
     };

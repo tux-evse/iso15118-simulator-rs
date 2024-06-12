@@ -11,7 +11,7 @@
                 "CARGO_BINDING_DIR": "${env:CARGO_TARGET_DIR}debug",
                 "LD_LIBRARY_PATH": "/usr/local/lib64",
                 "IFACE_SIMU": "lo",
-                //"PKI_TLS_DIR": "./afb-test/certs"
+                "PKI_TLS_DIR": "./afb-test/certs"
             },
             "args": [
                 "-v",
@@ -26,7 +26,7 @@
             ]
         },
         {
-            "name": "pev_simu",
+            "name": "pev-simu15118",
             "type": "lldb",
             "preLaunchTask": "binding-native-build",
             "request": "launch",
@@ -35,7 +35,7 @@
                 "CARGO_BINDING_DIR": "${env:CARGO_TARGET_DIR}debug",
                 "LD_LIBRARY_PATH": "/usr/local/lib64",
                 "IFACE_SIMU": "lo",
-                //"PKI_TLS_DIR": "./afb_test/certs",
+                "PKI_TLS_DIR": "./afb-test/certs",
             },
             "args": [
                 "-v",

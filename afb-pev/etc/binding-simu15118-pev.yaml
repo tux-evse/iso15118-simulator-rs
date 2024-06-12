@@ -11,6 +11,12 @@ binding:
     iface: ${IFACE_SIMU}     # default lo
     # ip6_prefix:  0xFE80    # default 0
     # sdp_port:    15118     # default 15118
+    tls:
+      port: 64109
+      # format: pem|der (default pem)
+      certs: ${PKI_TLS_DIR}/_client.pem
+      key: ${PKI_TLS_DIR}/_client_key.pem
+      #pin: "123456"
 
     protocols:
       - uid: din
