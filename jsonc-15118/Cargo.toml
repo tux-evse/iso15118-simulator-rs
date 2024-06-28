@@ -7,15 +7,21 @@ publish = false
 build = "etc/build.rs"
 
 [dependencies]
-afbv4 = {git= "https://github.com/redpesk-common/afb-librust", branch="master", optional = true}
+#uncomment the "afbv4" line if you want to use "afbv4" as an external dependencies (for development purpose.)
+# You can activate this external dependency with the feature "afbv4" like :"cargo build --features afbv4"
+#afbv4 = { git = "https://github.com/redpesk-common/afb-librust", optional = true }
+iso15118 = { git ="https://github.com/tux-evse/iso15118-encoders-rs.git", branch = "sandbox/ronan/fixdep"}
+nettls =   { git ="https://github.com/tux-evse/iso15118-network-rs.git",  branch = "sandbox/ronan/fixdep"}
+
 serde = { version = "1.0", features = ["derive"] }
 serde_json={ version= "1.0"}
+base64={ version= "0.22"}
 nettls= {path ="../../iso15118-network-rs", default-features = false, optional = true}
 iso15118= {path ="../../iso15118-encoders-rs", default-features = false, optional = true}
 
 [features]
-default = ["iso15118", "nettls"]
-afbv4 = ["dep:afbv4","iso15118","iso15118/afbv4","nettls","nettls/afbv4"]
+#default = ["iso15118", "nettls"]
+#afbv4 = ["dep:afbv4","iso15118","iso15118/afbv4","nettls","nettls/afbv4"]
 
 [lib]
 name = "iso15118_jsonc"
