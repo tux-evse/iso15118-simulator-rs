@@ -26,10 +26,13 @@ pub struct ControlerState {
     pub status: u32,
     pub protocol: v2g::ProtocolTagId,
     session_id: Vec<u8>,
+    public_key: Option<PkiPubKey>,
+    challenge: Vec<u8>,
 }
 
-pub struct IsoController {
+pub struct Iso2Controller {
     pub config: ControlerConfig,
+    pub pki: Option<&'static PkiConfig>,
     pub data_set: Mutex<ControlerState>,
 }
 
@@ -39,22 +42,25 @@ pub enum IsoMsgBody {
     Sdp,
 }
 
-impl IsoController {
-    pub fn new() -> Self {
+impl Iso2Controller {
+    pub fn new(pki: Option<&'static PkiConfig>) -> Self {
         let state = Mutex::new(ControlerState {
             status: 0,
             protocol: v2g::ProtocolTagId::Unknown,
+            public_key: None,
             session_id: Vec::new(),
+            challenge: Vec::new(),
         });
         let controler = Self {
             data_set: state,
             config: ControlerConfig {},
+            pki,
         };
         controler
     }
 
     #[track_caller]
-    pub fn lock_handle(&self) -> Result<MutexGuard<'_, ControlerState>, AfbError> {
+    pub fn lock_data_set(&self) -> Result<MutexGuard<'_, ControlerState>, AfbError> {
         let guard = self.data_set.lock().unwrap();
         Ok(guard)
     }
@@ -63,8 +69,8 @@ impl IsoController {
         &self,
         lock: &mut MutexGuard<RawStream>,
     ) -> Result<IsoMsgBody, AfbError> {
-        let mut state = self.lock_handle()?;
-        let body= match state.protocol {
+        let mut data_set = self.lock_data_set()?;
+        let body= match data_set.protocol {
             v2g::ProtocolTagId::Unknown => {
                 // initial message should be v2g::AppHandSupportedAppProtocolReq
                 let v2g_msg = v2g::SupportedAppProtocolExi::decode_from_stream(lock)?;
@@ -83,7 +89,7 @@ impl IsoController {
                     .match_protocol(&v2g::V2G_PROTOCOLS_SUPPORTED_LIST)
                 {
                     Ok((rcode, proto)) => {
-                        state.protocol = proto.get_schema();
+                        data_set.protocol = proto.get_schema();
                         afb_log_msg!(
                             Debug,
                             None,
@@ -107,13 +113,50 @@ impl IsoController {
             v2g::ProtocolTagId::Iso2 => {
                 use iso2_exi::*;
                 let message = ExiMessageDoc::decode_from_stream(lock)?;
+                let header= message.get_header();
+                let body = message.get_body()?;
+
+                if header.get_signature_used() {
+                    match &data_set.public_key {
+                        None => return afb_error!("iso2-decode_stream", "msg is signed, but no public key available"),
+                        Some(key) => message.pki_sign_check(body.get_tagid(), &data_set.challenge, &key)?,
+                    }
+                }
 
                 // we have to store session_id as it is use to create every following response messages
-                let payload = message.get_body()?;
-                if let MessageBody::SessionSetupReq(msg)= &payload {
-                    state.session_id= msg.get_id().to_vec();
-                };
-                IsoMsgBody::Iso2(payload)
+                match &body {
+                    MessageBody::SessionSetupReq(msg)=> data_set.session_id= msg.get_id().to_vec(),
+                    MessageBody::PaymentDetailsReq(msg) => {
+                        let pki = match self.pki {
+                            None => return afb_error!("iso2-payment-detail", "missing mandatory pki config"),
+                            Some(pki) => pki,
+                        };
+
+                        // extract certificate and check it match with ca_trust root list
+                        let contract= msg.get_contract_chain();
+                        let cert_datum= GnuPkiDatum::new(contract.get_cert()).b64decode()?;
+                        let mut contract_cert= GnuPkiCerts::new()?;
+                        contract_cert.add_datum(&cert_datum, GnuPkiCertFormat::DER)?;
+
+                        for sub_cert in contract.get_subcerts() {
+                           let subcert_datum= GnuPkiDatum::new(sub_cert).b64decode()?;
+                           contract_cert.add_datum(&subcert_datum, GnuPkiCertFormat::DER)?;
+                        }
+
+                        // certificate match trusted authority list, let's check emaid
+                        let emaid= msg.get_emaid()?.to_uppercase();
+                        let cn= contract_cert.get_cn().to_uppercase();
+                        if emaid != cn {
+                           return afb_error!("iso2-payment-detail", "email:{} != cn:{}", emaid, cn)
+                        }
+
+                        let mut data_set= self.lock_data_set()?;
+                        data_set.public_key= Some(pki.check_cert(&mut contract_cert)?);
+                    }
+
+                    _ => {},
+                }
+                IsoMsgBody::Iso2(body)
             }
 
             v2g::ProtocolTagId::Din => {
@@ -123,7 +166,7 @@ impl IsoController {
                 // we have to store session_id as it is use to create every following response messages
                 let payload = message.get_body()?;
                 if let MessageBody::SessionSetupReq(msg)= payload {
-                    state.session_id= msg.get_id().to_vec();
+                    data_set.session_id= msg.get_id().to_vec();
                 };
                 IsoMsgBody::Din(message.get_body()?)
             }
@@ -141,7 +184,7 @@ impl IsoController {
         jsonc: JsoncObj,
     ) -> Result<(), AfbError> {
 
-        let state = self.lock_handle()?;
+        let state = self.lock_data_set()?;
         match state.protocol {
             v2g::ProtocolTagId::Unknown => return afb_error! ("iso-encode-payload", "SDP should set state before responding exi message"),
 

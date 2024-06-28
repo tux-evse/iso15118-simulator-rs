@@ -12,7 +12,6 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use base64::{engine::general_purpose, Engine as _};
 use iso15118::prelude::din_exi::*;
 
 impl IsoToJson for CertificateRootList {
@@ -47,31 +46,21 @@ impl IsoToJson for CertificateChainType {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
 
-        let mut base64 = String::new();
-        general_purpose::STANDARD.encode_string(self.get_cert(), &mut base64);
-        jsonc.add("cert", base64.as_str())?;
+        // certificate are Base64/Der encoded
+        let base64 = self.get_cert();
+        jsonc.add("cert", base64)?;
 
-        if let Some(value) = self.get_subcert() {
-            let mut base64 = String::new();
-            general_purpose::STANDARD.encode_string(value, &mut base64);
-            jsonc.add("subcert", base64.as_str())?;
+        if let Some(base64) = self.get_subcert() {
+            jsonc.add("subcert", base64)?;
         }
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let base64 = jsonc.get::<&str>("cert")?;
-        let data = match general_purpose::STANDARD.decode(base64) {
-            Ok(decoded) => decoded,
-            Err(error) => return afb_error!("mater-info-from_jsonc", error.to_string()),
-        };
-        let mut payload = CertificateChainType::new(&data)?;
+        let mut payload = CertificateChainType::new(base64.as_bytes())?;
 
         if let Some(base64) = jsonc.optional::<&str>("sub_cert")? {
-            let data = match general_purpose::STANDARD.decode(base64) {
-                Ok(decoded) => decoded,
-                Err(error) => return afb_error!("mater-info-from_jsonc", error.to_string()),
-            };
-            payload.set_subcert(&data)?;
+            payload.set_subcert(base64.as_bytes())?;
         }
         Ok(Box::new(payload))
     }
@@ -93,9 +82,7 @@ impl IsoToJson for MeterInfo {
         }
 
         if let Some(value) = self.get_sig() {
-            let mut encode = String::new();
-            general_purpose::STANDARD.encode_string(value, &mut encode);
-            jsonc.add("sig", &encode)?;
+            jsonc.add("sig", value)?;
         }
         Ok(jsonc)
     }
@@ -116,12 +103,7 @@ impl IsoToJson for MeterInfo {
         }
 
         if let Some(base64) = jsonc.optional::<&str>("sig")? {
-            match general_purpose::STANDARD.decode(base64) {
-                Ok(decoded) => {
-                    meter_info.set_sig(&decoded)?;
-                }
-                Err(error) => return afb_error!("mater-info-from_jsonc", error.to_string()),
-            }
+            meter_info.set_sig(base64.as_bytes())?;
         }
 
         Ok(Box::new(meter_info))
@@ -134,11 +116,11 @@ impl IsoToJson for DcEvStatusType {
         jsonc.add("ready", self.get_ready())?;
         jsonc.add("error", self.get_error().to_label())?;
         jsonc.add("evress_soc", self.get_evress_soc())?;
-        if let Some(value)= self.get_evcabin_conditioning() {
-           jsonc.add("evcabin_conditioning", value)?;
+        if let Some(value) = self.get_evcabin_conditioning() {
+            jsonc.add("evcabin_conditioning", value)?;
         }
-        if let Some(value)= self.get_evress_conditioning() {
-           jsonc.add("evress_conditioning", value)?;
+        if let Some(value) = self.get_evress_conditioning() {
+            jsonc.add("evress_conditioning", value)?;
         }
         Ok(jsonc)
     }
@@ -146,11 +128,11 @@ impl IsoToJson for DcEvStatusType {
         let ready = jsonc.get("ready")?;
         let error = DcEvErrorCode::from_label(jsonc.get("error")?)?;
         let evress_soc = jsonc.get("evress_soc")?;
-        let mut payload= DcEvStatusType::new(ready, error, evress_soc);
-        if let Some(value) =  jsonc.optional("evcabin_conditioning")? {
+        let mut payload = DcEvStatusType::new(ready, error, evress_soc);
+        if let Some(value) = jsonc.optional("evcabin_conditioning")? {
             payload.set_evcabin_conditioning(value);
         }
-        if let Some(value) =  jsonc.optional("evress_conditioning")? {
+        if let Some(value) = jsonc.optional("evress_conditioning")? {
             payload.set_evress_conditioning(value);
         }
         Ok(Box::new(payload))
@@ -163,7 +145,7 @@ impl IsoToJson for EvseStatusType {
         Ok(JsoncObj::new())
     }
     fn from_jsonc(_jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-       Ok(Box::new(EvseStatusType::new(0)))
+        Ok(Box::new(EvseStatusType::new(0)))
     }
 }
 
@@ -264,8 +246,12 @@ impl IsoToJson for AcEvseChargeParam {
         let max_voltage = PhysicalValue::from_jsonc(jsonc.get("max_voltage")?)?;
         let max_current = PhysicalValue::from_jsonc(jsonc.get("max_current")?)?;
         let min_current = PhysicalValue::from_jsonc(jsonc.get("min_current")?)?;
-        let payload =
-            AcEvseChargeParam::new(status.as_ref(), max_voltage.as_ref(), max_current.as_ref(), min_current.as_ref())?;
+        let payload = AcEvseChargeParam::new(
+            status.as_ref(),
+            max_voltage.as_ref(),
+            max_current.as_ref(),
+            min_current.as_ref(),
+        )?;
         Ok(Box::new(payload))
     }
 }
@@ -443,7 +429,6 @@ impl IsoToJson for ParamValue {
     }
 }
 
-
 impl IsoToJson for ParamTuple {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
@@ -453,8 +438,8 @@ impl IsoToJson for ParamTuple {
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let name = jsonc.get("name")?;
-        let value= jsonc.get("value")?;
-        let  payload = ParamTuple::new(name, ParamValue::from_jsonc(value)?.as_ref())?;
+        let value = jsonc.get("value")?;
+        let payload = ParamTuple::new(name, ParamValue::from_jsonc(value)?.as_ref())?;
         Ok(Box::new(payload))
     }
 }
@@ -468,9 +453,8 @@ impl IsoToJson for ParamSet {
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let id = jsonc.get("id")?;
-        let param= jsonc.get("param")?;
+        let param = jsonc.get("param")?;
         let payload = ParamSet::new(id, ParamTuple::from_jsonc(param)?.as_ref());
-         Ok(Box::new(payload))
+        Ok(Box::new(payload))
     }
 }
-

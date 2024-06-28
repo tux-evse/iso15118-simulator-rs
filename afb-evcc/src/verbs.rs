@@ -305,7 +305,7 @@ pub fn register_verbs(
             });
 
         if let Some(sample) = msg_group.sample {
-            v2g_msg_verb.set_sample(sample)?;
+            v2g_msg_verb.add_sample(sample)?;
         };
         group.add_verb(v2g_msg_verb.finalize()?);
     }

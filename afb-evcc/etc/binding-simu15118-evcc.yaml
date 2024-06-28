@@ -17,7 +17,11 @@ binding:
       certs: ${PKI_TLS_DIR}/_client.pem
       key: ${PKI_TLS_DIR}/_client_key.pem
       #pin: "123456"
-
+    pki:
+      # format: pem|der (default pem)
+      certs: ${PKI_TLS_DIR}/_contact.pem
+      key: ${PKI_TLS_DIR}/_contract_key.pem
+      #pin: "123456"
     protocols:
       - uid: din
         info: iso15118-din no TLS
@@ -43,7 +47,7 @@ binding:
       - uid: iso2
         info: "iso15118-2 tls-1.2"
         tls:
-          # note client root of trust should be visible from server 'certs_trust' directory
+          # note client root of trust should be visible from server 'ca_trust' directory
           certs: ${PKI_TLS_DIR}/_client.pem
           key: ${PKI_TLS_DIR}/_client.key.pem
           format: der #default pem

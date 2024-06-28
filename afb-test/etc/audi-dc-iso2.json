@@ -2,19 +2,19 @@
   "binding":[
     {
       "uid":"iso15118-simulator",
-      "info":".\/afb-test\/trace-logs\/audi-dc-iso2.pcap",
-      "api":"iso15118-replay",
-      "path":"${CARGO_BINDING_DIR}\/libafb_injector.so",
+      "info":"./afb-test/trace-logs/audi-dc-iso2.pcap",
+      "api":"iso15118-${SIMULATION_MODE}",
+      "path":"${CARGO_BINDING_DIR}/libafb_injector.so",
+      "simulation":"${SIMULATION_MODE}",
       "scenarios":[
         {
-          "uid":"scenario:15118\/iso2\/1",
-          "target":"15118\/iso2",
+          "uid":"scenario:15118/iso2/1",
+          "target":"15118/iso2",
           "transactions":[
             {
               "uid":"sdp-evse",
-              "query":{
-                "action":"discovery"
-              }
+              "injector_only":true,
+              "action":"discovery"
             },
             {
               "uid":"pkg:51",
@@ -56781,6 +56781,7 @@
             },
             {
               "uid":"sdp-evse",
+              "injector_only":true,
               "query":{
                 "action":"forget"
               }

@@ -12,7 +12,6 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use base64::{engine::general_purpose, Engine as _};
 use iso15118::prelude::iso2_exi::*;
 
 impl IsoToJson for CertificateInstallRequest {
@@ -20,27 +19,16 @@ impl IsoToJson for CertificateInstallRequest {
         let jsonc = JsoncObj::new();
 
         jsonc.add("id", self.get_id()?)?;
-        let mut encode = String::new();
-        general_purpose::STANDARD.encode_string(self.get_provisioning(), &mut encode);
-        jsonc.add("provisioning", &encode)?;
+        jsonc.add("provisioning",self.get_provisioning())?;
         jsonc.add("certs", self.get_certs_list().to_jsonc()?)?;
 
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let id = jsonc.get("id")?;
-        let base64 = jsonc.get::<&str>("provisioning")?;
-        let provisioning = match general_purpose::STANDARD.decode(base64) {
-            Ok(value) => value,
-            Err(_) => {
-                return afb_error!(
-                    "certificate-install-req-from-jsonc",
-                    "fail to decode base64 provisioning"
-                )
-            }
-        };
+        let base64 = jsonc.get::<Vec<u8>>("provisioning")?;
         let cert_list = CertificateRootList::from_jsonc(jsonc.get("certs")?)?;
-        let payload = CertificateInstallRequest::new(id, &provisioning, &cert_list)?;
+        let payload = CertificateInstallRequest::new(id, &base64, &cert_list)?;
         Ok(Box::new(payload))
     }
 }

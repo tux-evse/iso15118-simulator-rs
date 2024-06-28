@@ -12,7 +12,7 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::v2g::*;
+use iso15118::prelude::{*,v2g::*};
 use nettls::prelude::*;
 
 pub struct BindingConfig {
@@ -61,10 +61,15 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
         let session_id = jproto.default("session", "[01,02,03,04,05,06]")?;
         let timeout = jproto.default("timeout", 1000)?;
 
-    let tls_conf = match jconf.optional::<JsoncObj>("tls")? {
-        None => None,
-        Some(jtls) => Some(TlsConfig::from_jsonc(jtls.clone())?),
-    };
+        let tls_conf = match jconf.optional::<JsoncObj>("tls")? {
+            None => None,
+            Some(jtls) => Some(TlsConfig::from_jsonc(jtls.clone())?),
+        };
+
+        let pki_conf = match jconf.optional::<JsoncObj>("pki")? {
+            None => None,
+            Some(jpki) => Some(PkiConfig::from_jsonc(jpki.clone())?),
+        };
 
         let jverbs = jproto.get::<JsoncObj>("verbs")?;
         if !jverbs.is_type(Jtype::Array) {
@@ -82,6 +87,7 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
         // Register ctrl
         let controller_config = ControllerConfig {
             tls_conf,
+            pki_conf,
             session_id,
         };
         let ctrl = Controller::new(controller_config)?;

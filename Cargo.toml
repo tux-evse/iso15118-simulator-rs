@@ -3,7 +3,7 @@ resolver = "2"
 
 members = [
     "afb-evse",
-    "afb-pev",
+    "afb-evcc",
     "jsonc-15118",
     "pcap-15118",
 ]

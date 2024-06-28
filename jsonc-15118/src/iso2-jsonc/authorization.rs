@@ -13,7 +13,6 @@
 use crate::prelude::*;
 use afbv4::prelude::*;
 use iso15118::prelude::iso2_exi::*;
-use base64::{engine::general_purpose, Engine as _};
 
 
 impl IsoToJson for AuthorizationRequest {
@@ -23,9 +22,7 @@ impl IsoToJson for AuthorizationRequest {
             jsonc.add("id", id)?;
         }
         if let Some(challenge) = self.get_challenge() {
-            let mut encode = String::new();
-            general_purpose::STANDARD.encode_string(challenge, &mut encode);
-            jsonc.add("challenge", &encode)?;
+            jsonc.add("challenge", challenge)?;
         }
         Ok(jsonc)
     }
@@ -36,12 +33,8 @@ impl IsoToJson for AuthorizationRequest {
            payload.set_id(value)?;
         }
 
-        if let Some(base64) = jsonc.optional::<&str>("challenge")? {
-           let challenge=  match general_purpose::STANDARD.decode(base64) {
-             Ok(decode) => decode,
-             Err(_) => return afb_error!("authorization-req-from_jsonc", "fail to decode base64 challenge")
-           };
-           payload.set_challenge(&challenge)?;
+        if let Some(base64) = jsonc.optional::<Vec<u8>>("challenge")? {
+           payload.set_challenge(&base64)?;
         }
 
         Ok(Box::new(payload))

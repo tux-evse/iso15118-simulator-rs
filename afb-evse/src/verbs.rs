@@ -184,7 +184,7 @@ fn async_tcp_client_cb(
 
 struct AsyncShareClientCtx {
     apiv4: AfbApiV4,
-    ctrl: IsoController,
+    ctrl: Iso2Controller,
     stream: ExiStream,
     data_len: u32,
     payload_len: u32,
@@ -227,6 +227,7 @@ pub struct AsyncTcpCtx {
     pub apiv4: AfbApiV4,
     pub sock: TcpServer,
     pub responder: ResponderConfig,
+    pub pki: Option<&'static PkiConfig>,
 }
 // New TCP client connecting
 pub fn async_tcp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<(), AfbError> {
@@ -245,7 +246,7 @@ pub fn async_tcp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
                     apiv4: ctx.apiv4,
                     data_len: 0,
                     payload_len: 0,
-                    ctrl: IsoController::new(),
+                    ctrl: Iso2Controller::new(ctx.pki),
                     stream: ExiStream::new(),
                     responder: ctx.responder,
                 },
@@ -260,6 +261,7 @@ pub struct AsyncTlsCtx {
     pub sock: TcpServer,
     pub config: &'static TlsConfig,
     pub responder: ResponderConfig,
+    pub pki: Option<&'static PkiConfig>,
 }
 // New TLS sock
 pub fn async_tls_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<(), AfbError> {
@@ -290,7 +292,7 @@ pub fn async_tls_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
                     apiv4: ctx.apiv4,
                     data_len: 0,
                     payload_len: 0,
-                    ctrl: IsoController::new(),
+                    ctrl: Iso2Controller::new(ctx.pki),
                     stream: ExiStream::new(),
                     responder: ctx.responder,
                 },

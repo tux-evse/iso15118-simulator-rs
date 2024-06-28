@@ -16,11 +16,13 @@ binding:
     scenario: scenario-1
     tls:
       port: 64109
-      certs_trust: ${PKI_TLS_DIR} # optional client cert root of trust
+      ca_trust: ${PKI_TLS_DIR} # optional client cert root of trust
       # format: pem|der (default pem)
       certs: ${PKI_TLS_DIR}/_server.pem
       key: ${PKI_TLS_DIR}/_server_key.pem
       #pin: "123456"
       proto: SECURE128:-VERS-SSL3.0:-VERS-TLS1.0:-ARCFOUR-128:+PSK:+DHE-PSK
       psk_log: /tmp/tls-keys-server.log
+    pki:
+      ca_trust: ${PKI_TLS_DIR} # contract root certificate directory
 

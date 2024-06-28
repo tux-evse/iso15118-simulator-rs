@@ -13,6 +13,7 @@
 use crate::prelude::*;
 use afbv4::prelude::*;
 use nettls::prelude::*;
+use iso15118::prelude::*;
 
 pub struct BindingConfig {}
 
@@ -29,6 +30,7 @@ struct ApiUserData {
     tcp_port: u16,
     prefix: u16,
     tls_conf: Option<&'static TlsConfig>,
+    pki_conf: Option<&'static PkiConfig>,
     responder_conf: ResponderConfig,
 }
 impl AfbApiControls for ApiUserData {
@@ -57,6 +59,7 @@ impl AfbApiControls for ApiUserData {
                 apiv4: api.get_apiv4(),
                 sock: tcp,
                 responder: self.responder_conf,
+                pki: self.pki_conf,
             })
             .start()?;
 
@@ -73,6 +76,7 @@ impl AfbApiControls for ApiUserData {
                     sock: tls,
                     config: tls_conf,
                     responder: self.responder_conf,
+                    pki: self.pki_conf,
                 })
                 .start()?;
         }
@@ -120,12 +124,15 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
 
     let (tls_conf, tls_port) = match jconf.optional::<JsoncObj>("tls")? {
         None => (None, 0),
-        Some(jtls) => {
-            (
-                Some(TlsConfig::from_jsonc(jtls.clone())?),
-                jtls.default("port", 64109)?,
-            )
-        }
+        Some(jtls) => (
+            Some(TlsConfig::from_jsonc(jtls.clone())?),
+            jtls.default("port", 64109)?,
+        ),
+    };
+
+    let pki_conf = match jconf.optional::<JsoncObj>("pki")? {
+        None => None,
+        Some(jpki) => Some(PkiConfig::from_jsonc(jpki.clone())?),
     };
 
     // create an register frontend api and register init session callback
@@ -138,6 +145,7 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
             tcp_port,
             tls_port,
             tls_conf,
+            pki_conf,
             responder_conf,
         }));
 

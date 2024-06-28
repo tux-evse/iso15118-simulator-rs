@@ -10,12 +10,14 @@ export PATH="/usr/local/lib64:$PATH"
 export CARGO_BINDING_DIR="${CARGO_TARGET_DIR}/debug"
 export IFACE_SIMU=lo
 export PKI_TLS_DIR="$ROOTDIR/afb-test/certs"
+export SIMULATION_MODE="injector"
+
 
 clear
 pwd
 
 # start binder with test config
 afb-binder -v \
-    --config=$CONFDIR/binding-simu15118-pev.yaml \
+    --config=$CONFDIR/binding-simu15118-evcc.yaml \
     --config=$ROOTDIR/afb-test/etc/audi-dc-iso2.json \
    $*

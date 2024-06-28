@@ -13,8 +13,6 @@
 use crate::prelude::*;
 use afbv4::prelude::*;
 use iso15118::prelude::iso2_exi::*;
-use base64::{engine::general_purpose, Engine as _};
-
 
 impl IsoToJson for PaymentDetailsRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -35,20 +33,15 @@ impl IsoToJson for PaymentDetailsResponse {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("rcode", self.get_rcode().to_label())?;
-        let mut encode = String::new();
-        general_purpose::STANDARD.encode_string(self.get_challenge(), &mut encode);
-        jsonc.add("challenge", &encode)?;
+        jsonc.add("challenge", self.get_challenge())?;
         jsonc.add("timestamp", self.get_time_stamp())?;
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
-        let challenge=  match general_purpose::STANDARD.decode(jsonc.get::<&str>("challenge")?) {
-            Ok(decode) => decode,
-            Err(_) => return afb_error!("payment-detail-res-from-jsonc", "fail to decode base64 challenge")
-        };
+        let challenge= jsonc.get::<&str>("challenge")?;
 
-        let payload= PaymentDetailsResponse::new(rcode, &challenge)?;
+        let payload= PaymentDetailsResponse::new(rcode, challenge.as_bytes())?;
         Ok(Box::new(payload))
     }
 }

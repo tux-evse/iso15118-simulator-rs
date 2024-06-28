@@ -267,11 +267,13 @@ pub struct Controller {
     pub stream: ExiStream,
     pub session: Vec<u8>,
     pub tls_conf: Option<&'static TlsConfig>,
+    pub pki_conf: Option<&'static PkiConfig>,
     pub job_post: &'static AfbSchedJob,
 }
 
 pub struct ControllerConfig {
     pub tls_conf: Option<&'static TlsConfig>,
+    pub pki_conf: Option<&'static PkiConfig>,
     pub session_id: &'static str,
 }
 
@@ -296,6 +298,7 @@ impl Controller {
         let ctrl = Box::leak(Box::new(Self {
             initialized: Arc::new((Mutex::new(false), Condvar::new())),
             tls_conf: config.tls_conf,
+            pki_conf: config.pki_conf,
             stream: ExiStream::new(),
             session: session.to_vec(),
             data_set: Mutex::new(state),
@@ -347,7 +350,11 @@ impl Controller {
         let body = body_from_jsonc(msg_id, jbody)?;
 
         let mut stream = self.stream.lock_stream();
-        ExiMessageDoc::new(&header, &body).encode_to_stream(&mut stream)?;
+        let mut exi_doc= ExiMessageDoc::new(&header, &body);
+        if let Some(pki) = self.pki_conf {
+            exi_doc.pki_sign_sign (msg_id, &pki.get_private_key()?) ?;
+        }
+        exi_doc.encode_to_stream(&mut stream)?;
 
         // if request expect a response let delay verb response
         let res_id = msg_id.match_res_id();

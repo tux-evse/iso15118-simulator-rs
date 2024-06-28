@@ -10,6 +10,7 @@ export PATH="/usr/local/lib64:$PATH"
 export CARGO_BINDING_DIR="${CARGO_TARGET_DIR}/debug"
 export IFACE_SIMU=lo
 export PKI_TLS_DIR="$ROOTDIR/afb-test/certs"
+export SIMULATION_MODE="responder"
 
 clear
 pwd

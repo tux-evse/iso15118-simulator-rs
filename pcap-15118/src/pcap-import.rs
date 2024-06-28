@@ -203,7 +203,7 @@ impl ScenarioLog {
             pkg_start: pkg_count,
         };
 
-        let jsdp = JsoncObj::parse("{'uid':'sdp-evse','query':{'action':'discovery'}}")?;
+        let jsdp = JsoncObj::parse("{'uid':'sdp-evse','injector_only':true,'action':'discovery'}}")?;
         this.jtransactions.append(jsdp)?;
         Ok(this)
     }
@@ -219,7 +219,7 @@ impl ScenarioLog {
         }
 
         // insert sdp session close
-        let jend = JsoncObj::parse("{'uid':'sdp-evse','query':{'action':'forget'}}")?;
+        let jend = JsoncObj::parse("{'uid':'sdp-evse','injector_only':true,'query':{'action':'forget'}}")?;
         self.jtransactions.append(jend)?;
 
         let jscenario = JsoncObj::new();
@@ -249,10 +249,14 @@ impl ScenarioLog {
 
         jbinding.add("uid", "iso15118-simulator")?;
         jbinding.add("info", &ctx.pcap_in)?;
-        jbinding.add("api", "iso15118-replay")?;
+        jbinding.add("api", "iso15118-${SIMULATION_MODE}")?;
         jbinding.add(
             "path",
             "${CARGO_BINDING_DIR}/libafb_injector.so",
+        )?;
+        jbinding.add(
+            "simulation",
+            "${SIMULATION_MODE}",
         )?;
 
         jbinding.add("scenarios", self.jscenarios.clone())?;
