@@ -12,12 +12,9 @@ build = "etc/build.rs"
 #afbv4 = { git = "https://github.com/redpesk-common/afb-librust", optional = true }
 iso15118 = { git ="https://github.com/tux-evse/iso15118-encoders-rs.git", branch = "sandbox/ronan/fixdep"}
 nettls =   { git ="https://github.com/tux-evse/iso15118-network-rs.git",  branch = "sandbox/ronan/fixdep"}
-
 serde = { version = "1.0", features = ["derive"] }
 serde_json={ version= "1.0"}
 base64={ version= "0.22"}
-nettls= {path ="../../iso15118-network-rs", default-features = false, optional = true}
-iso15118= {path ="../../iso15118-encoders-rs", default-features = false, optional = true}
 
 [features]
 #default = ["iso15118", "nettls"]
