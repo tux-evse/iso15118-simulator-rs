@@ -10,7 +10,7 @@ build = "etc/build.rs"
 #uncomment the "afbv4" line if you want to use "afbv4" as an external dependencies (for development purpose.)
 # You can activate this external dependency with the feature "afbv4" like :"cargo build --features afbv4"
 #afbv4 = { git = "https://github.com/redpesk-common/afb-librust", optional = true }
-iso15118 = { git ="https://github.com/tux-evse/iso15118-encoders-rs.git", branch = "sandbox/ronan/fixdep"}
+iso15118 = { git ="https://github.com/tux-evse/iso15118-encoders-rs.git", branch = "main"}
 nettls =   { git ="https://github.com/tux-evse/iso15118-network-rs.git",  branch = "sandbox/ronan/fixdep"}
 
 serde = { version = "1.0", features = ["derive"] }

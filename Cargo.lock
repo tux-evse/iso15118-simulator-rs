@@ -159,7 +159,7 @@ dependencies = [
 [[package]]
 name = "iso15118"
 version = "0.0.1"
-source = "git+https://github.com/tux-evse/iso15118-encoders-rs.git?branch=sandbox/ronan/fixdep#af16851e1af16f2cd8b07cefc3c64e22909739c3"
+source = "git+https://github.com/tux-evse/iso15118-encoders-rs.git?branch=main#a042ca022b8e1443c1709319e0d327a41cde73a8"
 dependencies = [
  "bindgen",
  "cc",
@@ -437,7 +437,6 @@ dependencies = [
 name = "sim15118-pev-binding"
 version = "0.0.1"
 dependencies = [
- "base64",
  "iso15118",
  "iso15118_jsonc",
  "nettls",
