@@ -4,25 +4,24 @@ httpd: true
 alias:
   - /devtools:/usr/share/afb-ui-devtools/binder
 binding:
-  - uid: iso-15118
-    api: i15118
+  - uid: iso15118-evse
     path: ${CARGO_TARGET_DIR}debug/libafb_sim15118_evse.so
-    info: RUST ISO-15118 EVSE binding
+    info: RUST ISO-15118 EVSE simulator binding
     iface: ${IFACE_SIMU} # default lo
-    // ip6_prefix: 0xFE80 # default 0
+    ip6_prefix: 0xFE80 # default 0
     sdp_port: 15118
     tcp_port: 61341
-    responder: responder
-    scenario: scenario-1
+    target: iso15118-responder
+    prefix: mini-dc-iso2:1 # uid(scenario)
     tls:
       port: 64109
-      ca_trust: ${PKI_TLS_DIR} # optional client cert root of trust
+      ca_trust: ${PKI_TLS_DIR}/trusted # optional client cert root of trust
       # format: pem|der (default pem)
       certs: ${PKI_TLS_DIR}/_server.pem
       key: ${PKI_TLS_DIR}/_server_key.pem
       #pin: "123456"
       proto: SECURE128:-VERS-SSL3.0:-VERS-TLS1.0:-ARCFOUR-128:+PSK:+DHE-PSK
-      psk_log: /tmp/tls-keys-server.log
+      psk_log: /tmp/tls-keys-evse.log
     pki:
-      ca_trust: ${PKI_TLS_DIR} # contract root certificate directory
+      ca_trust: ${PKI_TLS_DIR}/trusted # contract root certificate directory
 

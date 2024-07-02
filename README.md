@@ -45,7 +45,7 @@ sdp_port:    15118     # default 15118
     key: ${PKI_TLS_DIR}/_trialog/secc20Cert.key
     pin: 123456
     proto: SECURE128:-VERS-SSL3.0:-VERS-TLS1.0:-ARCFOUR-128:+PSK:+DHE-PSK
-    psklog_in: /tmp/tls-keys-simu.log
+    psk_log: /tmp/tls-keys-simu.log
 ```
 
 **Api Json/Yaml** input query as well as response use JSOn, but configuration on top of JSON also accept YAML.
@@ -70,6 +70,11 @@ Using NSS-KEY-LOG master key file to decrypt TLS with wireshark
 wireshark iso15118-binding-rs/afb-test/trace-logs/hello2-tls-1.3.pcapng -o tls.keylog_file:iso15118-binding-rs/afb-test/trace-logs/hello2-tls-1.3.keylog
 ```
 
+Using socat to check tls server config
+```
+socat -6 "OPENSSL-CONNECT:[fe80::ac52:27ff:fef3:d0d7%evcc-veth]:64109,snihost=xxx,verify=0" stdio
+
+```
 ## Current development status
 
 This module is under deep development. Initial version supports ISO-2, the other stacks (Iso-20, Din) will come as soon as iso15118-encoder-rs implements them.

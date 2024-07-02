@@ -12,6 +12,8 @@ fi
 
 BASE=$START/$(dirname $0)
 cd $BASE
+mkdir -p $DST/trusted
+
 #-----------------------------
 
 #-----------------------------
@@ -32,6 +34,7 @@ make_root_certificate() {
                  \
                 \
 		--outfile=$DST/_${name}.pem
+    cp $DST/_${name}.pem $DST/trusted
 }
 #-----------------------------
 make_sub_certificate() {
@@ -81,4 +84,5 @@ make_end_certificate() {
 make_root_certificate root
 make_sub_certificate  server root
 make_end_certificate  client server
+make_end_certificate  contract server
 

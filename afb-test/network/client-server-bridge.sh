@@ -12,36 +12,35 @@ export WG_PORT=51820
 export SLAC_IFACE=eth2
 export FWALL_ZONE=work
 
-echo "Wireguard config to tap codico/eth2 device from target to development desktop"
+echo "Fake evcc/evse network config for development desktop"
 echo ---
 if test $UID != 0; then
     echo "(hoops) this command requires admin privileges (use sudo)"
     exit 1
 fi
 
-mkdir -p $HOME/wg-tap-pki
-cd $HOME/wg-tap-pki
-
 echo -- clean previous config
- ip link delete br0-tun 2> /dev/null
+ ip link delete evse-tun 2> /dev/null
+ ip link delete evse-veth 2> /dev/null
+ ip link delete evcc-veth 2> /dev/null
 
 echo "-- configure bridge "
-  ip link add name br0-tun type bridge
-  ip link set dev br0-tun up
+  ip link add name evse-tun type bridge
+  ip link set dev evse-tun up
 
 echo "-- create a virtual interface for iso-binding/simulator listen"
-  ip link add simu-veth type veth peer name simu-private;
-  ip link set simu-private up;
-  ip link set simu-veth up;
-  ip link set simu-private master br0-tun;
-
-  ip link add evse-veth type veth peer name evse-private;
-  ip link set evse-private up;
+  ip link add evse-veth type veth peer name evse-bridge;
+  ip link set evse-bridge up;
   ip link set evse-veth up;
-  ip link set evse-private master br0-tun;
+  ip link set evse-bridge master evse-tun;
+
+  ip link add evcc-veth type veth peer name evcc-bridge;
+  ip link set evcc-bridge up;
+  ip link set evcc-veth up;
+  ip link set evcc-bridge master evse-tun;
 
 
-echo "-- display 'br0-tun' bridge config"
-  ip link show master br0-tun
+echo "-- display 'evse-tun' bridge config"
+  ip link show master evse-tun
 
 

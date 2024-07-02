@@ -5,21 +5,23 @@ threads-init: 3
 alias:
   - /devtools:/usr/share/afb-ui-devtools/binder
 binding:
-  - uid: iso15118
-    path: ${CARGO_BINDING_DIR}/libafb_sim15118_pev.so
+  - uid: iso15118-simulator
+    path: ${CARGO_BINDING_DIR}/libafb_sim15118_evcc.so
     info: RUST ISO-15118 EV Simulator
     iface: ${IFACE_SIMU}     # default lo
-    # ip6_prefix:  0xFE80    # default 0
+    ip6_prefix: 0xFE80       # default 0
     # sdp_port:    15118     # default 15118
     tls:
       port: 64109
       # format: pem|der (default pem)
-      certs: ${PKI_TLS_DIR}/_client.pem
+      certs: ${PKI_TLS_DIR}/_client_chain.pem
       key: ${PKI_TLS_DIR}/_client_key.pem
-      #pin: "123456"
+      #pin: "123456"  #optional private key password
+      psk_log: /tmp/tls-keys-evcc.log
+
     pki:
       # format: pem|der (default pem)
-      certs: ${PKI_TLS_DIR}/_contact.pem
+      certs: ${PKI_TLS_DIR}/_contract_chain.pem
       key: ${PKI_TLS_DIR}/_contract_key.pem
       #pin: "123456"
     protocols:

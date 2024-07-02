@@ -62,7 +62,7 @@ impl ScenarioDin {
                 self.jtransaction = {
                     let jsonc = JsoncObj::new();
                     jsonc.add("uid", format!("pkg:{}", pkg_count).as_str())?;
-                    jsonc.add("verb", msg_id.to_label())?;
+                    jsonc.add("verb", format!("din:{}", msg_id.to_label()).as_str())?;
                     jsonc.add("delay", delay as u64)?;
                     jsonc.add("query", body_to_jsonc(body)?)?;
                     jsonc
@@ -135,7 +135,7 @@ impl ScenarioIso2 {
                 self.jtransaction = {
                     let jsonc = JsoncObj::new();
                     jsonc.add("uid", format!("pkg:{}", pkg_count).as_str())?;
-                    jsonc.add("verb", msg_id.to_label())?;
+                    jsonc.add("verb", format!("iso2:{}", msg_id.to_label()).as_str())?;
                     jsonc.add("delay", delay as u64)?;
                     jsonc.add("query", body_to_jsonc(body)?)?;
                     jsonc
@@ -203,7 +203,9 @@ impl ScenarioLog {
             pkg_start: pkg_count,
         };
 
-        let jsdp = JsoncObj::parse("{'uid':'sdp-evse','injector_only':true,'action':'discovery'}}")?;
+        let jsdp = JsoncObj::parse("{'uid':'sdp-evse','verb':'iso2:sdp_evse_req','injector_only':true,'query':{'action':'discover'}}")?;
+        this.jtransactions.append(jsdp)?;
+        let jsdp = JsoncObj::parse("{'uid':'app-set-protocol','verb':'iso2:app_proto_req','injector_only':true}")?;
         this.jtransactions.append(jsdp)?;
         Ok(this)
     }
@@ -224,14 +226,17 @@ impl ScenarioLog {
 
         let jscenario = JsoncObj::new();
 
-        let target = match &ctx.session_protocol {
-            v2g::ProtocolTagId::Din => "15118/din",
-            v2g::ProtocolTagId::Iso2 => "15118/iso2",
-            _ => return afb_error!("pcal-closing-log", "unsupported protocol"),
+        let base_name= match ctx.pcap_in.split('/').collect::<Vec<&str>>().last() {
+            Some(value) => value,
+            None => "scenario"
         };
-        let uid = format!("scenario:{}/{}", target, self.jscenarios.count()? + 1);
+        let short_name= match base_name.split('.').collect::<Vec<&str>>().first() {
+            Some(value) => value,
+            None => base_name
+        };
+
+        let uid = format!("{}:{}", short_name, self.jscenarios.count()? + 1);
         jscenario.add("uid", &uid)?;
-        jscenario.add("target", target)?;
         jscenario.add("transactions", self.jtransactions.clone())?;
 
         // save scenario and reset transaction for next tcp/iso session
@@ -244,7 +249,7 @@ impl ScenarioLog {
         let jbinding = JsoncObj::new();
 
         if self.jscenarios.count()? == 0 {
-            return afb_error!("pcap-scenarios-close", "empty iso15118 scenario");
+            return afb_error!("pcap-scenarios-close", "Fail to parse any iso15118 scenario");
         }
 
         jbinding.add("uid", "iso15118-simulator")?;
@@ -259,6 +264,8 @@ impl ScenarioLog {
             "${SIMULATION_MODE}",
         )?;
 
+        jbinding.add("target", "iso15118-simulator")?;
+        jbinding.add("loop", false)?;
         jbinding.add("scenarios", self.jscenarios.clone())?;
         self.jscenarios = JsoncObj::array();
 

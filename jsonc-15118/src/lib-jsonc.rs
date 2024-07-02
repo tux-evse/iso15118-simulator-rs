@@ -17,6 +17,7 @@ pub struct ApiMsgInfo {
     pub name: &'static str,
     pub info: &'static str,
     pub msg_id: u32,
+    pub signed: bool,
     pub sample: Option<&'static str>,
 }
 

@@ -57,12 +57,7 @@ fn process_exi_message(ctx: &mut AsyncShareClientCtx, sock: &dyn NetConnection) 
 
         // when facing a new exi check how much data should be read
         if stream_idx == 0 {
-            ctx.payload_len = ctx.stream.header_check(&lock, PayloadMsgId::SAP)?;
-            ctx.data_len = 0;
-        }
-
-        // when facing a new exi check how much data should be read
-        if stream_idx == 0 {
+            ctx.data_len=0;
             let len = ctx.stream.get_payload_len(&lock);
             if len < 0 {
                 afb_log_msg!(
@@ -74,14 +69,13 @@ fn process_exi_message(ctx: &mut AsyncShareClientCtx, sock: &dyn NetConnection) 
             } else {
                 ctx.payload_len = len as u32;
             }
-            ctx.data_len = 0;
         }
         read_count
     };
 
     // fix stream len for decoding
     ctx.data_len = ctx.data_len + read_count;
-    if ctx.data_len == ctx.payload_len {
+    if ctx.data_len >= ctx.payload_len {
         // fix stream len for decoding
         ctx.stream.finalize(&lock, ctx.payload_len)?;
 
@@ -89,11 +83,15 @@ fn process_exi_message(ctx: &mut AsyncShareClientCtx, sock: &dyn NetConnection) 
         let (tagid, jsonc) = match ctx.ctrl.decode_from_stream(&mut lock)? {
             IsoMsgBody::Din(body) => (body.get_tagid() as u32, din_jsonc::body_to_jsonc(&body)?),
             IsoMsgBody::Iso2(body) => (body.get_tagid() as u32, iso2_jsonc::body_to_jsonc(&body)?),
-            IsoMsgBody::Sdp => return Ok(()),
+            IsoMsgBody::Sdp => {
+                // SDP does not require response in simulation mode
+                ctx.stream.reset(&lock);
+                return Ok(())
+            },
         };
 
         // send request to responder and wait for jsonc reply to encode as response to iso15118
-        let api_verb = format!("{}/{}", ctx.responder.prefix, jsonc.get::<&str>("verb")?);
+        let api_verb = format!("{}:{}:{}", ctx.responder.prefix, jsonc.get::<String>("proto")?, jsonc.get::<String>("tagid")?);
         let response = AfbSubCall::call_sync(ctx.apiv4, ctx.responder.api, &api_verb, jsonc)?;
 
         // send response and wipe stream for next request
@@ -270,8 +268,7 @@ pub fn async_tls_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
         let tls_client = ctx.sock.accept_client()?;
         let source = tls_client.get_source();
         let sockfd = tls_client.get_sockfd()?;
-        let tls_connection = TlsConnection::new(ctx.config, tls_client)?;
-        tls_connection.client_handshake()?;
+        let tls_connection = TlsConnection::new(ctx.config, tls_client, TlsConnectionFlag::Server)?;
 
         afb_log_msg!(
             Notice,

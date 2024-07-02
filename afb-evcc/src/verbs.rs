@@ -199,6 +199,7 @@ pub struct V2gMsgReqCtx {
     pub uid: &'static str,
     pub ctrl: &'static Controller,
     pub msg_id: u32,
+    pub signed: bool,
     pub timeout: i64,
 }
 
@@ -229,7 +230,8 @@ fn app_proto_req_cb(
     let iso2_proto = V2G_PROTOCOLS_SUPPORTED_LIST[ProtocolTagId::Iso2 as usize];
     let v2g_body = SupportedAppProtocolReq::new(iso2_proto)?.encode();
 
-    ctx.ctrl.v2g_send_payload(afb_rqt, ctx, &v2g_body)?;
+    ctx.ctrl.v2g_send_payload(&v2g_body)?;
+    afb_rqt.reply(AFB_NO_DATA, 0);
     Ok(())
 }
 
@@ -267,7 +269,7 @@ pub fn register_verbs(
             ctrl,
         });
 
-    let app_proto_verb = AfbVerb::new("v2g-hand-shake")
+    let app_proto_verb = AfbVerb::new("v2g-protocol-select")
         .set_name("app_proto_req")
         .set_info("Announce simulated protocol")
         .set_callback(app_proto_req_cb)
@@ -277,6 +279,7 @@ pub fn register_verbs(
             uid: "app_proto_req",
             timeout: config.timeout,
             msg_id: v2g::MessageTagId::AppProtocolReq as u32,
+            signed: false,
         });
 
     group.add_verb(connect_verb.finalize()?);
@@ -285,26 +288,27 @@ pub fn register_verbs(
     for idx in 0..config.jverbs.count()? {
         let msg_name = config.jverbs.index::<&'static str>(idx)?;
 
-        let msg_group = match protocol_conf {
+        let msg_api = match protocol_conf {
             v2g::ProtocolTagId::Din => din_jsonc::api_from_tagid(msg_name)?,
             v2g::ProtocolTagId::Iso2 => iso2_jsonc::api_from_tagid(msg_name)?,
             _ => return afb_error!("hoop", "invalid protocol"),
         };
 
-        let v2g_msg_verb = AfbVerb::new(msg_group.uid);
+        let v2g_msg_verb = AfbVerb::new(msg_api.uid);
         v2g_msg_verb
-            .set_name(msg_group.name)
-            .set_info(msg_group.info)
+            .set_name(msg_api.name)
+            .set_info(msg_api.info)
             .set_callback(v2g_msg_req_cb)
             .set_context(V2gMsgReqCtx {
                 ctrl,
                 uid: msg_name,
                 timeout: config.timeout,
-                msg_id: msg_group.msg_id,
+                msg_id: msg_api.msg_id,
                 protocol: protocol_conf,
+                signed: msg_api.signed,
             });
 
-        if let Some(sample) = msg_group.sample {
+        if let Some(sample) = msg_api.sample {
             v2g_msg_verb.add_sample(sample)?;
         };
         group.add_verb(v2g_msg_verb.finalize()?);

@@ -109,7 +109,7 @@ impl AfbApiControls for ApiUserData {
 pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbApi, AfbError> {
     //afb_log_msg!(Info, rootv4, "config:{}", jconf);
 
-    let uid = jconf.default("uid", "iso15118-16")?;
+    let uid = jconf.default("uid", "iso15118-responder")?;
     let api = jconf.default("api", uid)?;
     let info = jconf.default("info", "")?;
     let iface = jconf.default("iface", "lo")?;
@@ -118,8 +118,8 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
     let tcp_port = jconf.default("tcp_port", 61341)?;
 
     let responder_conf = ResponderConfig {
-        api: jconf.default("responder", "responder")?,
-        prefix: jconf.default("scenario", "scenario-1")?,
+        api: jconf.default("target", "iso15118-responder")?,
+        prefix: jconf.get("prefix")?,
     };
 
     let (tls_conf, tls_port) = match jconf.optional::<JsoncObj>("tls")? {

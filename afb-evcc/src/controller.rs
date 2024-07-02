@@ -183,7 +183,7 @@ pub fn async_sdp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
     afb_log_msg!(
         Notice,
         None,
-        "v2g-sdp-async: {}({})://{:?}:{}",
+        "v2g-sdp-async: {}[{}]://{:02x?}:{}",
         transport,
         security,
         svc_addr,
@@ -198,7 +198,7 @@ pub fn async_sdp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
             }
             Some(config) => {
                 let tcp_client = TcpClient::new(remote6, svc_port, ctx.sdp_scope)?;
-                let tls_client = TlsConnection::new(config, tcp_client)?;
+                let tls_client = TlsConnection::new(config, tcp_client, TlsConnectionFlag::Client)?;
                 Box::new(tls_client)
             }
         },
@@ -233,8 +233,8 @@ pub fn async_sdp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
     let (lock, cvar) = &*ctx.ctrl.initialized;
     let mut started = lock.lock().unwrap();
     *started = true;
+    ctx.sdp_svc.close();
     cvar.notify_one();
-
     Ok(())
 }
 
@@ -257,7 +257,6 @@ fn job_timeout_cb(
             -100,
         ); // timeout
     }
-
     Ok(())
 }
 
@@ -343,16 +342,18 @@ impl Controller {
         }
 
         // retrieve msg object num
-        let msg_id= MessageTagId::from_u32(ctx.msg_id);
+        let msg_id = MessageTagId::from_u32(ctx.msg_id);
 
         // build exi payload from json
-        let header= ExiMessageHeader::new(&ctx.ctrl.session)?;
+        let header = ExiMessageHeader::new(&ctx.ctrl.session)?;
         let body = body_from_jsonc(msg_id, jbody)?;
 
         let mut stream = self.stream.lock_stream();
-        let mut exi_doc= ExiMessageDoc::new(&header, &body);
+        let mut exi_doc = ExiMessageDoc::new(&header, &body);
         if let Some(pki) = self.pki_conf {
-            exi_doc.pki_sign_sign (msg_id, &pki.get_private_key()?) ?;
+            if ctx.signed {
+                exi_doc.pki_sign_sign(msg_id, &pki.get_private_key()?)?;
+            }
         }
         exi_doc.encode_to_stream(&mut stream)?;
 
@@ -381,7 +382,8 @@ impl Controller {
 
         // send data and wipe stream
         let cnx = state.connection.as_ref().unwrap();
-        cnx.put_data(stream.get_buffer())?;
+        let _count= cnx.put_data(stream.get_buffer())?;
+
         stream.reset();
         Ok(())
     }
@@ -402,10 +404,10 @@ impl Controller {
         }
 
         // retrieve msg object num
-        let msg_id= MessageTagId::from_u32(ctx.msg_id);
+        let msg_id = MessageTagId::from_u32(ctx.msg_id);
 
         // build exi payload from json
-        let header= ExiMessageHeader::new(&ctx.ctrl.session)?;
+        let header = ExiMessageHeader::new(&ctx.ctrl.session)?;
         let body = body_from_jsonc(msg_id, jbody)?;
 
         let mut stream = self.stream.lock_stream();
@@ -443,45 +445,19 @@ impl Controller {
 
     pub fn v2g_send_payload(
         &self,
-        afb_rqt: &AfbRequest,
-        ctx: &V2gMsgReqCtx,
         v2g_body: &v2g::V2gAppHandDoc,
     ) -> Result<(), AfbError> {
         use v2g::*;
 
         // ctrl is ready let's send messages
-        let mut state = self.lock_state()?;
+        let state = self.lock_state()?;
         if let None = state.connection {
             return afb_error!("v2g_send_payload", "SDP iso15118 require");
         }
 
+        // in simulation mode V2G does not expect any response
         let mut stream = self.stream.lock_stream();
         SupportedAppProtocolExi::encode_to_stream(&mut stream, &v2g_body)?;
-
-        // retrieve msg object num
-        let msg_id= MessageTagId::from_u32(ctx.msg_id);
-
-        // if request expect a response let delay verb response
-        let res_id = msg_id.match_res_id();
-        if res_id != MessageTagId::Unsupported {
-            // arm a watchdog before sending request
-            let job_id = self.job_post.post(
-                ctx.timeout,
-                JobPostData {
-                    uid: ctx.uid,
-                    afb_rqt: afb_rqt.add_ref(),
-                },
-            )?;
-
-            state.pending = Some(ControllerPending {
-                msg_id: res_id as u32,
-                afb_rqt: afb_rqt.add_ref(),
-                job_id,
-            });
-        } else {
-            state.pending = None;
-            afb_rqt.reply(AFB_NO_DATA, 0);
-        };
 
         // send data &wipe stream
         let cnx = state.connection.as_ref().unwrap();

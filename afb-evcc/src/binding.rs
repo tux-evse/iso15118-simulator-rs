@@ -31,7 +31,7 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
     //afb_log_msg!(Debug, rootv4, "config:{}", jconf);
 
     let uid = jconf.default("uid", "iso15118")?;
-    let api = jconf.default("api", "15118")?;
+    let api = jconf.default("api", uid)?;
     let info = jconf.default("info", "iso15118(2/Din) json API")?;
 
     let sdp_port = jconf.default("sdp_port", 15118)?;
@@ -54,7 +54,8 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
         let protocol = jproto.default("protocol", prefix)?;
 
         let group = AfbGroup::new(uid)
-            .set_info("timer demo api group")
+            .set_info(info)
+            .set_separator(":")
             .set_prefix(prefix)
             .set_info(info);
 

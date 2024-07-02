@@ -7,7 +7,6 @@ publish = false
 build = "etc/build.rs"
 
 [dependencies]
-afbv4 = {git= "https://github.com/redpesk-common/afb-librust", branch="master", optional = true}
 serde = { version = "1.0", features = ["derive"] }
 serde_json={ version= "1.0"}
 nettls= {path ="../../iso15118-network-rs", default-features = false, optional = true}
@@ -15,7 +14,7 @@ iso15118= {path ="../../iso15118-encoders-rs", default-features = false, optiona
 
 [features]
 default = ["iso15118", "nettls"]
-afbv4 = ["dep:afbv4","iso15118","iso15118/afbv4","nettls","nettls/afbv4"]
+#afbv4 = ["dep:afbv4","iso15118","iso15118/afbv4","nettls","nettls/afbv4"]
 
 [lib]
 name = "iso15118_jsonc"
