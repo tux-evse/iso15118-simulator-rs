@@ -194,6 +194,7 @@ fn discover_evse_cb(
     Ok(())
 }
 
+// iso exi message verb callback
 fn exi_msg_req_cb(
     afb_rqt: &AfbRequest,
     args: &AfbRqtData,
@@ -217,9 +218,7 @@ fn app_proto_req_cb(
     let iso2_proto = V2G_PROTOCOLS_SUPPORTED_LIST[ProtocolTagId::Iso2 as usize];
     let v2g_body = SupportedAppProtocolReq::new(iso2_proto)?.encode();
 
-    ctx.ctrl.v2g_send_payload(&v2g_body)?;
-    afb_rqt.reply(AFB_NO_DATA, 0);
-    Ok(())
+    ctx.ctrl.v2g_send_payload(afb_rqt, ctx, &v2g_body)
 }
 
 pub fn register_verbs(

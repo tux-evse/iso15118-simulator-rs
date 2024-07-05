@@ -132,16 +132,26 @@ impl IsoNetConfig {
         Ok(response)
     }
 
+    // flush stream contend to socket
+    pub fn send_exi_stream(&self, sock: &dyn NetConnection) -> Result<(), AfbError> {
+        let mut lock = self.stream.lock_stream();
+        let exi_buffer = self.stream.get_buffer(&lock);
+        sock.put_data(exi_buffer)?;
+        self.stream.reset(&mut lock);
+        Ok(())
+    }
+
     pub fn send_exi_message(
         &self,
         sock: &dyn NetConnection,
         session: &IsoSessionState,
+        msg_id: u32,
         jbody: JsoncObj,
     ) -> Result<IsoMsgResId, AfbError> {
         // move tcp socket data into exi stream buffer
         let mut lock = self.stream.lock_stream();
 
-        let res_id = self.encode_to_stream(&mut lock, session, jbody)?;
+        let res_id = self.encode_to_stream(&mut lock, session, msg_id, jbody)?;
         let exi_buffer = self.stream.get_buffer(&lock);
         sock.put_data(exi_buffer)?;
         self.stream.reset(&mut lock);
@@ -181,10 +191,10 @@ impl IsoNetConfig {
         &self,
         lock: &mut MutexGuard<RawStream>,
         session: &IsoSessionState,
+        msg_id: u32,
         jsonc: JsoncObj,
     ) -> Result<IsoMsgResId, AfbError> {
         // extract message id from json
-        let tagid = jsonc.get::<String>("tagid")?;
 
         let res_id = match session.protocol {
             v2g::ProtocolTagId::Unknown => {
@@ -197,7 +207,7 @@ impl IsoNetConfig {
             v2g::ProtocolTagId::Iso2 => {
                 use iso2_exi::*;
                 use iso2_jsonc::*;
-                let tagid = MessageTagId::from_label(tagid.as_str())?;
+                let tagid = MessageTagId::from_u32(msg_id);
                 let body = body_from_jsonc(tagid, jsonc)?;
                 self.iso2_encode_payload(lock, session, tagid, body)?;
                 IsoMsgResId::Iso2(tagid.match_res_id())
@@ -226,42 +236,44 @@ impl IsoNetConfig {
         let mut lock = self.stream.lock_stream();
         let body = match session.protocol {
             v2g::ProtocolTagId::Unknown => {
+                use v2g::*;
+
                 // initial message should be v2g::AppHandSupportedAppProtocolReq
                 let v2g_msg = v2g::SupportedAppProtocolExi::decode_from_stream(&lock)?;
                 let app_protocol_req = match v2g_msg {
-                    v2g::V2gMsgBody::Response(_) => {
-                        return afb_error!(
-                            "iso2-controller-protocol",
-                            "expect 'AppHandSupportedAppProtocolReq' as initial request"
-                        )
+                    v2g::V2gMsgBody::Request(app_protocol) => {
+                        // compare AppHandSupportedAppProtocolReq with evse supported protocols
+                        let (rcode, schema_id) = match app_protocol
+                            .match_protocol(&v2g::V2G_PROTOCOLS_SUPPORTED_LIST)
+                        {
+                            Err(_rcode) => {
+                                return afb_error!(
+                                    "decode_from_stream",
+                                    "SDP no supported iso protocol founded"
+                                )
+                            }
+                            Ok((rcode, proto)) => {
+                                afb_log_msg!(
+                                    Debug,
+                                    None,
+                                    "iso-app-hand: selected protocol:{}",
+                                    proto.get_name()
+                                );
+                                (rcode, proto.get_schema())
+                            }
+                        };
+
+                        let v2g_response =
+                            v2g::SupportedAppProtocolRes::new(rcode, schema_id as u8).encode();
+                        v2g::SupportedAppProtocolExi::encode_to_stream(&mut lock, &v2g_response)?;
+                        IsoMsgBody::Sdp(schema_id)
                     }
-                    v2g::V2gMsgBody::Request(value) => value,
+                    v2g::V2gMsgBody::Response(app_protocol) => {
+                        let schema_id=  ProtocolTagId::from_u8(app_protocol.get_schema());
+                        IsoMsgBody::Sdp(schema_id)
+                    },
                 };
-
-                // compare AppHandSupportedAppProtocolReq with evse supported protocols
-                let (rcode, schema_id) =
-                    match app_protocol_req.match_protocol(&v2g::V2G_PROTOCOLS_SUPPORTED_LIST) {
-                        Err(_rcode) => {
-                            return afb_error!(
-                                "decode_from_stream",
-                                "SDP no supported iso protocol founded"
-                            )
-                        }
-                        Ok((rcode, proto)) => {
-                            afb_log_msg!(
-                                Debug,
-                                None,
-                                "iso-app-hand: selected protocol:{}",
-                                proto.get_name()
-                            );
-                            (rcode, proto.get_schema())
-                        }
-                    };
-
-                let v2g_response =
-                    v2g::SupportedAppProtocolRes::new(rcode, schema_id as u8).encode();
-                v2g::SupportedAppProtocolExi::encode_to_stream(&mut lock, &v2g_response)?;
-                IsoMsgBody::Sdp(schema_id)
+                app_protocol_req
             }
 
             v2g::ProtocolTagId::Iso2 => {
@@ -353,8 +365,7 @@ impl IsoNetConfig {
         iso_body: &IsoMsgBody,
         pending_state: &Option<IsoPendingState>,
     ) -> Result<bool, AfbError> {
-
-        let pending= match pending_state {
+        let pending = match pending_state {
             None => return Ok(false),
             Some(value) => value,
         };
@@ -362,13 +373,15 @@ impl IsoNetConfig {
         let msg_id: IsoMsgResId = match iso_body {
             IsoMsgBody::Din(body) => IsoMsgResId::Din(body.get_tagid()),
             IsoMsgBody::Iso2(body) => IsoMsgResId::Iso2(body.get_tagid()),
-            _ => return afb_error!("exi-message-in", "unexpected exi message type"),
+            IsoMsgBody::Sdp(_) => return Ok(true), // SDP expect e response
         };
 
         if msg_id != pending.msg_id {
             return afb_error!(
                 "exi-message-in",
-                "unexpected exi message expected:{:?} got:{:?}", pending.msg_id , msg_id
+                "unexpected exi message expected:{:?} got:{:?}",
+                pending.msg_id,
+                msg_id
             );
         }
 

@@ -7,10 +7,10 @@
             "path": "${CARGO_BINDING_DIR}/libafb_injector.so",
             "simulation": "${SIMULATION_MODE}",
             "target": "iso15118-simulator",
+            "loop": false,
             "scenarios": [
                 {
                     "uid": "small-dc-iso2:1",
-                    "protocol": "iso2",
                     "transactions": [
                         {
                             "uid": "sdp-evse",
@@ -31,13 +31,17 @@
                             "delay": 56,
                             "query": {
                                 "id": "[00,7d,fa,07,5e,4a]",
-                                "tagid": "session_setup_req"
+                                "tagid": "session_setup_req",
+                                "proto": "iso2",
+                                "msgid": 0
                             },
                             "expect": {
                                 "id": "DE*PNX*E12345*1",
                                 "rcode": "new_session",
                                 "stamp": 0,
-                                "tagid": "session_setup_res"
+                                "tagid": "session_setup_res",
+                                "proto": "iso2",
+                                "msgid": 1
                             }
                         },
                         {
@@ -45,7 +49,9 @@
                             "verb": "iso2:service_discovery_req",
                             "delay": 111,
                             "query": {
-                                "tagid": "service_discovery_req"
+                                "tagid": "service_discovery_req",
+                                "proto": "iso2",
+                                "msgid": 2
                             },
                             "expect": {
                                 "rcode": "ok",
@@ -55,7 +61,9 @@
                                 "payments": [
                                     "external"
                                 ],
-                                "tagid": "service_discovery_res"
+                                "tagid": "service_discovery_res",
+                                "proto": "iso2",
+                                "msgid": 3
                             }
                         },
                         {
@@ -69,11 +77,15 @@
                                         "service_id": 1
                                     }
                                 ],
-                                "tagid": "payment_selection_req"
+                                "tagid": "payment_selection_req",
+                                "proto": "iso2",
+                                "msgid": 25
                             },
                             "expect": {
                                 "rcode": "ok",
-                                "tagid": "payment_selection_res"
+                                "tagid": "payment_selection_res",
+                                "proto": "iso2",
+                                "msgid": 26
                             }
                         },
                         {
@@ -81,12 +93,16 @@
                             "verb": "iso2:authorization_req",
                             "delay": 51,
                             "query": {
-                                "tagid": "authorization_req"
+                                "tagid": "authorization_req",
+                                "proto": "iso2",
+                                "msgid": 6
                             },
                             "expect": {
                                 "rcode": "ok",
                                 "processing": "customer_interaction",
-                                "tagid": "authorization_res"
+                                "tagid": "authorization_res",
+                                "proto": "iso2",
+                                "msgid": 7
                             }
                         },
                         {
@@ -94,12 +110,16 @@
                             "verb": "iso2:authorization_req",
                             "delay": 121,
                             "query": {
-                                "tagid": "authorization_req"
+                                "tagid": "authorization_req",
+                                "proto": "iso2",
+                                "msgid": 6
                             },
                             "expect": {
                                 "rcode": "ok",
                                 "processing": "finished",
-                                "tagid": "authorization_res"
+                                "tagid": "authorization_res",
+                                "proto": "iso2",
+                                "msgid": 7
                             }
                         },
                         {
@@ -131,7 +151,9 @@
                                         "unit": "wh"
                                     }
                                 },
-                                "tagid": "param_discovery_req"
+                                "tagid": "param_discovery_req",
+                                "proto": "iso2",
+                                "msgid": 15
                             },
                             "expect": {
                                 "rcode": "ok",
@@ -202,7 +224,9 @@
                                         "unit": "wh"
                                     }
                                 },
-                                "tagid": "param_discovery_res"
+                                "tagid": "param_discovery_res",
+                                "proto": "iso2",
+                                "msgid": 16
                             }
                         },
                         {
@@ -215,7 +239,9 @@
                                     "error": "no_error",
                                     "evresssoc": 55
                                 },
-                                "tagid": "cable_check_req"
+                                "tagid": "cable_check_req",
+                                "proto": "iso2",
+                                "msgid": 9
                             },
                             "expect": {
                                 "rcode": "ok",
@@ -226,7 +252,9 @@
                                     "isolation_status": "invalid"
                                 },
                                 "processing": "ongoing",
-                                "tagid": "cable_check_res"
+                                "tagid": "cable_check_res",
+                                "proto": "iso2",
+                                "msgid": 10
                             }
                         },
                         {
@@ -239,7 +267,9 @@
                                     "error": "no_error",
                                     "evresssoc": 55
                                 },
-                                "tagid": "cable_check_req"
+                                "tagid": "cable_check_req",
+                                "proto": "iso2",
+                                "msgid": 9
                             },
                             "expect": {
                                 "rcode": "ok",
@@ -250,7 +280,9 @@
                                     "isolation_status": "valid"
                                 },
                                 "processing": "finished",
-                                "tagid": "cable_check_res"
+                                "tagid": "cable_check_res",
+                                "proto": "iso2",
+                                "msgid": 10
                             }
                         },
                         {
@@ -273,7 +305,9 @@
                                     "multiplier": -1,
                                     "unit": "ampere"
                                 },
-                                "tagid": "pre_charge_req"
+                                "tagid": "pre_charge_req",
+                                "proto": "iso2",
+                                "msgid": 29
                             },
                             "expect": {
                                 "rcode": "ok",
@@ -288,11 +322,13 @@
                                     "multiplier": -1,
                                     "unit": "volt"
                                 },
-                                "tagid": "pre_charge_res"
+                                "tagid": "pre_charge_res",
+                                "proto": "iso2",
+                                "msgid": 30
                             }
                         },
                         {
-                            "uid": "pkg:317",
+                            "uid": "pkg:266",
                             "verb": "iso2:pre_charge_req",
                             "delay": 120,
                             "query": {
@@ -311,7 +347,9 @@
                                     "multiplier": -1,
                                     "unit": "ampere"
                                 },
-                                "tagid": "pre_charge_req"
+                                "tagid": "pre_charge_req",
+                                "proto": "iso2",
+                                "msgid": 29
                             },
                             "expect": {
                                 "rcode": "ok",
@@ -322,11 +360,13 @@
                                     "isolation_status": "valid"
                                 },
                                 "voltage": {
-                                    "value": 4053,
+                                    "value": 4998,
                                     "multiplier": -1,
                                     "unit": "volt"
                                 },
-                                "tagid": "pre_charge_res"
+                                "tagid": "pre_charge_res",
+                                "proto": "iso2",
+                                "msgid": 30
                             }
                         },
                         {
@@ -354,7 +394,9 @@
                                     },
                                     "charge_complete": false
                                 },
-                                "tagid": "power_delivery_req"
+                                "tagid": "power_delivery_req",
+                                "proto": "iso2",
+                                "msgid": 27
                             },
                             "expect": {
                                 "rcode": "ok",
@@ -364,7 +406,9 @@
                                     "delay": 0,
                                     "isolation_status": "valid"
                                 },
-                                "tagid": "power_delivery_res"
+                                "tagid": "power_delivery_res",
+                                "proto": "iso2",
+                                "msgid": 28
                             }
                         },
                         {
@@ -403,7 +447,9 @@
                                     "multiplier": 1,
                                     "unit": "second"
                                 },
-                                "tagid": "current_demand_req"
+                                "tagid": "current_demand_req",
+                                "proto": "iso2",
+                                "msgid": 19
                             },
                             "expect": {
                                 "rcode": "ok",
@@ -447,7 +493,9 @@
                                     "id": "YETI_POWERMETER",
                                     "reading": 0
                                 },
-                                "tagid": "current_demand_res"
+                                "tagid": "current_demand_res",
+                                "proto": "iso2",
+                                "msgid": 20
                             }
                         },
                         {
@@ -486,7 +534,9 @@
                                     "multiplier": 1,
                                     "unit": "second"
                                 },
-                                "tagid": "current_demand_req"
+                                "tagid": "current_demand_req",
+                                "proto": "iso2",
+                                "msgid": 19
                             },
                             "expect": {
                                 "rcode": "ok",
@@ -526,7 +576,9 @@
                                     "multiplier": 0,
                                     "unit": "watt"
                                 },
-                                "tagid": "current_demand_res"
+                                "tagid": "current_demand_res",
+                                "proto": "iso2",
+                                "msgid": 20
                             }
                         },
                         {
@@ -554,7 +606,9 @@
                                     },
                                     "charge_complete": false
                                 },
-                                "tagid": "power_delivery_req"
+                                "tagid": "power_delivery_req",
+                                "proto": "iso2",
+                                "msgid": 27
                             },
                             "expect": {
                                 "rcode": "ok",
@@ -564,7 +618,9 @@
                                     "delay": 0,
                                     "isolation_status": "valid"
                                 },
-                                "tagid": "power_delivery_res"
+                                "tagid": "power_delivery_res",
+                                "proto": "iso2",
+                                "msgid": 28
                             }
                         },
                         {
@@ -577,7 +633,9 @@
                                     "error": "no_error",
                                     "evresssoc": 55
                                 },
-                                "tagid": "welding_detection_req"
+                                "tagid": "welding_detection_req",
+                                "proto": "iso2",
+                                "msgid": 33
                             },
                             "expect": {
                                 "rcode": "ok",
@@ -592,7 +650,9 @@
                                     "multiplier": -1,
                                     "unit": "volt"
                                 },
-                                "tagid": "welding_detection_res"
+                                "tagid": "welding_detection_res",
+                                "proto": "iso2",
+                                "msgid": 34
                             }
                         },
                         {
@@ -601,11 +661,15 @@
                             "delay": 50,
                             "query": {
                                 "action": "terminate",
-                                "tagid": "session_stop_req"
+                                "tagid": "session_stop_req",
+                                "proto": "iso2",
+                                "msgid": 31
                             },
                             "expect": {
                                 "rcode": "ok",
-                                "tagid": "session_stop_res"
+                                "tagid": "session_stop_res",
+                                "proto": "iso2",
+                                "msgid": 32
                             }
                         },
                         {

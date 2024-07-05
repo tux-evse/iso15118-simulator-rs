@@ -416,7 +416,7 @@ fn packet_handler_cb(
 
     // big EXI document may arrive in multiple TCP chunk that should be assemble before decoding
     ctx.data_len += exi_data.len();
-    if ctx.data_len < ctx.exi_len + v2g::SDP_V2G_HEADER_LEN {
+    if ctx.data_len < ctx.exi_len {
         // Exi document not full arrived
         return Ok(());
     }

@@ -52,7 +52,7 @@ fn async_tls_client_cb(
 ) -> Result<(), AfbError> {
     // get verb user data context
     let ctx = context.get_mut::<AsyncTlsClientCtx>()?;
-    let state = ctx.ctrl.lock_state()?;
+    let mut state = ctx.ctrl.lock_state()?;
     let sock = match &state.connection {
         None => return afb_error!("async-tls-client", "no state connection"),
         Some(value) => value.as_ref(),
@@ -69,7 +69,7 @@ fn async_tls_client_cb(
         return Ok(());
     }
 
-    ctx.ctrl.exi_message_in()?;
+    ctx.ctrl.exi_message_in(&mut state)?;
 
     Ok(())
 }
@@ -92,7 +92,7 @@ fn async_tcp_client_cb(
 ) -> Result<(), AfbError> {
     // get verb user data context
     let ctx = context.get_mut::<AsyncTcpClientCtx>()?;
-    let state = ctx.ctrl.lock_state()?;
+    let mut state = ctx.ctrl.lock_state()?;
     let sock = match &state.connection {
         None => return afb_error!("async-tls-client", "no state connection"),
         Some(value) => value.as_ref(),
@@ -109,7 +109,7 @@ fn async_tcp_client_cb(
         return Ok(());
     }
 
-    ctx.ctrl.exi_message_in()?;
+    ctx.ctrl.exi_message_in(&mut state)?;
     Ok(())
 }
 
@@ -242,7 +242,7 @@ fn job_timeout_cb(
         pending.afb_rqt.reply(
             format!("timeout msg:{:?} (no response from EVSE)", pending.msg_id),
             -100,
-        ); // timeout
+        );
     }
     Ok(())
 }
@@ -270,7 +270,7 @@ impl EvccController {
 
         // reserve timeout job ctx
         let job_post = AfbSchedJob::new("iso2-timeout-job")
-            .set_exec_watchdog(10000) // Fulup TBD limit exec time to 500ms not 10s;
+            .set_exec_watchdog(1) // one second max
             .set_callback(job_timeout_cb)
             .finalize();
 
@@ -305,11 +305,16 @@ impl EvccController {
         Ok(self.state.lock().unwrap())
     }
 
-    pub fn v2g_send_payload(&self, v2g_body: &v2g::V2gAppHandDoc) -> Result<(), AfbError> {
+    pub fn v2g_send_payload(
+        &self,
+        afb_rqt: &AfbRequest,
+        ctx: &IsoMsgReqCtx,
+        v2g_body: &v2g::V2gAppHandDoc,
+    ) -> Result<(), AfbError> {
         use v2g::*;
 
         // ctrl is ready let's send messages
-        let state = self.lock_state()?;
+        let mut state = self.lock_state()?;
         if let None = state.connection {
             return afb_error!("v2g_send_payload", "SDP iso15118 require");
         }
@@ -322,6 +327,23 @@ impl EvccController {
         let cnx = state.connection.as_ref().unwrap();
         cnx.put_data(stream.get_buffer())?;
         stream.reset();
+
+        // wait for response
+        let job_id = self.job_post.post(
+            ctx.timeout, // default 1000s
+            IsoPendingState {
+                afb_rqt: afb_rqt.add_ref(),
+                msg_id: IsoMsgResId::None,
+                job_id: 0,
+            },
+        )?;
+
+        // update state to pending
+        state.session.pending = Some(IsoPendingState {
+            msg_id: IsoMsgResId::None,
+            afb_rqt: afb_rqt.add_ref(),
+            job_id,
+        });
 
         Ok(())
     }
@@ -340,9 +362,7 @@ impl EvccController {
     }
 
     // process incoming iso_msg.res received after sending iso_msg.req
-    pub fn exi_message_in(&self) -> Result<(), AfbError> {
-        let mut state = self.lock_state()?;
-
+    pub fn exi_message_in(&self, state: &mut MutexGuard<EvccState>) -> Result<(), AfbError> {
         let sock = match &state.connection {
             None => return afb_error!("exi-message-in", "Hoop connection drop"),
             Some(value) => value.as_ref(),
@@ -372,7 +392,10 @@ impl EvccController {
 
         // parse to jsonc received message
         let jbody = match iso_body {
-            IsoMsgBody::Sdp(_schema) => return Ok(()),
+            IsoMsgBody::Sdp(schema) => {
+                state.session.protocol= schema; // update schema to received schema
+                schema.to_jsonc()?
+            },
             IsoMsgBody::Din(body) => din_jsonc::body_to_jsonc(&body)?,
             IsoMsgBody::Iso2(body) => iso2_jsonc::body_to_jsonc(&body)?,
         };
@@ -405,11 +428,10 @@ impl EvccController {
         // send message
         let res_id = self
             .network
-            .send_exi_message(sock, &state.session, jbody)?;
+            .send_exi_message(sock, &state.session, ctx.msg_id, jbody)?;
 
         // if needed arm a timer
         if res_id != IsoMsgResId::None {
-
             // arm timeout watchdog
             let job_id = self.job_post.post(
                 ctx.timeout,

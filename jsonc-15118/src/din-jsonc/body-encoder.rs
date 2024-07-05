@@ -60,6 +60,7 @@ pub fn body_to_jsonc(body: &MessageBody) -> Result<JsoncObj, AfbError> {
     }?;
     jsonc.add("tagid", body.get_tagid().to_label())?;
     jsonc.add("proto", "din")?;
+    jsonc.add("msgid", body.get_tagid() as u32)?;
     Ok(jsonc)
 }
 

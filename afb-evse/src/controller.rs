@@ -75,9 +75,12 @@ impl ControllerEvse {
             }
 
             // try to decode message depending on session protocol
-            let mut session = self.lock_state()?;
-            let jsonc= match self.network.decode_from_stream(&mut session)? {
-               IsoMsgBody::Sdp(_schema) => return Ok(()),
+            let mut state = self.lock_state()?;
+            let jsonc= match self.network.decode_from_stream(&mut state)? {
+               IsoMsgBody::Sdp(schema) => return {
+                state.protocol= schema; // update schema to received schema
+                self.network.send_exi_stream(sock)
+               },
                IsoMsgBody::Din(body) => {din_jsonc::body_to_jsonc(&body)?}
                IsoMsgBody::Iso2(body) =>{iso2_jsonc::body_to_jsonc(&body)?}
             };
@@ -95,8 +98,8 @@ impl ControllerEvse {
                 .get::<JsoncObj>(0)?;
 
             // check if incoming message expect a response
-            if let Some(_tagid) = response.optional::<String>("tagid")? {
-                self.network.send_exi_message(sock, &mut session, response)?;
+            if let Some(msgid) = response.optional::<u32>("msgid")? {
+                self.network.send_exi_message(sock, &mut state, msgid, response)?;
             }
         Ok(())
     }
