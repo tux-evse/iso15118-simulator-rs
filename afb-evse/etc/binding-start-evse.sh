@@ -4,6 +4,14 @@ cd $(dirname $0)/..
 CONFDIR=`pwd`/etc
 ROOTDIR=`pwd`/..
 
+if test -f "$1"; then
+    export SCENARIO_UID="$1"
+else
+    if test -z "$SCENARIO_UID"; then
+        export SCENARIO_UID="small-dc-iso2"
+    fi
+fi
+
 # use libafb development version if any
 export LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"
 export PATH="/usr/local/lib64:$PATH"

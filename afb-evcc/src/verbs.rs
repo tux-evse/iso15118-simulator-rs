@@ -28,7 +28,7 @@ pub enum SdpAction {
 }
 
 struct SdpJobCtx {
-    ctrl: &'static Controller,
+    ctrl: &'static EvccController,
     sdp_security: v2g::SdpSecurityModel,
     sdp_port: u16,
 }
@@ -113,7 +113,7 @@ struct DiscoverEvseCtx {
     sdp_job: &'static AfbSchedJob,
     ip6_addr: IfaceAddr6,
     sdp_port: u16,
-    ctrl: &'static Controller,
+    ctrl: &'static EvccController,
 }
 
 fn discover_evse_cb(
@@ -194,29 +194,16 @@ fn discover_evse_cb(
     Ok(())
 }
 
-pub struct V2gMsgReqCtx {
-    pub protocol: v2g::ProtocolTagId,
-    pub uid: &'static str,
-    pub ctrl: &'static Controller,
-    pub msg_id: u32,
-    pub signed: bool,
-    pub timeout: i64,
-}
-
-fn v2g_msg_req_cb(
+fn exi_msg_req_cb(
     afb_rqt: &AfbRequest,
     args: &AfbRqtData,
     context: &AfbCtxData,
 ) -> Result<(), AfbError> {
-    let ctx = context.get_ref::<V2gMsgReqCtx>()?;
-    let api_params = args.get::<JsoncObj>(0)?;
+    let ctx = context.get_ref::<IsoMsgReqCtx>()?;
+    let jbody = args.get::<JsoncObj>(0)?;
 
-    match ctx.protocol {
-        v2g::ProtocolTagId::Din => ctx.ctrl.din_send_payload(afb_rqt, &ctx, api_params)?,
-        v2g::ProtocolTagId::Iso2 => ctx.ctrl.iso2_send_payload(afb_rqt, &ctx, api_params)?,
-        _ => return afb_error!("v2g-msg-req-cb", "invalid protocol"),
-    }
-    Ok(())
+    // send iso request if response expected reply done from controller tls/tcp_async_cb
+    ctx.ctrl.exi_message_out (afb_rqt, ctx, jbody)
 }
 
 fn app_proto_req_cb(
@@ -226,7 +213,7 @@ fn app_proto_req_cb(
 ) -> Result<(), AfbError> {
     use v2g::*;
 
-    let ctx = context.get_ref::<V2gMsgReqCtx>()?;
+    let ctx = context.get_ref::<IsoMsgReqCtx>()?;
     let iso2_proto = V2G_PROTOCOLS_SUPPORTED_LIST[ProtocolTagId::Iso2 as usize];
     let v2g_body = SupportedAppProtocolReq::new(iso2_proto)?.encode();
 
@@ -238,7 +225,7 @@ fn app_proto_req_cb(
 pub fn register_verbs(
     group: &mut AfbGroup,
     config: BindingConfig,
-    ctrl: &'static Controller,
+    ctrl: &'static EvccController,
 ) -> Result<(), AfbError> {
     sdp_actions::register()?;
 
@@ -263,20 +250,20 @@ pub fn register_verbs(
         .set_actions("['discover','forget','info']")?
         .set_callback(discover_evse_cb)
         .set_context(DiscoverEvseCtx {
+            ctrl,
             sdp_job,
             ip6_addr: get_iface_addrs(config.ip6_iface, config.ip6_prefix)?,
             sdp_port: config.sdp_port,
-            ctrl,
         });
 
     let app_proto_verb = AfbVerb::new("v2g-protocol-select")
         .set_name("app_proto_req")
         .set_info("Announce simulated protocol")
         .set_callback(app_proto_req_cb)
-        .set_context(V2gMsgReqCtx {
+        .set_context(IsoMsgReqCtx {
             ctrl,
             protocol: v2g::ProtocolTagId::Unknown,
-            uid: "app_proto_req",
+            msg_name: "app_proto_req",
             timeout: config.timeout,
             msg_id: v2g::MessageTagId::AppProtocolReq as u32,
             signed: false,
@@ -298,10 +285,10 @@ pub fn register_verbs(
         v2g_msg_verb
             .set_name(msg_api.name)
             .set_info(msg_api.info)
-            .set_callback(v2g_msg_req_cb)
-            .set_context(V2gMsgReqCtx {
+            .set_callback(exi_msg_req_cb)
+            .set_context(IsoMsgReqCtx {
                 ctrl,
-                uid: msg_name,
+                msg_name,
                 timeout: config.timeout,
                 msg_id: msg_api.msg_id,
                 protocol: protocol_conf,

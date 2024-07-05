@@ -17,11 +17,6 @@ use iso15118::prelude::*;
 
 pub struct BindingConfig {}
 
-#[derive(Clone, Copy)]
-pub struct ResponderConfig {
-    pub api: &'static str,
-    pub prefix: &'static str,
-}
 
 struct ApiUserData {
     iface: &'static str,
@@ -74,9 +69,9 @@ impl AfbApiControls for ApiUserData {
                 .set_context(AsyncTlsCtx {
                     apiv4: api.get_apiv4(),
                     sock: tls,
-                    config: tls_conf,
                     responder: self.responder_conf,
-                    pki: self.pki_conf,
+                    tls_conf,
+                    pki_conf: self.pki_conf,
                 })
                 .start()?;
         }

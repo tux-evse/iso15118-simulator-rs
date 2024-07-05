@@ -9,7 +9,7 @@
             "target": "iso15118-simulator",
             "scenarios": [
                 {
-                    "uid": "mini-dc-iso2:1",
+                    "uid": "small-dc-iso2:1",
                     "protocol": "iso2",
                     "transactions": [
                         {

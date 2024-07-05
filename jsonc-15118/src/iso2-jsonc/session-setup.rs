@@ -24,7 +24,7 @@ impl IsoToJson for SessionSetupRequest {
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let session_id = jsonc.get("id")?;
-        let mut session_u8 = [0x0; 6 * 3];
+        let mut session_u8 = [0u8; 6];
         let session = hexa_to_bytes(session_id, &mut session_u8)?;
         let payload = SessionSetupRequest::new(session)?;
         Ok(Box::new(payload))

@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "evse-simu15118",
+            "name": "evse-small-15118",
             "type": "lldb",
             "preLaunchTask": "binding-native-build",
             "request": "launch",
@@ -13,10 +13,10 @@
                 "IFACE_SIMU": "evse-veth",
                 "PKI_TLS_DIR": "./afb-test/certs",
                 "SIMULATION_MODE": "responder",
-
+                "SCENARIO_UID": "small-dc-iso2",
             },
             "args": [
-                "-v",
+                "-vv",
                 "--monitoring",
                 "--trap-faults=0",
                 "--config=afb-evse/etc/binding-simu15118-evse.yaml",
@@ -29,7 +29,7 @@
             ]
         },
         {
-            "name": "evcc-simu15118",
+            "name": "evcc-small-15118",
             "type": "lldb",
             "preLaunchTask": "binding-native-build",
             "request": "launch",

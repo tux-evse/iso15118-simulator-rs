@@ -10,11 +10,12 @@ build = "etc/build.rs"
 afbv4 = {git= "https://github.com/redpesk-common/afb-librust", branch="master", optional = true}
 serde = { version = "1.0", features = ["derive"] }
 serde_json={ version= "1.0"}
-iso15118= {path ="../../iso15118-encoders-rs"}
-iso15118_jsonc = {path ="../jsonc-15118"}
-nettls= {path ="../../iso15118-network-rs"}
+iso15118= {path = "../../iso15118-encoders-rs"}
+iso15118_jsonc = {path = "../jsonc-15118"}
+iso15118_exi = {path = "../exi-15118"}
+nettls= {path = "../../iso15118-network-rs"}
 
 [lib]
 name = "afb_sim15118_evse"
 crate-type = ["cdylib"]
-path = "src/libso.rs"
+path = "src/@libso.rs"

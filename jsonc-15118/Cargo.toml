@@ -19,4 +19,4 @@ default = ["iso15118", "nettls"]
 [lib]
 name = "iso15118_jsonc"
 crate-type = ["lib"]
-path = "src/lib-jsonc.rs"
+path = "src/@lib-jsonc.rs"

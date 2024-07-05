@@ -10,11 +10,9 @@
  *
  */
 
-use crate::prelude::*;
 use afbv4::prelude::*;
-// use iso15118::prelude::{iso2_exi::*, v2g::*, *};
-// use iso15118_jsonc::prelude::{*,iso2_jsonc::*};
 use iso15118::prelude::*;
+use iso15118_exi::prelude::*;
 use iso15118_jsonc::prelude::*;
 
 use nettls::prelude::*;
@@ -23,27 +21,61 @@ use std::{mem, net};
 
 pub const SDP_INIT_TIMEOUT: u64 = 3000;
 pub const SDP_INIT_TRY: u64 = 10;
-pub struct ControllerPending {
-    afb_rqt: AfbRequest,
-    msg_id: u32,
-    job_id: i32,
-}
 
-pub struct JobPostData {
-    uid: &'static str,
-    afb_rqt: AfbRequest,
-}
-
-pub struct ControllerState {
-    pub connection: Option<Box<dyn NetConnection>>,
-    pub pending: Option<ControllerPending>,
+pub struct IsoMsgReqCtx {
+    pub ctrl: &'static EvccController,
     pub protocol: v2g::ProtocolTagId,
+    pub msg_name: &'static str,
+    pub msg_id: u32,
+    pub timeout: i64,
+    pub signed: bool,
+}
+
+pub struct EvccState {
+    pub connection: Option<Box<dyn NetConnection>>,
+    pub session: IsoSessionState,
+}
+
+struct AsyncTlsClientCtx {
+    ctrl: &'static EvccController,
+}
+impl Drop for AsyncTlsClientCtx {
+    fn drop(&mut self) {
+        self.ctrl.reset().unwrap();
+    }
+}
+
+fn async_tls_client_cb(
+    _evtfd: &AfbEvtFd,
+    revent: u32,
+    context: &AfbCtxData,
+) -> Result<(), AfbError> {
+    // get verb user data context
+    let ctx = context.get_mut::<AsyncTlsClientCtx>()?;
+    let state = ctx.ctrl.lock_state()?;
+    let sock = match &state.connection {
+        None => return afb_error!("async-tls-client", "no state connection"),
+        Some(value) => value.as_ref(),
+    };
+
+    if revent != AfbEvtFdPoll::IN.bits() {
+        afb_log_msg!(
+            Notice,
+            None,
+            "async-tls-client: closing tls client:{}",
+            sock.get_source()
+        );
+        context.free::<AsyncTlsClientCtx>();
+        return Ok(());
+    }
+
+    ctx.ctrl.exi_message_in()?;
+
+    Ok(())
 }
 
 struct AsyncTcpClientCtx {
-    ctrl: &'static Controller,
-    data_len: u32,
-    payload_len: u32,
+    ctrl: &'static EvccController,
 }
 
 impl Drop for AsyncTcpClientCtx {
@@ -58,78 +90,31 @@ fn async_tcp_client_cb(
     revent: u32,
     context: &AfbCtxData,
 ) -> Result<(), AfbError> {
-    // read is the only accepted operation
+    // get verb user data context
+    let ctx = context.get_mut::<AsyncTcpClientCtx>()?;
+    let state = ctx.ctrl.lock_state()?;
+    let sock = match &state.connection {
+        None => return afb_error!("async-tls-client", "no state connection"),
+        Some(value) => value.as_ref(),
+    };
+
     if revent != AfbEvtFdPoll::IN.bits() {
+        afb_log_msg!(
+            Notice,
+            None,
+            "async-tcp-client: closing tcp client:{}",
+            sock.get_source()
+        );
         context.free::<AsyncTcpClientCtx>();
         return Ok(());
     }
 
-    // get verb user data context
-    let ctx = context.get_mut::<AsyncTcpClientCtx>()?;
-    let state = ctx.ctrl.lock_state()?;
-    let mut lock = ctx.ctrl.stream.lock_stream();
-
-    // move tcp socket data into exi stream buffer
-    let cnx = state.connection.as_ref().unwrap();
-
-    let read_count = {
-        let (stream_idx, stream_available) = ctx.ctrl.stream.get_index(&lock);
-
-        let read_count = if stream_available == 0 {
-            afb_log_msg!(
-                Notice,
-                None,
-                "async_tcp_client {:?}, buffer full close session",
-                cnx.get_source()
-            );
-            cnx.close()?;
-            return Ok(());
-        } else {
-            let buffer = &mut lock.buffer[stream_idx..];
-            cnx.get_data(buffer)?
-        };
-
-        // when facing a new exi check how much data should be read
-        if stream_idx == 0 {
-            let len = ctx.ctrl.stream.get_payload_len(&lock);
-            if len < 0 {
-                afb_log_msg!(
-                    Warning,
-                    None,
-                    "async_tcp_client: packet ignored (invalid v2g header) size:{}",
-                    read_count
-                );
-            } else {
-                ctx.payload_len = len as u32;
-            }
-            ctx.data_len = 0;
-        }
-        read_count
-    };
-
-    // if data send in chunks let's complete exi buffer before processing it
-    ctx.data_len = ctx.data_len + read_count;
-    if ctx.data_len >= ctx.payload_len + v2g::SDP_V2G_HEADER_LEN as u32 {
-        // fix stream len for decoding
-        ctx.ctrl.stream.finalize(&lock, ctx.payload_len)?;
-        match ctx.ctrl.stream.get_payload_id(&lock) {
-            // iso2 only use SAP payload-id
-            v2g::PayloadMsgId::SAP => ctx.ctrl.iso2_decode_payload(state, &mut lock)?,
-            _ => {
-                return afb_error!(
-                    "async_tcp_client",
-                    "Invalid message payload id:{:?}",
-                    ctx.ctrl.stream.get_payload_id(&lock)
-                )
-            }
-        }
-    }
-
+    ctx.ctrl.exi_message_in()?;
     Ok(())
 }
 
 pub struct AsyncSdpCtx {
-    pub ctrl: &'static Controller,
+    pub ctrl: &'static EvccController,
     pub sdp_svc: SdpServer,
     pub sdp_scope: u32,
 }
@@ -143,7 +128,7 @@ pub fn async_sdp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
         return Ok(());
     }
 
-    // if data_set already defined let ignore incoming SDP response
+    // if session already defined let ignore incoming SDP response
     let ctx = ctx.get_ref::<AsyncSdpCtx>()?;
 
     // get SDP/UDP packet
@@ -197,8 +182,16 @@ pub fn async_sdp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
                 return Ok(());
             }
             Some(config) => {
-                let tcp_client = TcpClient::new(remote6, svc_port, ctx.sdp_scope)?;
+                let tcp_client = TcpConnection::new(remote6, svc_port, ctx.sdp_scope)?;
                 let tls_client = TlsConnection::new(config, tcp_client, TlsConnectionFlag::Client)?;
+
+                AfbEvtFd::new("tls-client")
+                    .set_fd(tls_client.get_sockfd()?)
+                    .set_events(AfbEvtFdPoll::IN | AfbEvtFdPoll::RUP)
+                    .set_autounref(true)
+                    .set_callback(async_tls_client_cb)
+                    .set_context(AsyncTlsClientCtx { ctrl: ctx.ctrl })
+                    .start()?;
                 Box::new(tls_client)
             }
         },
@@ -207,21 +200,16 @@ pub fn async_sdp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
                 afb_log_msg!(Warning, None, "TLS configured but not refused by server");
             }
 
-            // connect TCL client to server
-            let tcp_client = TcpClient::new(remote6, svc_port, ctx.sdp_scope)?;
+            // connect TCP client to server
+            let tcp_client = TcpConnection::new(remote6, svc_port, ctx.sdp_scope)?;
 
             // register asynchronous tcp callback
             AfbEvtFd::new("v2g-tcp-client")
                 .set_fd(tcp_client.get_sockfd()?)
                 .set_events(AfbEvtFdPoll::IN | AfbEvtFdPoll::RUP)
                 .set_callback(async_tcp_client_cb)
-                .set_context(AsyncTcpClientCtx {
-                    ctrl: ctx.ctrl,
-                    data_len: 0,
-                    payload_len: 0,
-                })
+                .set_context(AsyncTcpClientCtx { ctrl: ctx.ctrl })
                 .start()?;
-
             Box::new(tcp_client)
         }
     };
@@ -246,27 +234,25 @@ fn job_timeout_cb(
     _ctx: &AfbCtxData,
 ) -> Result<(), AfbError> {
     // retrieve job post arguments
-    let param = data.get_ref::<JobPostData>()?;
+    let pending = data.get_ref::<IsoPendingState>()?;
 
     if signal != 0 {
-        // job post was cancelled
-        param.afb_rqt.un_ref();
+        pending.afb_rqt.un_ref(); // job ended drop afb_rqt
     } else {
-        param.afb_rqt.reply(
-            format!("timeout msg:{} (no response from EVSE)", param.uid),
+        pending.afb_rqt.reply(
+            format!("timeout msg:{:?} (no response from EVSE)", pending.msg_id),
             -100,
         ); // timeout
     }
     Ok(())
 }
 
-pub struct Controller {
+pub struct EvccController {
     pub initialized: Arc<(Mutex<bool>, Condvar)>,
-    pub data_set: Mutex<ControllerState>,
-    pub stream: ExiStream,
-    pub session: Vec<u8>,
+    pub state: Mutex<EvccState>,
+    pub network: IsoNetConfig,
+    pub session_id: Vec<u8>,
     pub tls_conf: Option<&'static TlsConfig>,
-    pub pki_conf: Option<&'static PkiConfig>,
     pub job_post: &'static AfbSchedJob,
 }
 
@@ -276,7 +262,7 @@ pub struct ControllerConfig {
     pub session_id: &'static str,
 }
 
-impl Controller {
+impl EvccController {
     pub fn new(config: ControllerConfig) -> Result<&'static Self, AfbError> {
         // create a fake session id
         let mut session_u8 = [0; 8];
@@ -284,23 +270,30 @@ impl Controller {
 
         // reserve timeout job ctx
         let job_post = AfbSchedJob::new("iso2-timeout-job")
-            .set_exec_watchdog(10000) // Fulup TBD limit exec time to 100ms not 10s;
+            .set_exec_watchdog(10000) // Fulup TBD limit exec time to 500ms not 10s;
             .set_callback(job_timeout_cb)
             .finalize();
 
-        let state = ControllerState {
-            protocol: v2g::ProtocolTagId::Unknown,
+        let state = EvccState {
             connection: None,
-            pending: None,
+            session: IsoSessionState {
+                pending: None,
+                protocol: v2g::ProtocolTagId::Unknown,
+                session_id: Vec::new(),
+                challenge: Vec::new(),
+                public_key: None,
+            },
         };
 
         let ctrl = Box::leak(Box::new(Self {
             initialized: Arc::new((Mutex::new(false), Condvar::new())),
+            network: IsoNetConfig {
+                pki_conf: config.pki_conf,
+                stream: ExiStream::new(),
+            },
             tls_conf: config.tls_conf,
-            pki_conf: config.pki_conf,
-            stream: ExiStream::new(),
-            session: session.to_vec(),
-            data_set: Mutex::new(state),
+            session_id: session.to_vec(),
+            state: Mutex::new(state),
             job_post,
         }));
 
@@ -308,145 +301,11 @@ impl Controller {
     }
 
     #[track_caller]
-    pub fn lock_state(&self) -> Result<MutexGuard<'_, ControllerState>, AfbError> {
-        Ok(self.data_set.lock().unwrap())
+    pub fn lock_state(&self) -> Result<MutexGuard<'_, EvccState>, AfbError> {
+        Ok(self.state.lock().unwrap())
     }
 
-    // wipe controller context (stream, lock, ...)
-    pub fn reset(&self) -> Result<(), AfbError> {
-        let mut state = self.lock_state()?;
-        let lock = self.stream.lock_stream();
-        lock.reset();
-        state.connection = None;
-        state.protocol = v2g::ProtocolTagId::Unknown;
-        let (lock, _cvar) = &*self.initialized;
-        let mut started = lock.lock().unwrap();
-        *started = false;
-        Ok(())
-    }
-
-    pub fn iso2_send_payload(
-        &self,
-        afb_rqt: &AfbRequest,
-        ctx: &V2gMsgReqCtx,
-        jbody: JsoncObj,
-    ) -> Result<(), AfbError> {
-        use iso2_exi::*;
-        use iso2_jsonc::*;
-
-        // ctrl is ready let's send messages
-        let mut state = self.lock_state()?;
-
-        if let None = state.connection {
-            return afb_error!("iso2-send-payload", "SDP iso15118 require");
-        }
-
-        // retrieve msg object num
-        let msg_id = MessageTagId::from_u32(ctx.msg_id);
-
-        // build exi payload from json
-        let header = ExiMessageHeader::new(&ctx.ctrl.session)?;
-        let body = body_from_jsonc(msg_id, jbody)?;
-
-        let mut stream = self.stream.lock_stream();
-        let mut exi_doc = ExiMessageDoc::new(&header, &body);
-        if let Some(pki) = self.pki_conf {
-            if ctx.signed {
-                exi_doc.pki_sign_sign(msg_id, &pki.get_private_key()?)?;
-            }
-        }
-        exi_doc.encode_to_stream(&mut stream)?;
-
-        // if request expect a response let delay verb response
-        let res_id = msg_id.match_res_id();
-        if res_id != MessageTagId::Unsupported {
-            // arm a watchdog before sending request
-            let job_id = self.job_post.post(
-                ctx.timeout,
-                JobPostData {
-                    uid: ctx.uid,
-                    afb_rqt: afb_rqt.add_ref(),
-                },
-            )?;
-
-            state.pending = Some(ControllerPending {
-                msg_id: res_id as u32,
-                afb_rqt: afb_rqt.add_ref(),
-                job_id,
-            });
-        } else {
-            state.pending = None;
-            afb_rqt.reply("Warning: no response for this msg_id", 0);
-            return Ok(());
-        };
-
-        // send data and wipe stream
-        let cnx = state.connection.as_ref().unwrap();
-        let _count= cnx.put_data(stream.get_buffer())?;
-
-        stream.reset();
-        Ok(())
-    }
-
-    pub fn din_send_payload(
-        &self,
-        afb_rqt: &AfbRequest,
-        ctx: &V2gMsgReqCtx,
-        jbody: JsoncObj,
-    ) -> Result<(), AfbError> {
-        use din_exi::*;
-        use din_jsonc::*;
-        // ctrl is ready let's send messages
-        let mut state = self.lock_state()?;
-
-        if let None = state.connection {
-            return afb_error!("din-send-payload", "SDP iso15118 require");
-        }
-
-        // retrieve msg object num
-        let msg_id = MessageTagId::from_u32(ctx.msg_id);
-
-        // build exi payload from json
-        let header = ExiMessageHeader::new(&ctx.ctrl.session)?;
-        let body = body_from_jsonc(msg_id, jbody)?;
-
-        let mut stream = self.stream.lock_stream();
-        ExiMessageDoc::new(&header, &body).encode_to_stream(&mut stream)?;
-
-        // if request expect a response let delay verb response
-        let res_id = msg_id.match_res_id();
-        if res_id != MessageTagId::Unsupported {
-            // arm a watchdog before sending request
-            let job_id = self.job_post.post(
-                ctx.timeout,
-                JobPostData {
-                    uid: ctx.uid,
-                    afb_rqt: afb_rqt.add_ref(),
-                },
-            )?;
-
-            state.pending = Some(ControllerPending {
-                msg_id: res_id as u32,
-                afb_rqt: afb_rqt.add_ref(),
-                job_id,
-            });
-        } else {
-            state.pending = None;
-            afb_rqt.reply("Warning: no DIN response for this msg_id", 0);
-            return Ok(());
-        };
-
-        // send data and wipe stream
-        let cnx = state.connection.as_ref().unwrap();
-        cnx.put_data(stream.get_buffer())?;
-        stream.reset();
-        Ok(())
-    }
-
-    pub fn v2g_send_payload(
-        &self,
-        v2g_body: &v2g::V2gAppHandDoc,
-    ) -> Result<(), AfbError> {
+    pub fn v2g_send_payload(&self, v2g_body: &v2g::V2gAppHandDoc) -> Result<(), AfbError> {
         use v2g::*;
 
         // ctrl is ready let's send messages
@@ -456,7 +315,7 @@ impl Controller {
         }
 
         // in simulation mode V2G does not expect any response
-        let mut stream = self.stream.lock_stream();
+        let mut stream = self.network.stream.lock_stream();
         SupportedAppProtocolExi::encode_to_stream(&mut stream, &v2g_body)?;
 
         // send data &wipe stream
@@ -467,89 +326,108 @@ impl Controller {
         Ok(())
     }
 
-    pub fn iso2_decode_payload(
-        &self,
-        mut state: MutexGuard<'_, ControllerState>,
-        lock: &mut MutexGuard<RawStream>,
-    ) -> Result<(), AfbError> {
-        use v2g::*;
+    // wipe controller context (stream, lock, ...)
+    pub fn reset(&self) -> Result<(), AfbError> {
+        let mut state = self.lock_state()?;
+        let mut lock = self.network.stream.lock_stream();
+        lock.reset();
+        state.connection = None;
+        state.session.protocol = v2g::ProtocolTagId::Unknown;
+        let (lock, _cvar) = &*self.initialized;
+        let mut started = lock.lock().unwrap();
+        *started = false;
+        Ok(())
+    }
 
-        // if not waiting for a message let't ignore
-        let msg_id = match &state.pending {
-            None => {
-                afb_log_msg!(
-                    Notice,
-                    None,
-                    "Received {} message while pending=None",
-                    &state.protocol
-                );
-                return Ok(());
-            }
-            Some(pending) => pending.msg_id.clone(),
+    // process incoming iso_msg.res received after sending iso_msg.req
+    pub fn exi_message_in(&self) -> Result<(), AfbError> {
+        let mut state = self.lock_state()?;
+
+        let sock = match &state.connection {
+            None => return afb_error!("exi-message-in", "Hoop connection drop"),
+            Some(value) => value.as_ref(),
         };
 
-        let response = match state.protocol.clone() {
-            v2g::ProtocolTagId::Unknown => {
-                let v2g_msg = SupportedAppProtocolExi::decode_from_stream(&lock)?;
-                let app_protocol_res = match v2g_msg {
-                    v2g::V2gMsgBody::Request(_) => {
-                        return afb_error!(
-                            "iso-app-protocol",
-                            "expect 'AppHandSupportedAppProtocolRes' as initial request"
-                        )
-                    }
-                    v2g::V2gMsgBody::Response(value) => value,
-                };
+        // wait until we get a complete exi message from socket
+        match self.network.rec_exi_message(sock)? {
+            IsoStreamStatus::Complete => {}
+            IsoStreamStatus::Incomplete => return Ok(()),
+        }
 
-                // retrieve chosen protocol by EVSE and use it until the end of the session
-                let schema_id = app_protocol_res.get_schema();
-                let protocol = SupportedAppProtocolConf::from_schema(
-                    schema_id,
-                    &V2G_PROTOCOLS_SUPPORTED_LIST,
-                )?;
-                state.protocol = protocol.get_schema();
-                protocol.to_jsonc()?
-            }
-            v2g::ProtocolTagId::Iso2 => {
-                let message = iso2_exi::ExiMessageDoc::decode_from_stream(&lock)?;
-                let body = message.get_body()?;
-                if msg_id != body.get_tagid() as u32 {
-                    return afb_error!(
-                        "iso2-decode-payload",
-                        "unexpected message got:{} waiting:{}",
-                        body.get_tagid(),
-                        msg_id
-                    );
-                }
-                iso2_jsonc::body_to_jsonc(&body)?
-            }
-            v2g::ProtocolTagId::Din => {
-                let message = din_exi::ExiMessageDoc::decode_from_stream(&lock)?;
-                let body = message.get_body()?;
-                if msg_id != body.get_tagid() as u32 {
-                    return afb_error!(
-                        "iso2-decode-payload",
-                        "unexpected message got:{} waiting:{}",
-                        body.get_tagid(),
-                        msg_id
-                    );
-                }
-                din_jsonc::body_to_jsonc(&body)?
-            }
-            _ => {
-                return afb_error!(
-                    "iso-decode-payload",
-                    "unexpected iso protocol:{}",
-                    state.protocol
-                )
-            }
+        // try to decode message depending on session protocol
+        let iso_body = self.network.decode_from_stream(&mut state.session)?;
+
+        if !self
+            .network
+            .check_msg_id(&iso_body, &state.session.pending)?
+        {
+            afb_log_msg!(
+                Notice,
+                None,
+                "Received {} message while pending=None",
+                &state.session.protocol
+            );
+            return Ok(());
+        }
+
+        // parse to jsonc received message
+        let jbody = match iso_body {
+            IsoMsgBody::Sdp(_schema) => return Ok(()),
+            IsoMsgBody::Din(body) => din_jsonc::body_to_jsonc(&body)?,
+            IsoMsgBody::Iso2(body) => iso2_jsonc::body_to_jsonc(&body)?,
         };
 
-        // respond & cleanup pending message & watchdog
-        if let Some(pending) = &state.pending {
-            pending.afb_rqt.reply(response, 0);
+        // if pending message waiting let's respond other wise ignore
+        if let Some(pending) = &state.session.pending {
+            pending.afb_rqt.reply(jbody, 0);
             self.job_post.abort(pending.job_id)?;
-            state.pending = None;
+            state.session.pending = None;
+        }
+
+        Ok(())
+    }
+
+    // send command and if needed arm a job
+    pub fn exi_message_out(
+        &self,
+        afb_rqt: &AfbRequest,
+        ctx: &IsoMsgReqCtx,
+        jbody: JsoncObj,
+    ) -> Result<(), AfbError> {
+        let mut state = self.lock_state()?;
+
+        // check connection is defined without borrow
+        let sock = match &state.connection {
+            None => return afb_error!("exi-message-out", "Hoop connection drop"),
+            Some(value) => value.as_ref(),
+        };
+
+        // send message
+        let res_id = self
+            .network
+            .send_exi_message(sock, &state.session, jbody)?;
+
+        // if needed arm a timer
+        if res_id != IsoMsgResId::None {
+
+            // arm timeout watchdog
+            let job_id = self.job_post.post(
+                ctx.timeout,
+                IsoPendingState {
+                    afb_rqt: afb_rqt.add_ref(),
+                    msg_id: res_id,
+                    job_id: 0,
+                },
+            )?;
+
+            // update state to pending
+            state.session.pending = Some(IsoPendingState {
+                msg_id: res_id,
+                afb_rqt: afb_rqt.add_ref(),
+                job_id,
+            });
+        } else {
+            afb_rqt.reply(AFB_NO_DATA, 0);
         }
         Ok(())
     }

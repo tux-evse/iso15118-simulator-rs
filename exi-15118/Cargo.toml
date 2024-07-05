@@ -1,5 +1,5 @@
 [package]
-name = "sim15118-evcc-binding"
+name = "iso15118_exi"
 version = "0.0.1"
 edition = "2021"
 authors = ["Fulup Le Foll <fulup@iot.bzh>"]
@@ -10,7 +10,6 @@ build = "etc/build.rs"
 serde = { version = "1.0", features = ["derive"] }
 serde_json={ version= "1.0"}
 iso15118_jsonc= {path ="../jsonc-15118"}
-iso15118_exi = {path = "../exi-15118"}
 nettls= {path ="../../iso15118-network-rs"}
 iso15118= {path ="../../iso15118-encoders-rs", default-features = false, optional = true}
 
@@ -19,6 +18,6 @@ default = ["iso15118","iso15118/default"]
 #afbv4 = ["iso15118","iso15118/afbv4", "dep:afbv4"]
 
 [lib]
-name = "afb_sim15118_evcc"
-crate-type = ["cdylib"]
-path = "src/@libso.rs"
+name = "iso15118_exi"
+crate-type = ["lib"]
+path = "src/@lib-exi.rs"

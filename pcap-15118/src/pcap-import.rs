@@ -467,7 +467,7 @@ fn packet_handler_cb(
             let mut scenario = ctx.scenario.borrow_mut();
             let jtransactions = scenario.jtransactions.clone();
             if let ScenarioProto::Din(logger) = &mut scenario.protocol {
-                let din_msg = din_exi::ExiMessageDoc::decode_from_stream(&lock)?;
+                let din_msg = din_exi::ExiMessageDoc::decode_from_stream(&mut lock)?;
                 let _header = din_msg.get_header();
                 let body = din_msg.get_body()?;
 
@@ -480,7 +480,7 @@ fn packet_handler_cb(
             let mut scenario = ctx.scenario.borrow_mut();
             let jtransactions = scenario.jtransactions.clone();
             if let ScenarioProto::Iso2(logger) = &mut scenario.protocol {
-                let iso2_msg = iso2_exi::ExiMessageDoc::decode_from_stream(&lock)?;
+                let iso2_msg = iso2_exi::ExiMessageDoc::decode_from_stream(&mut lock)?;
                 let _header = iso2_msg.get_header();
                 let body = iso2_msg.get_body()?;
 
@@ -498,7 +498,7 @@ fn packet_handler_cb(
     }
 
     // wipe stream for next request
-    ctx.stream.reset(&lock);
+    ctx.stream.reset(&mut lock);
     Ok(())
 }
 

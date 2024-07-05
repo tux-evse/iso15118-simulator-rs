@@ -12,7 +12,7 @@ binding:
     sdp_port: 15118
     tcp_port: 61341
     target: iso15118-responder
-    prefix: mini-dc-iso2:1 # uid(scenario)
+    prefix: ${SCENARIO_UID}:1 # uid(scenario)
     tls:
       port: 64109
       ca_trust: ${PKI_TLS_DIR}/trusted # optional client cert root of trust

@@ -157,6 +157,9 @@ Output file
 FULUP: TBD
 ------------
 
- - Din -> Json (session request)
- - porter DIN
- - checker la logique du protocol
+evcc controller:489 let response = match exi_decode_from_stream
+
+alligner avec le comportement evse
+ - lecture du buffer
+ - lecture du body
+ - mise en jsonc

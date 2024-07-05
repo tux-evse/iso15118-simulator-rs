@@ -91,7 +91,7 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
             pki_conf,
             session_id,
         };
-        let ctrl = Controller::new(controller_config)?;
+        let ctrl = EvccController::new(controller_config)?;
 
         // send SDP multicast packet
 
