@@ -27,8 +27,8 @@ pub struct IsoMsgReqCtx {
     pub protocol: v2g::ProtocolTagId,
     pub msg_name: &'static str,
     pub msg_id: u32,
-    pub timeout: i64,
     pub signed: bool,
+    pub watchdog: i64,
 }
 
 pub struct EvccState {
@@ -70,7 +70,6 @@ fn async_tls_client_cb(
     }
 
     ctx.ctrl.exi_message_in(&mut state)?;
-
     Ok(())
 }
 
@@ -234,7 +233,8 @@ fn job_timeout_cb(
     _ctx: &AfbCtxData,
 ) -> Result<(), AfbError> {
     // retrieve job post arguments
-    let pending = data.get_ref::<IsoPendingState>()?;
+    let pending = data.get_mut::<IsoPendingState>()?;
+    pending.msg_id = IsoMsgResId::None;
 
     if signal != 0 {
         pending.afb_rqt.un_ref(); // job ended drop afb_rqt
@@ -270,7 +270,7 @@ impl EvccController {
 
         // reserve timeout job ctx
         let job_post = AfbSchedJob::new("iso2-timeout-job")
-            .set_exec_watchdog(1) // one second max
+            .set_exec_watchdog(1) // one second to kill a job is more than enough
             .set_callback(job_timeout_cb)
             .finalize();
 
@@ -328,9 +328,9 @@ impl EvccController {
         cnx.put_data(stream.get_buffer())?;
         stream.reset();
 
-        // wait for response
+        // kill request in xxx ms if no response
         let job_id = self.job_post.post(
-            ctx.timeout, // default 1000s
+            ctx.watchdog,
             IsoPendingState {
                 afb_rqt: afb_rqt.add_ref(),
                 msg_id: IsoMsgResId::None,
@@ -393,9 +393,9 @@ impl EvccController {
         // parse to jsonc received message
         let jbody = match iso_body {
             IsoMsgBody::Sdp(schema) => {
-                state.session.protocol= schema; // update schema to received schema
+                state.session.protocol = schema; // update schema to received schema
                 schema.to_jsonc()?
-            },
+            }
             IsoMsgBody::Din(body) => din_jsonc::body_to_jsonc(&body)?,
             IsoMsgBody::Iso2(body) => iso2_jsonc::body_to_jsonc(&body)?,
         };
@@ -434,7 +434,7 @@ impl EvccController {
         if res_id != IsoMsgResId::None {
             // arm timeout watchdog
             let job_id = self.job_post.post(
-                ctx.timeout,
+                ctx.watchdog,
                 IsoPendingState {
                     afb_rqt: afb_rqt.add_ref(),
                     msg_id: res_id,

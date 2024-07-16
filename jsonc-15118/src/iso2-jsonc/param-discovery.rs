@@ -160,7 +160,7 @@ impl IsoToJson for SasScheduleTuple {
             for idx in 0..pmaxs.len() {
                 jpmaxs.append(pmaxs[idx].to_jsonc()?)?;
             }
-            jsonc.add("pmax", jpmaxs)?;
+            jsonc.add("pmaxs", jpmaxs)?;
         }
 
         if let Some(value) = self.get_tariff() {
@@ -174,10 +174,9 @@ impl IsoToJson for SasScheduleTuple {
         let description = jsonc.get("description")?;
         let mut payload = SasScheduleTuple::new(description);
 
-        if let Some(values) = jsonc.optional::<JsoncObj>("pmaxs")? {
-            for idx in 0..values.count()? {
-                payload.add_pmax(PMaxScheduleEntry::from_jsonc(values.index(idx)?)?.as_ref())?;
-            }
+        let pmaxs= jsonc.get::<JsoncObj>("pmaxs")?;
+        for idx in 0..pmaxs.count()? {
+                payload.add_pmax(PMaxScheduleEntry::from_jsonc(pmaxs.index(idx)?)?.as_ref())?;
         }
         if let Some(value) = jsonc.optional("tariff")? {
             payload.set_tariff(SalesTariff::from_jsonc(value)?.as_ref());

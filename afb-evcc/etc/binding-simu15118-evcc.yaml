@@ -54,7 +54,7 @@ binding:
           key: ${PKI_TLS_DIR}/_client.key.pem
           format: der #default pem
           proto: SECURE128:-VERS-SSL3.0:-VERS-TLS1.0:-ARCFOUR-128:+PSK:+DHE-PSK
-          psklog_in: /tmp/tls-keys-client.log
+          psklog: /tmp/tls-keys-client.log
         verbs:
           - session_setup_req
           - service_discovery_req

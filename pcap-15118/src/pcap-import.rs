@@ -67,7 +67,7 @@ impl ScenarioDin {
                     jsonc.add("query", body_to_jsonc(body)?)?;
                     jsonc
                 };
-                let res_id = msg_id.match_res_id();
+                let res_id = msg_id.match_resid();
                 if res_id != MessageTagId::Unsupported {
                     self.pending = Some(res_id);
                 } else {
@@ -140,7 +140,7 @@ impl ScenarioIso2 {
                     jsonc.add("query", body_to_jsonc(body)?)?;
                     jsonc
                 };
-                let res_id = msg_id.match_res_id();
+                let res_id = msg_id.match_resid();
                 if res_id != MessageTagId::Unsupported {
                     self.pending = Some(res_id);
                 } else {

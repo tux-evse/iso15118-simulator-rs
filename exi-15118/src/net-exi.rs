@@ -132,6 +132,7 @@ impl IsoNetConfig {
         Ok(response)
     }
 
+    #[track_caller]
     // flush stream contend to socket
     pub fn send_exi_stream(&self, sock: &dyn NetConnection) -> Result<(), AfbError> {
         let mut lock = self.stream.lock_stream();
@@ -141,6 +142,7 @@ impl IsoNetConfig {
         Ok(())
     }
 
+    #[track_caller]
     pub fn send_exi_message(
         &self,
         sock: &dyn NetConnection,
@@ -158,6 +160,7 @@ impl IsoNetConfig {
         Ok(res_id)
     }
 
+    #[track_caller]
     pub fn iso2_encode_payload(
         &self,
         lock: &mut MutexGuard<RawStream>,
@@ -187,6 +190,7 @@ impl IsoNetConfig {
         Ok(())
     }
 
+    #[track_caller]
     pub fn encode_to_stream(
         &self,
         lock: &mut MutexGuard<RawStream>,
@@ -210,7 +214,7 @@ impl IsoNetConfig {
                 let tagid = MessageTagId::from_u32(msg_id);
                 let body = body_from_jsonc(tagid, jsonc)?;
                 self.iso2_encode_payload(lock, session, tagid, body)?;
-                IsoMsgResId::Iso2(tagid.match_res_id())
+                IsoMsgResId::Iso2(tagid.match_resid())
             }
 
             // v2g::ProtocolTagId::Din => {

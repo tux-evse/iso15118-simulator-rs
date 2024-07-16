@@ -1,17 +1,66 @@
 use crate::prelude::*;
 use iso15118::prelude::iso2_exi::*;
 
+use iso15118::prelude::*;
+
+// inputy a buffer return a stream with v2g buffer and exi data
+pub fn mock_network_input(exi_data: &[u8]) -> ExiStream {
+    // create a new stream with attached 8KB buffer
+    let stream = ExiStream::new();
+    // simulate network data read
+    // preempt stream mutex
+    // feed stream buffer (server should use zero copy)
+    // free stream mutex
+    {
+        let mut lock = stream.lock_stream();
+        lock.buffer[0..exi_data.len()].copy_from_slice(exi_data);
+        lock.set_size(exi_data.len() as u32);
+
+        // check V2G header (should be donne before finalize to get doc len)
+        let doc_size = stream.header_check(&lock, v2g::PayloadMsgId::SAP).expect("expect valid V2G header");
+
+        // validate buffer stream (should not be locked)
+        stream
+            .finalize(&lock, doc_size)
+            .expect("expect valid stream handle");
+    }
+    stream
+}
+
+pub fn encode_to_stream<'a>(funcname: &str, body: Iso2BodyType) -> Result<ExiStream, AfbError> {
+    const SESSION_ID: [u8; 8] = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
+
+    // mock network stream and encode message
+    let stream = ExiStream::new();
+    {
+        let mut lock = stream.lock_stream();
+        let header = ExiMessageHeader::new(&SESSION_ID)?;
+        ExiMessageDoc::new(&header, &body).encode_to_stream(&mut lock)?;
+        let doc_size = stream
+            .header_check(&lock, v2g::PayloadMsgId::SAP)
+            .expect("expect valid V2G header");
+        println!(
+            "{}-> ({}) [{}]",
+            funcname,
+            doc_size,
+            dump_buffer(lock.get_buffer())
+        );
+    }
+
+    Ok(stream)
+}
+
 #[test]
 fn session_setup_request() -> Result<(), AfbError> {
     // Encoding API
-    let setup_tst = [0x1, 0x2, 0x3, 0x4, 0x5, 0x6];
-    let jsonc = SessionSetupRequest::new(&setup_tst)?.to_jsonc()?;
+    let setup_in = [0x1, 0x2, 0x3, 0x4, 0x5, 0x6];
+    let jsonc = SessionSetupRequest::new(&setup_in)?.to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
     let payload = SessionSetupRequest::from_jsonc(jsonc)?;
     let setup_rec = payload.get_id();
-    assert!(setup_tst == setup_rec);
+    assert!(setup_in == setup_rec);
 
     Ok(())
 }
@@ -39,11 +88,11 @@ fn session_setup_response() -> Result<(), AfbError> {
 #[test]
 fn service_discovery_request() -> Result<(), AfbError> {
     // Encoding API
-    let scope_tst = "sample-scope";
-    let category_tst = ServiceCategory::EvCharger;
+    let scope_in = "sample-scope";
+    let category_in = ServiceCategory::EvCharger;
     let jsonc = ServiceDiscoveryRequest::new()
-        .set_scope(scope_tst)?
-        .set_category(category_tst)
+        .set_scope(scope_in)?
+        .set_category(category_in)
         .to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
 
@@ -53,8 +102,8 @@ fn service_discovery_request() -> Result<(), AfbError> {
     let category_rec = payload.get_category().unwrap();
 
     // assert input==output
-    assert!(scope_tst == scope_rec);
-    assert!(category_tst == category_rec);
+    assert!(scope_in == scope_rec);
+    assert!(category_in == category_rec);
 
     Ok(())
 }
@@ -62,29 +111,29 @@ fn service_discovery_request() -> Result<(), AfbError> {
 #[test]
 fn service_discovery_response() -> Result<(), AfbError> {
     let rcode = ResponseCode::Ok;
-    let mut charging_tst = ServiceCharging::new(1, false);
-    charging_tst.set_name("Tux-Evse")?;
+    let mut charging_in = ServiceCharging::new(1, false);
+    charging_in.set_name("Tux-Evse")?;
 
-    let payment_tst0 = PaymentOption::Contract;
-    let payment_tst1 = PaymentOption::External;
+    let payment_in0 = PaymentOption::Contract;
+    let payment_in1 = PaymentOption::External;
 
-    let mut service_tst0 = ServiceOther::new(56, ServiceCategory::Internet, true);
-    service_tst0.set_name("LTE")?.set_scope("Network")?;
+    let mut service_in0 = ServiceOther::new(56, ServiceCategory::Internet, true);
+    service_in0.set_name("LTE")?.set_scope("Network")?;
 
-    let mut service_tst1 = ServiceOther::new(29, ServiceCategory::Other, true);
-    service_tst1.set_name("OTA")?.set_scope("Update")?;
+    let mut service_in1 = ServiceOther::new(29, ServiceCategory::Other, true);
+    service_in1.set_name("OTA")?.set_scope("Update")?;
 
-    let transfer_tst0 = EngyTransfertMode::AcSinglePhase;
-    let transfer_tst1 = EngyTransfertMode::DcBasic;
+    let transfer_in0 = EngyTransfertMode::AcSinglePhase;
+    let transfer_in1 = EngyTransfertMode::DcBasic;
 
     let jsonc = ServiceDiscoveryResponse::new(rcode)
-        .set_charging(&charging_tst)
-        .add_transfer(transfer_tst0)?
-        .add_transfer(transfer_tst1)?
-        .add_payment(payment_tst0)?
-        .add_payment(payment_tst1)?
-        .add_service(&service_tst0)?
-        .add_service(&service_tst1)?
+        .set_charging(&charging_in)
+        .add_transfer(transfer_in0)?
+        .add_transfer(transfer_in1)?
+        .add_payment(payment_in0)?
+        .add_payment(payment_in1)?
+        .add_service(&service_in0)?
+        .add_service(&service_in1)?
         .to_jsonc()?;
 
     println!("{}:{}", func_name!(), jsonc);
@@ -99,33 +148,33 @@ fn service_discovery_response() -> Result<(), AfbError> {
 
     // assert input==output
     assert!(rcode_rec == rcode);
-    assert!(charging_rec.get_name() == charging_tst.get_name());
-    assert!(charging_rec.get_scope() == charging_tst.get_scope());
-    assert!(charging_rec.get_isfree() == charging_tst.get_isfree());
-    assert!(transfers_rec[0] == transfer_tst0);
-    assert!(transfers_rec[1] == transfer_tst1);
-    assert!(payments_rec[0] == payment_tst0);
-    assert!(payments_rec[1] == payment_tst1);
-    assert!(services_rec[0].get_id() == service_tst0.get_id());
-    assert!(services_rec[0].get_name() == service_tst0.get_name());
-    assert!(services_rec[0].get_scope() == service_tst0.get_scope());
-    assert!(services_rec[0].get_isfree() == service_tst0.get_isfree());
-    assert!(services_rec[0].get_category() == service_tst0.get_category());
-    assert!(services_rec[1].get_id() == service_tst1.get_id());
-    assert!(services_rec[1].get_name() == service_tst1.get_name());
-    assert!(services_rec[1].get_scope() == service_tst1.get_scope());
-    assert!(services_rec[1].get_isfree() == service_tst1.get_isfree());
-    assert!(services_rec[1].get_category() == service_tst1.get_category());
+    assert!(charging_rec.get_name() == charging_in.get_name());
+    assert!(charging_rec.get_scope() == charging_in.get_scope());
+    assert!(charging_rec.get_isfree() == charging_in.get_isfree());
+    assert!(transfers_rec[0] == transfer_in0);
+    assert!(transfers_rec[1] == transfer_in1);
+    assert!(payments_rec[0] == payment_in0);
+    assert!(payments_rec[1] == payment_in1);
+    assert!(services_rec[0].get_id() == service_in0.get_id());
+    assert!(services_rec[0].get_name() == service_in0.get_name());
+    assert!(services_rec[0].get_scope() == service_in0.get_scope());
+    assert!(services_rec[0].get_isfree() == service_in0.get_isfree());
+    assert!(services_rec[0].get_category() == service_in0.get_category());
+    assert!(services_rec[1].get_id() == service_in1.get_id());
+    assert!(services_rec[1].get_name() == service_in1.get_name());
+    assert!(services_rec[1].get_scope() == service_in1.get_scope());
+    assert!(services_rec[1].get_isfree() == service_in1.get_isfree());
+    assert!(services_rec[1].get_category() == service_in1.get_category());
 
     Ok(())
 }
 
 #[test]
 fn service_detail_request() -> Result<(), AfbError> {
-    let id_tst = 1234;
+    let id_in = 1234;
 
     // Encoding api
-    let jsonc = ServiceDetailRequest::new(id_tst).to_jsonc()?;
+    let jsonc = ServiceDetailRequest::new(id_in).to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
@@ -133,89 +182,91 @@ fn service_detail_request() -> Result<(), AfbError> {
     let id_rec = payload.get_id();
 
     // assert input == output
-    assert!(id_tst == id_rec);
+    assert!(id_in == id_rec);
 
     Ok(())
 }
 
 #[test]
 fn service_detail_response() -> Result<(), AfbError> {
-    let mut param_tst0 = ParamSet::new(1);
-    param_tst0
-        .add_param("prm_1", &ParamValue::Int16(123))?
-        .add_param("prm_2", &ParamValue::Text("snoopy".to_string()))?
-        .add_param(
+    let mut param_in0 = ParamSet::new(1);
+    param_in0
+        .add_param(&ParamTuple::new("prm_1", &ParamValue::Int16(123))?)?
+        .add_param(&ParamTuple::new(
+            "prm_2",
+            &ParamValue::Text("snoopy".to_string()),
+        )?)?
+        .add_param(&ParamTuple::new(
             "prm_3",
             &ParamValue::PhyValue(PhysicalValue::new(240, 1, PhysicalUnit::Volt)),
-        )?;
+        )?)?;
 
-    let mut param_tst1 = ParamSet::new(2);
-    param_tst1
-        .add_param("prm_1", &ParamValue::Int16(1234))?
-        .add_param("prm_2", &ParamValue::Text("Mme Kermichu".to_string()))?
-        .add_param(
+    let mut param_in1 = ParamSet::new(2);
+    param_in1
+        .add_param(&ParamTuple::new("prm_1", &ParamValue::Int16(1234))?)?
+        .add_param(&ParamTuple::new(
+            "prm_2",
+            &ParamValue::Text("Mme Kermichu".to_string()),
+        )?)?
+        .add_param(&ParamTuple::new(
             "prm_3",
             &ParamValue::PhyValue(PhysicalValue::new(10, 1, PhysicalUnit::Ampere)),
-        )?;
+        )?)?;
 
-    let id_tst = 56;
+    let id_in = 56;
     let rcode = ResponseCode::Ok;
 
     // Encoding api
-    let mut payload = ServiceDetailResponse::new(id_tst, rcode);
-    payload.add_pset(&param_tst0)?;
-    payload.add_pset(&param_tst1)?;
+    let mut payload = ServiceDetailResponse::new(id_in, rcode);
+    payload.add_pset(&param_in0)?;
+    payload.add_pset(&param_in1)?;
 
     // keep track of input psets for assert check
-    let psets_tst = payload.get_psets();
+    let psets_in = payload.get_psets();
     let jsonc = payload.to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
-    let payload = ServiceDetailResponse::from_jsonc(jsonc)?;
-    let id_rec = payload.get_id();
-    let rcode_rec = payload.get_rcode();
-    let psets_rec = payload.get_psets();
+    let id_out = payload.get_id();
+    let rcode_out = payload.get_rcode();
+    let psets_out = payload.get_psets();
 
     // assert input == output
-    assert!(id_tst == id_rec);
-    assert!(rcode == rcode_rec);
-    assert!(psets_rec.len() == psets_tst.len());
-    for idx in 0..psets_rec.len() {
-        let set_rec = psets_rec[idx].clone();
-        let set_tst = psets_tst[idx].clone();
-        assert!(set_rec.get_id() == set_tst.get_id());
+    assert!(id_in == id_out);
+    assert!(rcode == rcode_out);
+    assert!(psets_out.len() == psets_in.len());
+    for idx in 0..psets_out.len() {
+        let set_out = psets_out[idx].clone();
+        let set_in = psets_in[idx].clone();
+        assert!(set_out.get_id() == set_in.get_id());
 
-        let prms_rec = set_rec.get_params()?;
-        let prms_tst = set_tst.get_params()?;
-        assert!(prms_rec.len() == prms_tst.len());
+        let prms_out = set_out.get_params()?;
+        let prms_in = set_in.get_params()?;
+        assert!(prms_out.len() == prms_in.len());
 
-        for jdx in 0..prms_rec.len() {
-            assert!(prms_rec[jdx].get_name() == prms_tst[jdx].get_name());
-            let value_rec = prms_rec[jdx].get_value();
-            let value_tst = prms_tst[jdx].get_value();
+        for jdx in 0..prms_out.len() {
+            assert!(prms_out[jdx].get_name()? == prms_in[jdx].get_name()?);
+            let value_out = prms_out[jdx].get_value()?;
+            let value_in = prms_in[jdx].get_value()?;
 
-            match value_rec {
-                ParamValue::Int16(rec) => match value_tst {
+            match value_out {
+                ParamValue::Int16(rec) => match value_in {
                     ParamValue::Int16(tst) => assert!(rec == tst),
-                    _ => panic!("unexpected value_tst:{:?} != value_rec:{}", value_tst, rec),
+                    _ => panic!("unexpected value_in:{:?} != value_out:{}", value_in, rec),
                 },
-                ParamValue::Text(rec) => match value_tst {
+                ParamValue::Text(rec) => match value_in {
                     ParamValue::Text(tst) => assert!(rec == tst),
-                    _ => panic!("unexpected value_tst:{:?} != value_rec:{}", value_tst, rec),
+                    _ => panic!("unexpected value_in:{:?} != value_out:{}", value_in, rec),
                 },
-                ParamValue::PhyValue(rec) => match value_tst {
+                ParamValue::PhyValue(rec) => match value_in {
                     ParamValue::PhyValue(tst) => {
                         assert!(rec.get_unit() == tst.get_unit());
                         assert!(rec.get_multiplier() == tst.get_multiplier());
                         assert!(rec.get_value() == tst.get_value());
                     }
-                    _ => panic!(
-                        "unexpected value_tst:{:?} != value_rec:{:?}",
-                        value_tst, rec
-                    ),
+                    _ => panic!("unexpected value_in:{:?} != value_out:{:?}", value_in, rec),
                 },
-                _ => panic!("unexpected decoded param value:{:?} type", value_rec),
+                _ => panic!("unexpected decoded param value:{:?} type", value_out),
             }
         }
     }
@@ -224,13 +275,13 @@ fn service_detail_response() -> Result<(), AfbError> {
 
 #[test]
 fn authorization_request() -> Result<(), AfbError> {
-    let id_tst = "tux-evse";
-    let challenge_tst = [0x1, 0x2, 0x3, 0x4];
+    let id_in = "tux-evse";
+    let challenge_in = [0x1, 0x2, 0x3, 0x4];
 
     // Encoding api
     let jsonc = AuthorizationRequest::new()
-        .set_id(id_tst)?
-        .set_challenge(&challenge_tst)?
+        .set_id(id_in)?
+        .set_challenge(&challenge_in)?
         .to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
 
@@ -240,8 +291,8 @@ fn authorization_request() -> Result<(), AfbError> {
     let challenge_rec = payload.get_challenge().unwrap();
 
     // assert input == output
-    assert!(id_tst == id_rec);
-    assert!(challenge_tst == challenge_rec);
+    assert!(id_in == id_rec);
+    assert!(challenge_in == challenge_rec);
 
     Ok(())
 }
@@ -249,10 +300,10 @@ fn authorization_request() -> Result<(), AfbError> {
 #[test]
 fn authorization_response() -> Result<(), AfbError> {
     let rcode = ResponseCode::NewSession;
-    let processing_tst = EvseProcessing::Finished;
+    let processing_in = EvseProcessing::Finished;
 
     // Encoding api
-    let jsonc = AuthorizationResponse::new(rcode, processing_tst).to_jsonc()?;
+    let jsonc = AuthorizationResponse::new(rcode, processing_in).to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
@@ -262,7 +313,7 @@ fn authorization_response() -> Result<(), AfbError> {
 
     // assert input == output
     assert!(rcode_rec == rcode);
-    assert!(processing_rec == processing_tst);
+    assert!(processing_rec == processing_in);
 
     Ok(())
 }
@@ -270,11 +321,11 @@ fn authorization_response() -> Result<(), AfbError> {
 #[test]
 fn cable_check_request() -> Result<(), AfbError> {
     // Encoding api
-    let ready_tst = true;
+    let ready_in = true;
     let dc_rcode = DcEvErrorCode::NoError;
-    let evresssoc_tst: i8 = 16;
-    let status_tst = DcEvStatusType::new(ready_tst, dc_rcode, evresssoc_tst);
-    let jsonc = CableCheckRequest::new(&status_tst).to_jsonc()?;
+    let evresssoc_in: i8 = 16;
+    let status_in = DcEvStatusType::new(ready_in, dc_rcode, evresssoc_in);
+    let jsonc = CableCheckRequest::new(&status_in).to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
@@ -282,9 +333,9 @@ fn cable_check_request() -> Result<(), AfbError> {
     let status_rec = payload.get_status();
 
     // assert input == output
-    assert!(status_rec.get_ready() == ready_tst);
+    assert!(status_rec.get_ready() == ready_in);
     assert!(status_rec.get_error() == dc_rcode);
-    assert!(status_rec.get_evresssoc() == evresssoc_tst);
+    assert!(status_rec.get_evresssoc() == evresssoc_in);
 
     Ok(())
 }
@@ -293,13 +344,13 @@ fn cable_check_request() -> Result<(), AfbError> {
 fn cable_check_response() -> Result<(), AfbError> {
     // Encoding api
     let rcode = ResponseCode::NewSession;
-    let processing_tst = EvseProcessing::Ongoing;
+    let processing_in = EvseProcessing::Ongoing;
 
     let dc_rcode = DcEvseErrorCode::Ready;
-    let notification_tst = EvseNotification::ReNegotiation;
-    let delay_tst = 160;
-    let status_tst = DcEvseStatusType::new(dc_rcode, notification_tst, delay_tst);
-    let jsonc = CableCheckResponse::new(rcode, &status_tst, processing_tst).to_jsonc()?;
+    let notification_in = EvseNotification::ReNegotiation;
+    let delay_in = 160;
+    let status_in = DcEvseStatusType::new(dc_rcode, notification_in, delay_in);
+    let jsonc = CableCheckResponse::new(rcode, &status_in, processing_in).to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
@@ -310,9 +361,9 @@ fn cable_check_response() -> Result<(), AfbError> {
 
     // assert input == output
     assert!(code_rec == rcode);
-    assert!(processing_rec == processing_tst);
-    assert!(status_rec.get_notification() == notification_tst);
-    assert!(status_rec.get_delay() == delay_tst);
+    assert!(processing_rec == processing_in);
+    assert!(status_rec.get_notification() == notification_in);
+    assert!(status_rec.get_delay() == delay_in);
     assert!(status_rec.get_error() == dc_rcode);
 
     Ok(())
@@ -321,37 +372,39 @@ fn cable_check_response() -> Result<(), AfbError> {
 #[test]
 fn certificate_install_request() -> Result<(), AfbError> {
     // Encoding api
-    let issuer_tst0 = "IoT.bzh";
-    let serial_tst0 = 1234;
-    let issuer_tst1 = "Redpesk.bzh";
-    let serial_tst1 = 5678;
-    let cert0 = IssuerSerialType::new(issuer_tst0, serial_tst0);
-    let mut list_tst = CertificateRootList::new(&cert0)?;
-    list_tst.add_cert(&IssuerSerialType::new(issuer_tst1, serial_tst1))?;
+    let issuer_in0 = "IoT.bzh";
+    let serial_in0 = 1234;
+    let issuer_in1 = "Redpesk.bzh";
+    let serial_in1 = 5678;
+    let cert0 = IssuerSerialType::new(issuer_in0, serial_in0)?;
+    let cert1 = IssuerSerialType::new(issuer_in1, serial_in1)?;
 
-    let id_tst = "tux-evse";
-    let provisioning_tst = [0x1, 0x2, 0x3, 0x4, 0x5, 0x6];
-    let jsonc = CertificateInstallRequest::new(id_tst, &provisioning_tst, &list_tst)?.to_jsonc()?;
+    let mut list_in = CertificateRootList::new(&cert0)?;
+    list_in.add_cert(&cert1)?;
+
+    let id_in = "tux-evse";
+    let provisioning_in = [0x1, 0x2, 0x3, 0x4, 0x5, 0x6];
+    let jsonc = CertificateInstallRequest::new(id_in, &provisioning_in, &list_in)?.to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
     let payload = CertificateInstallRequest::from_jsonc(jsonc)?;
-    let id_rec = payload.get_id()?;
-    let provisioning_rec = payload.get_provisioning();
-    let certs_list_rec = payload.get_certs_list().get_certs()?;
-    let certs_list_tst = list_tst.get_certs()?;
+    let id_out = payload.get_id()?;
+    let provisioning_out = payload.get_provisioning();
+    let certs_list_out = payload.get_certs_list().get_certs()?;
+    let certs_list_in = list_in.get_certs()?;
 
     // assert input == output
-    assert!(id_rec == id_tst);
-    assert!(provisioning_rec == provisioning_tst);
-    assert!(certs_list_rec.len() == certs_list_tst.len());
+    assert!(id_out == id_in);
+    assert!(provisioning_out == provisioning_in);
+    assert!(certs_list_out.len() == certs_list_in.len());
 
-    for idx in 0..certs_list_rec.len() {
-        let cert_rec = certs_list_rec[idx].clone();
-        let cert_tst = certs_list_tst[idx].clone();
+    for idx in 0..certs_list_out.len() {
+        let cert_out = &certs_list_out[idx];
+        let cert_in = &certs_list_in[idx];
 
-        assert!(cert_rec.get_issuer() == cert_tst.get_issuer());
-        assert!(cert_rec.get_serial() == cert_tst.get_serial());
+        assert!(cert_out.get_issuer()? == cert_in.get_issuer()?);
+        assert!(cert_out.get_serial() == cert_in.get_serial());
     }
 
     Ok(())
@@ -360,48 +413,48 @@ fn certificate_install_request() -> Result<(), AfbError> {
 #[test]
 fn certificate_install_response() -> Result<(), AfbError> {
     // Encoding api
-    let cert_id_tst = "Cert-TuxEvSE";
-    let cert_main_tst = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06];
-    let cert_sub_tst0 = [0x11, 0x12, 0x13, 0x14, 0x15, 0x16];
-    let cert_sub_tst1 = [0x21, 0x22, 0x23, 0x24, 0x25, 0x26];
+    let cert_id_in = "Cert-TuxEvSE";
+    let cert_main_in = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06];
+    let cert_sub_in0 = [0x11, 0x12, 0x13, 0x14, 0x15, 0x16];
+    let cert_sub_in1 = [0x21, 0x22, 0x23, 0x24, 0x25, 0x26];
 
-    let mut cert_chain_tst = CertificateChainType::new(&cert_main_tst)?;
-    cert_chain_tst
-        .set_id(cert_id_tst)?
-        .add_subcert(&cert_sub_tst0)?
-        .add_subcert(&cert_sub_tst1)?;
+    let mut cert_chain_in = CertificateChainType::new(&cert_main_in)?;
+    cert_chain_in
+        .set_id(cert_id_in)?
+        .add_subcert(&cert_sub_in0)?
+        .add_subcert(&cert_sub_in1)?;
 
-    let contract_id_tst = "Contract-TuxEvSE";
-    let contract_main_tst = [0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6];
-    let contract_sub_tst0 = [0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6];
-    let contract_sub_tst1 = [0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6];
-    let mut contract_chain_tst = CertificateChainType::new(&contract_main_tst)?;
-    contract_chain_tst
-        .set_id(contract_id_tst)?
-        .add_subcert(&contract_sub_tst0)?
-        .add_subcert(&contract_sub_tst1)?;
+    let contract_id_in = "Contract-TuxEvSE";
+    let contract_main_in = [0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6];
+    let contract_sub_in0 = [0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6];
+    let contract_sub_in1 = [0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6];
+    let mut contract_chain_in = CertificateChainType::new(&contract_main_in)?;
+    contract_chain_in
+        .set_id(contract_id_in)?
+        .add_subcert(&contract_sub_in0)?
+        .add_subcert(&contract_sub_in1)?;
 
-    let private_id_tst = "Private_TuxEvSe";
-    let private_data_tst = [0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6];
-    let private_key_tst = PrivateKeyType::new(private_id_tst, &private_data_tst)?;
+    let private_id_in = "Private_TuxEvSe";
+    let private_data_in = [0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6];
+    let private_key_in = PrivateKeyType::new(private_id_in, &private_data_in)?;
 
-    let public_id_tst = "public_TuxEvSe";
-    let public_data_tst = [0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6];
-    let public_key_tst = DhPublicKeyType::new(public_id_tst, &public_data_tst)?;
+    let public_id_in = "public_TuxEvSe";
+    let public_data_in = [0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6];
+    let public_key_in = DhPublicKeyType::new(public_id_in, &public_data_in)?;
 
-    let emaid_id_tst = "emaid_TuxEvSE";
-    let emaid_str_tst = "my emaid testing string";
-    let emaid_tst = EmaidType::new(emaid_id_tst, emaid_str_tst)?;
+    let emaid_id_in = "emaid_TuxEvSE";
+    let emaid_str_in = "my emaid testing string";
+    let emaid_in = EmaidType::new(emaid_id_in, emaid_str_in)?;
 
     let rcode = ResponseCode::NewSession;
 
     let jsonc = CertificateInstallResponse::new(
         rcode,
-        &contract_chain_tst,
-        &cert_chain_tst,
-        &private_key_tst,
-        &public_key_tst,
-        &emaid_tst,
+        &contract_chain_in,
+        &cert_chain_in,
+        &private_key_in,
+        &public_key_in,
+        &emaid_in,
     )
     .to_jsonc()?;
 
@@ -418,19 +471,19 @@ fn certificate_install_response() -> Result<(), AfbError> {
 
     // assert input == output
     assert!(rcode_rec == rcode);
-    assert!(cert_chain_rec.get_id() == cert_chain_tst.get_id());
-    assert!(cert_chain_rec.get_cert() == cert_chain_tst.get_cert());
-    assert!(contract_chain_rec.get_id() == contract_chain_tst.get_id());
-    assert!(contract_chain_rec.get_cert() == contract_chain_tst.get_cert());
-    assert!(private_key_rec.get_id()? == private_key_tst.get_id()?);
-    assert!(private_key_rec.get_data() == private_key_tst.get_data());
-    assert!(public_key_rec.get_id()? == public_key_tst.get_id()?);
-    assert!(private_key_rec.get_data() == private_key_tst.get_data());
-    assert!(emaid_rec.get_id()? == emaid_tst.get_id()?);
-    assert!(emaid_rec.get_data()? == emaid_tst.get_data()?);
+    assert!(cert_chain_rec.get_id() == cert_chain_in.get_id());
+    assert!(cert_chain_rec.get_cert() == cert_chain_in.get_cert());
+    assert!(contract_chain_rec.get_id() == contract_chain_in.get_id());
+    assert!(contract_chain_rec.get_cert() == contract_chain_in.get_cert());
+    assert!(private_key_rec.get_id()? == private_key_in.get_id()?);
+    assert!(private_key_rec.get_data() == private_key_in.get_data());
+    assert!(public_key_rec.get_id()? == public_key_in.get_id()?);
+    assert!(private_key_rec.get_data() == private_key_in.get_data());
+    assert!(emaid_rec.get_id()? == emaid_in.get_id()?);
+    assert!(emaid_rec.get_data()? == emaid_in.get_data()?);
     let certs_sub_rec = cert_chain_rec.get_subcerts();
-    assert!(certs_sub_rec[0] == cert_sub_tst0);
-    assert!(certs_sub_rec[1] == cert_sub_tst1);
+    assert!(certs_sub_rec[0] == cert_sub_in0);
+    assert!(certs_sub_rec[1] == cert_sub_in1);
 
     Ok(())
 }
@@ -438,44 +491,49 @@ fn certificate_install_response() -> Result<(), AfbError> {
 #[test]
 fn certificate_update_request() -> Result<(), AfbError> {
     // Encoding api
-    let issuer_tst0 = "IoT.bzh";
-    let serial_tst0 = 1234;
-    let issuer_tst1 = "Redpesk.bzh";
-    let serial_tst1 = 5678;
-    let cert0 = IssuerSerialType::new(issuer_tst0, serial_tst0);
+    let issuer_in0 = "IoT.bzh";
+    let serial_in0 = 1234;
+    let issuer_in1 = "Redpesk.bzh";
+    let serial_in1 = 5678;
+    let cert0 = IssuerSerialType::new(issuer_in0, serial_in0)?;
     let mut root_certs = CertificateRootList::new(&cert0)?;
-    root_certs.add_cert(&IssuerSerialType::new(issuer_tst1, serial_tst1))?;
+    root_certs.add_cert(&IssuerSerialType::new(issuer_in1, serial_in1)?)?;
 
-    let id_tst = "tux-evse";
+    let id_in = "tux-evse";
     let emaid = "tux-emaid";
-    let contract_id_tst = "Contract-TuxEvSE";
-    let contract_main_tst = [0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6];
-    let contract_sub_tst0 = [0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6];
-    let contract_sub_tst1 = [0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6];
-    let mut contract_chain_tst = CertificateChainType::new(&contract_main_tst)?;
-    contract_chain_tst
-        .set_id(contract_id_tst)?
-        .add_subcert(&contract_sub_tst0)?
-        .add_subcert(&contract_sub_tst1)?;
+    let contract_id_in = "Contract-TuxEvSE";
+    let contract_main_in = [0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6];
+    let contract_sub_in0 = [0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6];
+    let contract_sub_in1 = [0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6];
+    let mut contract_chain_in = CertificateChainType::new(&contract_main_in)?;
+    contract_chain_in
+        .set_id(contract_id_in)?
+        .add_subcert(&contract_sub_in0)?
+        .add_subcert(&contract_sub_in1)?;
+    let mut contract_chain_in = CertificateChainType::new(&contract_main_in)?;
+    contract_chain_in
+        .set_id(contract_id_in)?
+        .add_subcert(&contract_sub_in0)?
+        .add_subcert(&contract_sub_in1)?;
     let jsonc =
-        CertificateUpdateRequest::new(id_tst, &contract_chain_tst, emaid, &root_certs)?.to_jsonc()?;
+        CertificateUpdateRequest::new(id_in, &contract_chain_in, emaid, &root_certs)?.to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
-    let payload= CertificateUpdateRequest::from_jsonc(jsonc)?;
-    let contract_chain_rec = payload.get_contract_chain();
-    let root_certs_rec = payload.get_root_certs().get_certs()?;
+    let payload = CertificateUpdateRequest::from_jsonc(jsonc)?;
+    let contract_chain_out = payload.get_contract_chain();
+    let root_certs_out = payload.get_root_certs().get_certs()?;
 
-    assert!(id_tst == payload.get_id()?);
+    assert!(id_in == payload.get_id()?);
     assert!(emaid == payload.get_emaid()?);
 
     let root_certs_in = root_certs.get_certs()?;
-    for idx in 0..root_certs_rec.len() {
-        assert!(root_certs_rec[idx].get_issuer() == root_certs_in[idx].get_issuer());
-        assert!(root_certs_rec[idx].get_serial() == root_certs_in[idx].get_serial());
+    for idx in 0..root_certs_out.len() {
+        assert!(root_certs_out[idx].get_issuer()? == root_certs_in[idx].get_issuer()?);
+        assert!(root_certs_out[idx].get_serial() == root_certs_in[idx].get_serial());
     }
-    assert!(contract_chain_rec.get_id() == contract_chain_tst.get_id());
-    assert!(contract_chain_rec.get_cert() == contract_chain_tst.get_cert());
+    assert!(contract_chain_out.get_id() == contract_chain_in.get_id());
+    assert!(contract_chain_out.get_cert() == contract_chain_in.get_cert());
     Ok(())
 }
 
@@ -484,55 +542,54 @@ fn certificate_update_response() -> Result<(), AfbError> {
     // Encoding api
 
     // Encoding api
-    let cert_id_tst = "Cert-TuxEvSE";
-    let cert_main_tst = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06];
-    let cert_sub_tst0 = [0x11, 0x12, 0x13, 0x14, 0x15, 0x16];
-    let cert_sub_tst1 = [0x21, 0x22, 0x23, 0x24, 0x25, 0x26];
+    let cert_id_in = "Cert-TuxEvSE";
+    let cert_main_in = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06];
+    let cert_sub_in0 = [0x11, 0x12, 0x13, 0x14, 0x15, 0x16];
+    let cert_sub_in1 = [0x21, 0x22, 0x23, 0x24, 0x25, 0x26];
 
-    let mut cert_chain_tst = CertificateChainType::new(&cert_main_tst)?;
-    cert_chain_tst
-        .set_id(cert_id_tst)?
-        .add_subcert(&cert_sub_tst0)?
-        .add_subcert(&cert_sub_tst1)?;
+    let mut cert_chain_in = CertificateChainType::new(&cert_main_in)?;
+    cert_chain_in
+        .set_id(cert_id_in)?
+        .add_subcert(&cert_sub_in0)?
+        .add_subcert(&cert_sub_in1)?;
 
-    let contract_id_tst = "Contract-TuxEvSE";
-    let contract_main_tst = [0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6];
-    let contract_sub_tst0 = [0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6];
-    let contract_sub_tst1 = [0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6];
-    let mut contract_chain_tst = CertificateChainType::new(&contract_main_tst)?;
-    contract_chain_tst
-        .set_id(contract_id_tst)?
-        .add_subcert(&contract_sub_tst0)?
-        .add_subcert(&contract_sub_tst1)?;
+    let contract_id_in = "Contract-TuxEvSE";
+    let contract_main_in = [0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6];
+    let contract_sub_in0 = [0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6];
+    let contract_sub_in1 = [0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6];
+    let mut contract_chain_in = CertificateChainType::new(&contract_main_in)?;
+    contract_chain_in
+        .set_id(contract_id_in)?
+        .add_subcert(&contract_sub_in0)?
+        .add_subcert(&contract_sub_in1)?;
 
-    let private_id_tst = "Private_TuxEvSe";
-    let private_data_tst = [0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6];
-    let private_key_tst = PrivateKeyType::new(private_id_tst, &private_data_tst)?;
+    let private_id_in = "Private_TuxEvSe";
+    let private_data_in = [0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6];
+    let private_key_in = PrivateKeyType::new(private_id_in, &private_data_in)?;
 
-    let public_id_tst = "public_TuxEvSe";
-    let public_data_tst = [0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6];
-    let public_key_tst = DhPublicKeyType::new(public_id_tst, &public_data_tst)?;
+    let public_id_in = "public_TuxEvSe";
+    let public_data_in = [0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6];
+    let public_key_in = DhPublicKeyType::new(public_id_in, &public_data_in)?;
 
-    let emaid_id_tst = "emaid_TuxEvSE";
-    let emaid_str_tst = "my emaid testing string";
-    let emaid_tst = EmaidType::new(emaid_id_tst, emaid_str_tst)?;
+    let emaid_id_in = "emaid_TuxEvSE";
+    let emaid_str_in = "my emaid testing string";
+    let emaid_in = EmaidType::new(emaid_id_in, emaid_str_in)?;
 
     let rcode = ResponseCode::NewSession;
 
     let jsonc = CertificateUpdateResponse::new(
         rcode,
-        &contract_chain_tst,
-        &cert_chain_tst,
-        &private_key_tst,
-        &public_key_tst,
-        &emaid_tst,
+        &contract_chain_in,
+        &cert_chain_in,
+        &private_key_in,
+        &public_key_in,
+        &emaid_in,
     )
     .to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
 
-
     // Decoding API
-    let payload= CertificateUpdateResponse::from_jsonc(jsonc)?;
+    let payload = CertificateUpdateResponse::from_jsonc(jsonc)?;
     let rcode_rec = payload.get_rcode();
     let cert_chain_rec = payload.get_provisioning_chain();
     let contract_chain_rec = payload.get_contract_chain();
@@ -542,19 +599,19 @@ fn certificate_update_response() -> Result<(), AfbError> {
 
     // assert input == output
     assert!(rcode_rec == rcode);
-    assert!(cert_chain_rec.get_id() == cert_chain_tst.get_id());
-    assert!(cert_chain_rec.get_cert() == cert_chain_tst.get_cert());
-    assert!(contract_chain_rec.get_id() == contract_chain_tst.get_id());
-    assert!(contract_chain_rec.get_cert() == contract_chain_tst.get_cert());
-    assert!(private_key_rec.get_id()? == private_key_tst.get_id()?);
-    assert!(private_key_rec.get_data() == private_key_tst.get_data());
-    assert!(public_key_rec.get_id()? == public_key_tst.get_id()?);
-    assert!(private_key_rec.get_data() == private_key_tst.get_data());
-    assert!(emaid_rec.get_id()? == emaid_tst.get_id()?);
-    assert!(emaid_rec.get_data()? == emaid_tst.get_data()?);
+    assert!(cert_chain_rec.get_id() == cert_chain_in.get_id());
+    assert!(cert_chain_rec.get_cert() == cert_chain_in.get_cert());
+    assert!(contract_chain_rec.get_id() == contract_chain_in.get_id());
+    assert!(contract_chain_rec.get_cert() == contract_chain_in.get_cert());
+    assert!(private_key_rec.get_id()? == private_key_in.get_id()?);
+    assert!(private_key_rec.get_data() == private_key_in.get_data());
+    assert!(public_key_rec.get_id()? == public_key_in.get_id()?);
+    assert!(private_key_rec.get_data() == private_key_in.get_data());
+    assert!(emaid_rec.get_id()? == emaid_in.get_id()?);
+    assert!(emaid_rec.get_data()? == emaid_in.get_data()?);
     let certs_sub_rec = cert_chain_rec.get_subcerts();
-    assert!(certs_sub_rec[0] == cert_sub_tst0);
-    assert!(certs_sub_rec[1] == cert_sub_tst1);
+    assert!(certs_sub_rec[0] == cert_sub_in0);
+    assert!(certs_sub_rec[1] == cert_sub_in1);
 
     Ok(())
 }
@@ -611,7 +668,7 @@ fn current_demand_response() -> Result<(), AfbError> {
     let mut dc_status = DcEvseStatusType::new(dc_rcode, notif, delay);
     dc_status.set_isolation_status(isolation);
 
-    let jsonc = iso2::CurrentDemandResponse::new(
+    let jsonc = CurrentDemandResponse::new(
         rcode,
         evse_id,
         &dc_status,
@@ -629,7 +686,7 @@ fn current_demand_response() -> Result<(), AfbError> {
     // Decoding API
     let payload = CurrentDemandResponse::from_jsonc(jsonc)?;
     assert!(payload.get_rcode() == rcode);
-    assert!(payload.get_id().unwrap() == evse_id);
+    assert!(payload.get_evse_id().unwrap() == evse_id);
     assert!(payload.get_current_limit_reach() == current_limit);
     assert!(payload.get_voltage_limit_reach() == voltage_limit);
     assert!(payload.get_power_limit_reach() == power_limit);
@@ -665,14 +722,13 @@ fn charging_status_response() -> Result<(), AfbError> {
     let notif = EvseNotification::StopCharging;
     let ac_status = AcEvseStatusType::new(notif, delay, rcd);
 
-    let jsonc =
-        iso2::ChargingStatusResponse::new(rcode, evse_id, tuple_id, &ac_status)?.to_jsonc()?;
+    let jsonc = ChargingStatusResponse::new(rcode, evse_id, tuple_id, &ac_status)?.to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
     let payload = ChargingStatusResponse::from_jsonc(jsonc)?;
     assert!(payload.get_rcode() == rcode);
-    assert!(payload.get_id().unwrap() == evse_id);
+    assert!(payload.get_evse_id().unwrap() == evse_id);
     assert!(payload.get_tuple_id() == tuple_id);
     let status = payload.get_ac_evse_status();
     assert!(status.get_notification() == notif);
@@ -789,61 +845,21 @@ fn dc_param_discovery_request() -> Result<(), AfbError> {
 
 #[test]
 fn ev_param_discovery_request() -> Result<(), AfbError> {
-    let ea_mount = PhysicalValue::new(20, 10, PhysicalUnit::Wh);
-    let ac_max_voltage = PhysicalValue::new(400, 1, PhysicalUnit::Volt);
-    let ac_max_current = PhysicalValue::new(64, 1, PhysicalUnit::Ampere);
-    let ac_min_current = PhysicalValue::new(10, 1, PhysicalUnit::Ampere);
-    let mut ac_params =
-        AcEvChargeParam::new(&ea_mount, &ac_max_voltage, &ac_max_current, &ac_min_current)?;
-    ac_params.set_departure_time(1234);
-
-    let dc_max_voltage = PhysicalValue::new(800, 1, PhysicalUnit::Volt);
-    let dc_max_current = PhysicalValue::new(100, 1, PhysicalUnit::Ampere);
-    let dc_status = DcEvStatusType::new(true, DcEvErrorCode::NoError, 1);
-    let dc_params = DcEvChargeParam::new(&dc_status, &dc_max_voltage, &dc_max_current)?;
-
-    let mut ev_charge_param = EvChargeParam::new(&ac_params, &dc_params);
-    ev_charge_param.set_departure_time(1234);
-
-    // Encoding API
-    let jsonc = ParamDiscoveryRequest::new(EngyTransfertMode::DcCombo)
-        .set_max_schedule_tuple(16)
-        .set_ev_charge_param(&ev_charge_param)?
-        .to_jsonc()?;
-    println!("{}:{}", func_name!(), jsonc);
-
-    // Decoding API
-    let payload = ParamDiscoveryRequest::from_jsonc(jsonc)?;
-    assert!(payload.get_max_schedule_tuple().unwrap() == 16);
-    // check DC params
-    let params = payload.get_ev_charge_param().unwrap();
-    let dc_value = params.get_dc_param();
-    assert!(dc_value.get_max_current().get_value() == 100);
-    assert!(dc_value.get_max_voltage().get_value() == 800);
-    assert!(dc_value.get_status().get_error() == DcEvErrorCode::NoError);
-    assert!(dc_value.get_status().get_ready() == true);
-    // check ac params
-    let ac_value = params.get_ac_param();
-    assert!(ac_value.get_departure_time().unwrap() == 1234);
-    assert!(ac_value.get_max_current().get_value() == 64);
-    assert!(ac_value.get_min_current().get_value() == 10);
-    assert!(ac_value.get_max_voltage().get_value() == 400);
-    Ok(())
-}
-
-#[test]
-fn param_discovery_response() -> Result<(), AfbError> {
     // Encoding API
     let rcode = ResponseCode::Ok;
     let processing = EvseProcessing::Ongoing;
 
-    let pmax_a1 = PMaxScheduleEntry::new(1, 2, PhysicalValue::new(240, 1, PhysicalUnit::Volt));
-    let pmax_a2 = PMaxScheduleEntry::new(1, 2, PhysicalValue::new(10, 1, PhysicalUnit::Ampere));
+    let mut pmax_a1 = PMaxScheduleEntry::new(&PhysicalValue::new(240, 1, PhysicalUnit::Volt));
+    pmax_a1.set_relative_time_interval(RelativeTimeInterval::new(10).set_duration(60));
+
+    let mut pmax_a2 = PMaxScheduleEntry::new(&PhysicalValue::new(10, 1, PhysicalUnit::Ampere));
+    pmax_a2.set_relative_time_interval(RelativeTimeInterval::new(3).set_duration(120));
+
     let mut sched_a = SasScheduleTuple::new(1);
     sched_a.add_pmax(&pmax_a1)?.add_pmax(&pmax_a2)?;
 
-    let pmax_b1 = PMaxScheduleEntry::new(1, 2, PhysicalValue::new(400, 1, PhysicalUnit::Volt));
-    let pmax_b2 = PMaxScheduleEntry::new(1, 2, PhysicalValue::new(100, 1, PhysicalUnit::Ampere));
+    let pmax_b1 = PMaxScheduleEntry::new(&PhysicalValue::new(400, 1, PhysicalUnit::Volt));
+    let pmax_b2 = PMaxScheduleEntry::new(&PhysicalValue::new(100, 1, PhysicalUnit::Ampere));
     let mut sched_b = SasScheduleTuple::new(1);
     sched_b.add_pmax(&pmax_b1)?.add_pmax(&pmax_b2)?;
 
@@ -867,7 +883,7 @@ fn param_discovery_response() -> Result<(), AfbError> {
         &current_ripple,
     )?;
 
-    let jsonc = iso2::ParamDiscoveryResponse::new(rcode, processing)
+    let jsonc = ParamDiscoveryResponse::new(rcode, processing)
         .add_schedule_tuple(&sched_a)?
         .add_schedule_tuple(&sched_b)?
         .set_evse_dc_charge_param(&charge_param)
@@ -915,7 +931,7 @@ fn payment_detail_request() -> Result<(), AfbError> {
     let payload = PaymentDetailsRequest::from_jsonc(jsonc)?;
     assert!(payload.get_emaid().unwrap() == emaid);
 
-    let contract = payload.get_contract();
+    let contract = payload.get_contract_chain();
     assert!(contract.get_id().unwrap() == cert_id);
     assert!(contract.get_cert() == cert_data);
     let subcerts = contract.get_subcerts();
@@ -930,7 +946,7 @@ fn payment_detail_response() -> Result<(), AfbError> {
     let rcode = ResponseCode::ContractCanceled;
     let challenge = [0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03];
 
-    let jsonc = iso2::PaymentDetailsResponse::new(rcode, &challenge)?
+    let jsonc = PaymentDetailsResponse::new(rcode, &challenge)?
         .set_timestamp(0) // force timestamp to get a fix testable buffer
         .to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
@@ -947,8 +963,10 @@ fn payment_detail_response() -> Result<(), AfbError> {
 fn payment_selection_request() -> Result<(), AfbError> {
     let service_contract = PaymentOption::Contract;
     // Encoding API
-    let service_option_0 = SelectedService::new(1234, Some(4321));
-    let service_option_1 = SelectedService::new(4321, Some(9876));
+    let mut service_option_0 = SelectedService::new(1234);
+    service_option_0.set_param_id(123);
+    let mut service_option_1 = SelectedService::new(4321);
+    service_option_1.set_param_id(567);
     let jsonc = PaymentSelectionRequest::new(service_contract)
         .add_service(&service_option_0)?
         .add_service(&service_option_1)?
@@ -987,12 +1005,12 @@ fn power_delivery_request() -> Result<(), AfbError> {
     let charge_progress = ChargeProgress::Renegotiate;
     let schedule_id = 64;
     let charge_profile_0 =
-        ChargingProfileEntry::new(1234, PhysicalValue::new(64, 1, PhysicalUnit::Watt), Some(3));
+        ChargingProfileEntry::new(1234, &PhysicalValue::new(64, 1, PhysicalUnit::Watt))?;
     let charge_profile_1 =
-        ChargingProfileEntry::new(4567, PhysicalValue::new(64, 1, PhysicalUnit::Watt), Some(2));
+        ChargingProfileEntry::new(4567, &PhysicalValue::new(64, 1, PhysicalUnit::Watt))?;
 
     let dc_status = DcEvStatusType::new(true, DcEvErrorCode::FailVoltOutOfRange, 64);
-    let dc_delivery_param = DcEvPowerDeliveryParam::new(dc_status, true, Some(true));
+    let dc_delivery_param = DcEvPowerDeliveryParam::new(&dc_status, true);
 
     let jsonc = PowerDeliveryRequest::new(charge_progress, schedule_id)
         .add_charging_profile(&charge_profile_0)?
@@ -1007,7 +1025,7 @@ fn power_delivery_request() -> Result<(), AfbError> {
     assert!(payload.get_schedule_id() == schedule_id);
     let profiles = payload.get_charging_profiles();
     assert!(profiles[0].get_start() == charge_profile_0.get_start());
-    assert!(profiles[0].get_phases_max().unwrap() == charge_profile_0.get_phases_max().unwrap());
+    assert!(profiles[0].get_power_max().get_unit() == charge_profile_0.get_power_max().get_unit());
     assert!(
         profiles[0].get_power_max().get_value() == charge_profile_0.get_power_max().get_value()
     );
@@ -1033,7 +1051,7 @@ fn power_ac_delivery_response() -> Result<(), AfbError> {
     let notif = EvseNotification::StopCharging;
     let ac_status = AcEvseStatusType::new(notif, delay, rcd);
 
-    let jsonc = iso2::PowerDeliveryResponse::new(rcode)
+    let jsonc = PowerDeliveryResponse::new(rcode)
         .set_ac_evse_status(&ac_status)?
         .to_jsonc()?;
     println!("{}:{}", func_name!(), jsonc);
@@ -1118,11 +1136,11 @@ fn session_stop_request() -> Result<(), AfbError> {
 fn session_stop_response() -> Result<(), AfbError> {
     // Encoding API
     let rcode = ResponseCode::Failed;
-    let jsonc = iso2::SessionStopResponse::new(rcode).to_jsonc()?;
-    println! ("{}:{}", func_name!(), jsonc);
+    let jsonc = SessionStopResponse::new(rcode).to_jsonc()?;
+    println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
-    let payload= SessionStopResponse::from_jsonc(jsonc)?;
+    let payload = SessionStopResponse::from_jsonc(jsonc)?;
     assert!(payload.get_rcode() == rcode);
 
     Ok(())
@@ -1131,20 +1149,20 @@ fn session_stop_response() -> Result<(), AfbError> {
 #[test]
 fn welding_detection_request() -> Result<(), AfbError> {
     // Encoding API
-    let ready_tst = true;
+    let ready_in = true;
     let dc_rcode = DcEvErrorCode::NoError;
-    let evresssoc_tst: i8 = 16;
-    let dc_status = DcEvStatusType::new(ready_tst, dc_rcode, evresssoc_tst);
+    let evresssoc_in: i8 = 16;
+    let dc_status = DcEvStatusType::new(ready_in, dc_rcode, evresssoc_in);
 
     let jsonc = WeldingDetectionRequest::new(&dc_status).to_jsonc()?;
-    println! ("{}:{}", func_name!(), jsonc);
+    println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
-    let payload= WeldingDetectionRequest::from_jsonc(jsonc)?;
+    let payload = WeldingDetectionRequest::from_jsonc(jsonc)?;
     let status_rec = payload.get_status();
-    assert!(status_rec.get_ready() == ready_tst);
+    assert!(status_rec.get_ready() == ready_in);
     assert!(status_rec.get_error() == dc_rcode);
-    assert!(status_rec.get_evresssoc() == evresssoc_tst);
+    assert!(status_rec.get_evresssoc() == evresssoc_in);
 
     Ok(())
 }
@@ -1160,11 +1178,11 @@ fn welding_detection_response() -> Result<(), AfbError> {
     let dc_status = DcEvseStatusType::new(dc_rcode, dc_notification, dc_delay);
     let dc_voltage = PhysicalValue::new(400, 1, PhysicalUnit::Volt);
 
-    let jsonc = iso2::WeldingDetectionResponse::new(rcode, &dc_status, &dc_voltage)?.to_jsonc()?;
-    println! ("{}:{}", func_name!(), jsonc);
+    let jsonc = WeldingDetectionResponse::new(rcode, &dc_status, &dc_voltage)?.to_jsonc()?;
+    println!("{}:{}", func_name!(), jsonc);
 
     // Decoding API
-    let payload= WeldingDetectionResponse::from_jsonc(jsonc)?;
+    let payload = WeldingDetectionResponse::from_jsonc(jsonc)?;
     assert!(payload.get_rcode() == rcode);
     let voltage = payload.get_voltage();
     assert!(voltage.get_value() == 400);
@@ -1173,5 +1191,17 @@ fn welding_detection_response() -> Result<(), AfbError> {
     assert!(status.get_error() == dc_rcode);
     assert!(status.get_delay() == dc_delay);
     assert!(status.get_notification() == dc_notification);
+    Ok(())
+}
+
+#[test]
+fn dc_param_discovery_res_json() -> Result<(), AfbError> {
+    let jsonc= JsoncObj::parse("{'rcode':'ok','processing':'finished','tuples':[{'description':1,'pmaxs':[{'pmax':{'value':11000,'multiplier':0,'unit':'watt'},'time_interval':{'start':0,'duration':86400}}]}],'evse_dc_charge_param':{'status':{'error':'ready','notification':'none','delay':0,'isolation_status':'invalid'},'max_voltage':{'value':5200,'multiplier':-1,'unit':'volt'},'min_voltage':{'value':500,'multiplier':-1,'unit':'volt'},'max_current':{'value':3000,'multiplier':-2,'unit':'ampere'},'min_current':{'value':0,'multiplier':-1,'unit':'ampere'},'max_power':{'value':11000,'multiplier':0,'unit':'watt'},'current_ripple':{'value':10,'multiplier':-1,'unit':'ampere'},'regul_tolerance':{'value':5,'multiplier':-1,'unit':'ampere'},'energy_to_deliver':{'value':10000,'multiplier':0,'unit':'wh'}}}")?;
+
+    let payload = ParamDiscoveryResponse::from_jsonc(jsonc)?;
+    assert!(payload.get_rcode() == ResponseCode::Ok);
+
+    let _stream = encode_to_stream(func_name!(), payload.encode())?;
+
     Ok(())
 }

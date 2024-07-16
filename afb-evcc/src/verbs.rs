@@ -263,9 +263,9 @@ pub fn register_verbs(
             ctrl,
             protocol: v2g::ProtocolTagId::Unknown,
             msg_name: "app_proto_req",
-            timeout: config.timeout,
             msg_id: v2g::MessageTagId::AppProtocolReq as u32,
             signed: false,
+            watchdog: config.watchdog,
         });
 
     group.add_verb(connect_verb.finalize()?);
@@ -288,7 +288,7 @@ pub fn register_verbs(
             .set_context(IsoMsgReqCtx {
                 ctrl,
                 msg_name,
-                timeout: config.timeout,
+                watchdog: config.watchdog,
                 msg_id: msg_api.msg_id,
                 protocol: protocol_conf,
                 signed: msg_api.signed,

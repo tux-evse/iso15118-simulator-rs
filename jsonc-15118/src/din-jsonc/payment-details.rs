@@ -13,7 +13,6 @@
 use crate::prelude::*;
 use afbv4::prelude::*;
 use iso15118::prelude::din_exi::*;
-use std::str;
 
 impl IsoToJson for PaymentDetailsRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -35,13 +34,19 @@ impl IsoToJson for PaymentDetailsResponse {
         let jsonc = JsoncObj::new();
         jsonc.add("rcode", self.get_rcode().to_label())?;
         jsonc.add("challenge", self.get_challenge()?)?;
-        jsonc.add("timestamp", self.get_time_stamp())?;
+        match self.get_time_stamp() {
+            0 => {},
+            value =>  {jsonc.add("stamp", value)?;},
+        }
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
-        let challenge= jsonc.get::<&str>("challenge")?;
-        let payload= PaymentDetailsResponse::new(rcode, challenge)?;
+        let challenge= jsonc.get::<String>("challenge")?;
+        let mut payload= PaymentDetailsResponse::new(rcode, &challenge)?;
+        if let Some(value) = jsonc.optional::<i64>("stamp")? {
+            payload.set_timestamp(value);
+        }
         Ok(Box::new(payload))
     }
 }

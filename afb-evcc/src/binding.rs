@@ -16,13 +16,13 @@ use iso15118::prelude::{*,v2g::*};
 use nettls::prelude::*;
 
 pub struct BindingConfig {
-    pub timeout: i64,
     pub jverbs: JsoncObj,
     pub ip6_iface: &'static str,
     pub ip6_prefix: u16,
     pub sdp_port: u16,
     pub sdp_security: SdpSecurityModel,
     pub protocol: &'static str,
+    pub watchdog: i64,
 }
 
 // Binding init callback started at binding load time before any API exist
@@ -43,6 +43,7 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
         return afb_error!("iso15118-binding-config", "protocols array empty");
     }
 
+
     // create an register frontend api and register init session callback
     let api = AfbApi::new(uid).set_name(api).set_info(info);
 
@@ -60,7 +61,7 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
             .set_info(info);
 
         let session_id = jproto.default("session", "[01,02,03,04,05,06]")?;
-        let timeout = jproto.default("timeout", 1000)?;
+        let watchdog =  jproto.default("watchdog", 2500)?;
 
         let tls_conf = match jconf.optional::<JsoncObj>("tls")? {
             None => None,
@@ -100,9 +101,9 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
             ip6_prefix,
             sdp_port,
             sdp_security,
-            timeout,
             jverbs,
             protocol,
+            watchdog,
         };
 
         // create verbs

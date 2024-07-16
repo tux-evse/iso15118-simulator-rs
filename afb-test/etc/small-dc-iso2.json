@@ -38,7 +38,6 @@
                             "expect": {
                                 "id": "DE*PNX*E12345*1",
                                 "rcode": "new_session",
-                                "stamp": 0,
                                 "tagid": "session_setup_res",
                                 "proto": "iso2",
                                 "msgid": 1
@@ -161,7 +160,7 @@
                                 "tuples": [
                                     {
                                         "description": 1,
-                                        "pmax": [
+                                        "pmaxs": [
                                             {
                                                 "pmax": {
                                                     "value": 11000,

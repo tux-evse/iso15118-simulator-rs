@@ -10,9 +10,9 @@
  *
  */
 
+use crate::prelude::*;
 use afbv4::prelude::*;
 use iso15118::prelude::din_exi::*;
-use crate::prelude::*;
 
 impl IsoToJson for SessionSetupRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -37,15 +37,23 @@ impl IsoToJson for SessionSetupResponse {
         let id = bytes_to_hexa(self.get_id());
         jsonc.add("id", id.as_str())?;
         jsonc.add("rcode", self.get_rcode().to_label())?;
-        jsonc.add("stamp", self.get_time_stamp())?;
+        match self.get_time_stamp() {
+            0 => {}
+            value => {
+                jsonc.add("stamp", value)?;
+            }
+        }
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let mut buffer= [0x00; 32];
+        let mut buffer = [0x00; 32];
 
         let id = hexa_to_bytes(jsonc.get("id")?, &mut buffer)?;
         let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
-        let payload = SessionSetupResponse::new(id, rcode)?;
+        let mut payload = SessionSetupResponse::new(id, rcode)?;
+        if let Some(value) = jsonc.optional::<i64>("stamp")? {
+            payload.set_timestamp(value);
+        }
         Ok(Box::new(payload))
     }
 }
