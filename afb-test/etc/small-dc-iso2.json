@@ -673,6 +673,7 @@
                         },
                         {
                             "uid": "sdp-evse",
+                            "verb": "iso2:sdp_evse_req",
                             "injector_only": true,
                             "query": {
                                 "action": "forget"

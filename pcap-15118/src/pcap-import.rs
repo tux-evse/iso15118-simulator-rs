@@ -221,7 +221,7 @@ impl ScenarioLog {
         }
 
         // insert sdp session close
-        let jend = JsoncObj::parse("{'uid':'sdp-evse','injector_only':true,'query':{'action':'forget'}}")?;
+        let jend = JsoncObj::parse("{'uid':'sdp-evse','verb':'iso2:sdp_evse_req','injector_only':true,'query':{'action':'forget'}}")?;
         self.jtransactions.append(jend)?;
 
         let jscenario = JsoncObj::new();
