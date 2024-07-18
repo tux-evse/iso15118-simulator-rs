@@ -3,7 +3,7 @@
 
 Provide a JSON Afb-V4 api to ISO15118-encoders. Each ISO message is exposed a Afb-V4 RPCs. In EV mode the simulator start sending an SDP discovery multi-cast message in IPV6 to configured interface and establishes a TCP/TLS connection to start ISO dialogue.
 
- ![simulator-screencast](./Docs/images//images/simulator-iso15118-iso2.png)
+ ![simulator-screencast](./Docs/images/simulator-iso15118-iso2.png)
 
 ## Dependencies
 
