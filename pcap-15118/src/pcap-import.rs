@@ -181,6 +181,16 @@ enum ScenarioProto {
     Undef,
 }
 
+impl ScenarioProto {
+    pub fn to_label(&self) -> &'static str {
+        match self {
+            ScenarioProto::Din(_) => "din",
+            ScenarioProto::Iso2(_) => "iso2",
+            _ => "undef",
+        }
+    }
+}
+
 struct ScenarioLog {
     protocol: ScenarioProto,
     jtransactions: JsoncObj,
@@ -189,23 +199,35 @@ struct ScenarioLog {
 }
 
 impl ScenarioLog {
-    fn new(pkg_count: u32, protocol: v2g::ProtocolTagId, debug_only: bool) -> Result<Self, AfbError> {
+    fn new(
+        pkg_count: u32,
+        protocol: v2g::ProtocolTagId,
+        debug_only: bool,
+    ) -> Result<Self, AfbError> {
         let protocol = match protocol {
             v2g::ProtocolTagId::Din => ScenarioProto::Din(ScenarioDin::new(debug_only)),
             v2g::ProtocolTagId::Iso2 => ScenarioProto::Iso2(ScenarioIso2::new(debug_only)),
             _ => ScenarioProto::Undef,
         };
 
-        let this= Self {
+        let label = protocol.to_label();
+        let this = Self {
             protocol,
             jscenarios: JsoncObj::array(),
             jtransactions: JsoncObj::array(),
             pkg_start: pkg_count,
         };
 
-        let jsdp = JsoncObj::parse("{'uid':'sdp-evse','verb':'iso2:sdp_evse_req','injector_only':true,'query':{'action':'discover'}}")?;
+        let jsdp = JsoncObj::parse(format!(
+            "{{'uid':'sdp-evse','verb':'{}:sdp_evse_req','injector_only':true,'query':{{'action':'discover'}}}}",label).as_str())?;
         this.jtransactions.append(jsdp)?;
-        let jsdp = JsoncObj::parse("{'uid':'app-set-protocol','verb':'iso2:app_proto_req','injector_only':true}")?;
+        let jsdp = JsoncObj::parse(
+            format!(
+                "{{'uid':'app-set-protocol','verb':'{}:app_proto_req','injector_only':true}}",
+                label
+            )
+            .as_str(),
+        )?;
         this.jtransactions.append(jsdp)?;
         Ok(this)
     }
@@ -226,13 +248,13 @@ impl ScenarioLog {
 
         let jscenario = JsoncObj::new();
 
-        let base_name= match ctx.pcap_in.split('/').collect::<Vec<&str>>().last() {
+        let base_name = match ctx.pcap_in.split('/').collect::<Vec<&str>>().last() {
             Some(value) => value,
-            None => "scenario"
+            None => "scenario",
         };
-        let short_name= match base_name.split('.').collect::<Vec<&str>>().first() {
+        let short_name = match base_name.split('.').collect::<Vec<&str>>().first() {
             Some(value) => value,
-            None => base_name
+            None => base_name,
         };
 
         let uid = format!("{}:{}", short_name, self.jscenarios.count()? + 1);
@@ -249,20 +271,17 @@ impl ScenarioLog {
         let jbinding = JsoncObj::new();
 
         if self.jscenarios.count()? == 0 {
-            return afb_error!("pcap-scenarios-close", "Fail to parse any iso15118 scenario");
+            return afb_error!(
+                "pcap-scenarios-close",
+                "Fail to parse any iso15118 scenario"
+            );
         }
 
         jbinding.add("uid", "iso15118-simulator")?;
         jbinding.add("info", &ctx.pcap_in)?;
         jbinding.add("api", "iso15118-${SIMULATION_MODE}")?;
-        jbinding.add(
-            "path",
-            "${CARGO_BINDING_DIR}/libafb_injector.so",
-        )?;
-        jbinding.add(
-            "simulation",
-            "${SIMULATION_MODE}",
-        )?;
+        jbinding.add("path", "${CARGO_BINDING_DIR}/libafb_injector.so")?;
+        jbinding.add("simulation", "${SIMULATION_MODE}")?;
 
         jbinding.add("target", "iso15118-simulator")?;
         jbinding.add("loop", false)?;
@@ -270,10 +289,10 @@ impl ScenarioLog {
         self.jscenarios = JsoncObj::array();
 
         // finally embed binding object into binder/bindings array
-        let jbindings= JsoncObj::array();
+        let jbindings = JsoncObj::array();
         jbindings.append(jbinding)?;
-        let jbinder= JsoncObj::new();
-        jbinder.add("binding",jbindings)?;
+        let jbinder = JsoncObj::new();
+        jbinder.add("binding", jbindings)?;
 
         Ok(jbinder)
     }
