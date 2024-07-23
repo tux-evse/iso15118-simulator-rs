@@ -134,6 +134,27 @@
                 "target stop-hook add -n _start -o continue",
                 "settings set target.disable-aslr false"
             ]
+        },
+        {
+            "name": "pcap-iso2-audi-compact",
+            "type": "lldb",
+            "preLaunchTask": "binding-native-build",
+            "request": "launch",
+            "program": "${env:HOME}/.cargo/build/debug/pcap-iso15118",
+            "env": {
+                "LD_LIBRARY_PATH": "/usr/local/lib64:/usr/local/lib",
+            },
+            "args": [
+                "--pcap_in=./afb-test/trace-logs/audi-dc-iso2.pcap",
+                "--json_out=/tmp/iso15118-scenario.json",
+                "--compact=true",
+                "--verbose=0",
+            ],
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "target stop-hook add -n _start -o continue",
+                "settings set target.disable-aslr false"
+            ]
         }
     ]
 }

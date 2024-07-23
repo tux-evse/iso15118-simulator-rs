@@ -196,12 +196,14 @@ struct ScenarioLog {
     jtransactions: JsoncObj,
     jscenarios: JsoncObj,
     pkg_start: u32,
+    compact: bool,
 }
 
 impl ScenarioLog {
     fn new(
         pkg_count: u32,
         protocol: v2g::ProtocolTagId,
+        compact: bool,
         debug_only: bool,
     ) -> Result<Self, AfbError> {
         let protocol = match protocol {
@@ -216,6 +218,7 @@ impl ScenarioLog {
             jscenarios: JsoncObj::array(),
             jtransactions: JsoncObj::array(),
             pkg_start: pkg_count,
+            compact,
         };
 
         let jsdp = JsoncObj::parse(format!(
@@ -259,7 +262,34 @@ impl ScenarioLog {
 
         let uid = format!("{}:{}", short_name, self.jscenarios.count()? + 1);
         jscenario.add("uid", &uid)?;
-        jscenario.add("transactions", self.jtransactions.clone())?;
+
+        if self.compact == false {
+            jscenario.add("transactions", self.jtransactions.clone())?;
+        } else {
+            // in compact mode we wait for last expected value of a request
+            let jtransac = JsoncObj::array();
+            let mut previous_transac: Option<JsoncObj> = None;
+            for idx in 0..self.jtransactions.count()? {
+                let current_transac = self.jtransactions.index::<JsoncObj>(idx)?;
+                println! ("**** {} count:{}", current_transac, self.jtransactions.count()?);
+
+                let current_verb = current_transac.get::<String>("verb")?;
+                let current_query = current_transac.optional::<String>("query")?;
+
+                if let Some(previous) = previous_transac {
+                    if current_verb != previous.get::<String>("verb")? || current_query != previous.optional::<String>("query")? {
+                        jtransac.append(previous)?;
+                    }
+                }
+                previous_transac = Some(current_transac);
+            }
+
+            if let Some(previous) = previous_transac {
+                    jtransac.append(previous)?;
+            }
+
+            jscenario.add("transactions", jtransac)?;
+        }
 
         // save scenario and reset transaction for next tcp/iso session
         self.jscenarios.append(jscenario)?;
@@ -310,6 +340,7 @@ struct LoggerCtx {
     msg_delay: u128,
     session_protocol: v2g::ProtocolTagId,
     supported_protocols: Vec<v2g::AppHandAppProtocolType>,
+    compact: bool,
 }
 
 impl LoggerCtx {
@@ -333,6 +364,26 @@ impl LoggerCtx {
         self.json_out = filename.to_string();
         self.log_fd = Some(log_fd);
         Ok(self)
+    }
+
+    pub fn set_compact(&mut self, value: &str) -> Result<&mut Self, AfbError> {
+        let compact = match value.to_lowercase().as_str() {
+            "true" | "1" => true,
+            "false" | "0" => false,
+            _ => {
+                return afb_error!(
+                    "pcap-compact-mode",
+                    "invalid value expect true|false got:{}",
+                    value
+                )
+            }
+        };
+        self.compact = compact;
+        Ok(self)
+    }
+
+    pub fn get_compact(&self) -> bool {
+        self.compact
     }
 
     pub fn log_to_file(&mut self, jsonc: JsoncObj) -> Result<(), AfbError> {
@@ -473,6 +524,7 @@ fn packet_handler_cb(
                     ctx.scenario = RefCell::new(ScenarioLog::new(
                         pkg_count,
                         ctx.session_protocol,
+                        ctx.get_compact(),
                         debug_only,
                     )?);
                 }
@@ -530,7 +582,12 @@ fn main() -> Result<(), AfbError> {
     let mut pcaps = PcapHandle::new();
     let mut logger = LoggerCtx {
         session_protocol: v2g::ProtocolTagId::Unknown,
-        scenario: RefCell::new(ScenarioLog::new(0, v2g::ProtocolTagId::Unknown, true)?),
+        scenario: RefCell::new(ScenarioLog::new(
+            0,
+            v2g::ProtocolTagId::Unknown,
+            false,
+            true,
+        )?),
         supported_protocols: Vec::new(),
         timestamp: Duration::new(0, 0),
         log_fd: None,
@@ -540,6 +597,7 @@ fn main() -> Result<(), AfbError> {
         data_len: 0,
         exi_len: 0,
         msg_delay: 0,
+        compact: false,
     };
 
     for idx in 1..args.len() {
@@ -565,6 +623,9 @@ fn main() -> Result<(), AfbError> {
             }
             "--json_out" => {
                 logger.set_log_file(parts[1])?;
+            }
+            "--compact" => {
+                logger.set_compact(parts[1])?;
             }
             "--tcp_port" => {
                 let port = match parts[1].parse() {
