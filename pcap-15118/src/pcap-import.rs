@@ -25,7 +25,7 @@ use std::io::Write;
 
 #[track_caller]
 fn err_usage(uid: &str, data: &str) -> Result<(), AfbError> {
-    println!("usage: pcap-iso15118 --pcap_in=xxx.pcap --json_out=scenario.json [--max_count=xx] [--verbose=1] [--key_log_in=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx");
+    println!("usage: pcap-iso15118 --pcap_in=xxx.pcap --json_out=scenario.json [--compact=true] [--max_count=xx] [--verbose=1] [--key_log_in=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx");
     return afb_error!(uid, "{}", data);
 }
 
@@ -271,21 +271,34 @@ impl ScenarioLog {
             let mut previous_transac: Option<JsoncObj> = None;
             for idx in 0..self.jtransactions.count()? {
                 let current_transac = self.jtransactions.index::<JsoncObj>(idx)?;
-                println! ("**** {} count:{}", current_transac, self.jtransactions.count()?);
 
                 let current_verb = current_transac.get::<String>("verb")?;
-                let current_query = current_transac.optional::<String>("query")?;
+                let current_query = current_transac.optional::<JsoncObj>("query")?;
 
                 if let Some(previous) = previous_transac {
-                    if current_verb != previous.get::<String>("verb")? || current_query != previous.optional::<String>("query")? {
-                        jtransac.append(previous)?;
+                    if current_verb != previous.get::<String>("verb")? {
+                        match current_query {
+                            None => {
+                                jtransac.append(previous)?;
+                            }
+                            Some(cquery) => match previous.optional::<JsoncObj>("query")? {
+                                None => {
+                                    jtransac.append(previous)?;
+                                }
+                                Some(pqerry) => {
+                                    if pqerry.to_string() != cquery.to_string() {
+                                        jtransac.append(previous)?;
+                                    }
+                                }
+                            },
+                        }
                     }
                 }
                 previous_transac = Some(current_transac);
             }
 
             if let Some(previous) = previous_transac {
-                    jtransac.append(previous)?;
+                jtransac.append(previous)?;
             }
 
             jscenario.add("transactions", jtransac)?;
@@ -314,7 +327,15 @@ impl ScenarioLog {
         jbinding.add("simulation", "${SIMULATION_MODE}")?;
 
         jbinding.add("target", "iso15118-simulator")?;
-        jbinding.add("loop", false)?;
+        if self.compact {
+            let jretry= JsoncObj::new();
+            jretry.add("delay", 100)?;
+            jretry.add("count", 99)?;
+            jretry.add("timeout", 10)?;
+            jbinding.add("retry",jretry)?;
+        } else {
+            jbinding.add("loop", false)?;
+        }
         jbinding.add("scenarios", self.jscenarios.clone())?;
         self.jscenarios = JsoncObj::array();
 
