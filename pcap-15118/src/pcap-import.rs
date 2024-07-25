@@ -16,6 +16,12 @@ extern crate afbv4;
 // pcap C/Rust Api mapping
 include!("../capi/capi-pcap.rs");
 
+const DEFAULT_CALL_TIMEOUT: u32 = 3000; // call_sync 3s default timeout
+const DEFAULT_CALL_DELAY: u32 = 100; // call_sync 100ms delay
+const DEFAULT_DELAY_PERCENT: u32 = 10; // reduce delay by 10
+const DEFAULT_DELAY_MIN: u32 = 50; // reduce delay by 10
+const DEFAULT_DELAY_MAX: u32 = 100; // reduce delay by 10
+
 use afbv4::prelude::*;
 use iso15118::prelude::*;
 use iso15118_jsonc::prelude::*;
@@ -191,6 +197,25 @@ impl ScenarioProto {
     }
 }
 
+struct PreviousTransaction {
+    delay: u32,
+    count: u32,
+    transac: JsoncObj,
+    verb: String,
+    query: String,
+}
+
+impl PreviousTransaction {
+    fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
+        let jretry = JsoncObj::new();
+        jretry.add("timeout", DEFAULT_CALL_TIMEOUT)?;
+        jretry.add("delay", self.delay)?;
+        jretry.add("count", self.count)?;
+        self.transac.add("retry", jretry)?;
+        Ok(self.transac.clone())
+    }
+}
+
 struct ScenarioLog {
     protocol: ScenarioProto,
     jtransactions: JsoncObj,
@@ -263,42 +288,56 @@ impl ScenarioLog {
         let uid = format!("{}:{}", short_name, self.jscenarios.count()? + 1);
         jscenario.add("uid", &uid)?;
 
+        // reserve an average of 1s per transaction
+        jscenario.add("timeout", self.jtransactions.count()?)?;
+
         if self.compact == false {
             jscenario.add("transactions", self.jtransactions.clone())?;
         } else {
             // in compact mode we wait for last expected value of a request
             let jtransac = JsoncObj::array();
-            let mut previous_transac: Option<JsoncObj> = None;
+            let mut previous_transac: Option<PreviousTransaction> = None;
             for idx in 0..self.jtransactions.count()? {
                 let current_transac = self.jtransactions.index::<JsoncObj>(idx)?;
 
                 let current_verb = current_transac.get::<String>("verb")?;
-                let current_query = current_transac.optional::<JsoncObj>("query")?;
+                let current_query = match current_transac.optional::<JsoncObj>("query")? {
+                    None => "".to_string(),
+                    Some(value) => value.to_string(),
+                };
 
-                if let Some(previous) = previous_transac {
-                    if current_verb != previous.get::<String>("verb")? {
-                        match current_query {
-                            None => {
-                                jtransac.append(previous)?;
-                            }
-                            Some(cquery) => match previous.optional::<JsoncObj>("query")? {
-                                None => {
-                                    jtransac.append(previous)?;
-                                }
-                                Some(pqerry) => {
-                                    if pqerry.to_string() != cquery.to_string() {
-                                        jtransac.append(previous)?;
-                                    }
-                                }
-                            },
+                match &mut previous_transac {
+                    None => {
+                        previous_transac = Some(PreviousTransaction {
+                            delay: current_transac.default("delay", DEFAULT_CALL_DELAY)?,
+                            count: 1,
+                            transac: current_transac,
+                            verb: current_verb,
+                            query: current_query,
+                        });
+                    }
+                    Some(previous) => {
+                        if current_verb == previous.verb && current_query == previous.query {
+                            previous.count += 1;
+                        } else {
+                            // add retry option the old transaction
+                            jtransac.append(previous.to_jsonc()?)?;
+
+                            // we are facing a new transaction let's store initial command
+                            previous_transac = Some(PreviousTransaction {
+                                delay: current_transac.default("delay", DEFAULT_CALL_DELAY)?,
+                                count: 1,
+                                transac: current_transac,
+                                verb: current_verb,
+                                query: current_query,
+                            });
                         }
                     }
                 }
-                previous_transac = Some(current_transac);
             }
 
-            if let Some(previous) = previous_transac {
-                jtransac.append(previous)?;
+            if let Some(previous) = &previous_transac {
+                jtransac.append(previous.to_jsonc()?)?;
             }
 
             jscenario.add("transactions", jtransac)?;
@@ -327,14 +366,15 @@ impl ScenarioLog {
         jbinding.add("simulation", "${SIMULATION_MODE}")?;
 
         jbinding.add("target", "iso15118-simulator")?;
+        let jdelay = JsoncObj::new();
+        jdelay.add("percent", DEFAULT_DELAY_PERCENT)?;
+        jdelay.add("min", DEFAULT_DELAY_MIN)?;
+        jdelay.add("max", DEFAULT_DELAY_MAX)?;
+        jbinding.add("delay", jdelay)?;
         if self.compact {
-            let jretry= JsoncObj::new();
-            jretry.add("delay", 100)?;
-            jretry.add("count", 99)?;
-            jretry.add("timeout", 10)?;
-            jbinding.add("retry",jretry)?;
+            jbinding.add("compact", true)?;
         } else {
-            jbinding.add("loop", false)?;
+            jbinding.add("loop", true)?;
         }
         jbinding.add("scenarios", self.jscenarios.clone())?;
         self.jscenarios = JsoncObj::array();
