@@ -17,7 +17,7 @@ fn main() {
     println!("cargo:rustc-link-arg=-lgnutls");
     println!("cargo:rustc-link-arg=-lnettle");
     println!("cargo:rustc-link-arg=-liso15118");
-    println!("cargo:rustc-link-arg=-llibjson-c");
+    println!("cargo:rustc-link-arg=-ljson-c");
 
     // check pkgconfig dependencies
     system_deps::Config::new().probe().unwrap();
