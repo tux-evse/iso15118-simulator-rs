@@ -190,7 +190,7 @@ version = "0.0.1"
 dependencies = [
  "iso15118",
  "iso15118_jsonc",
- "nettls 0.0.1 (git+https://github.com/tux-evse/iso15118-network-rs.git?branch=main)",
+ "nettls",
  "serde",
  "serde_json",
 ]
@@ -200,7 +200,7 @@ name = "iso15118_jsonc"
 version = "0.0.1"
 dependencies = [
  "iso15118",
- "nettls 0.0.1",
+ "nettls",
  "serde",
  "serde_json",
 ]
@@ -271,16 +271,6 @@ name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
-
-[[package]]
-name = "nettls"
-version = "0.0.1"
-dependencies = [
- "bindgen",
- "cc",
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "nettls"
@@ -456,7 +446,7 @@ dependencies = [
  "iso15118",
  "iso15118_exi",
  "iso15118_jsonc",
- "nettls 0.0.1 (git+https://github.com/tux-evse/iso15118-network-rs.git?branch=main)",
+ "nettls",
  "serde",
  "serde_json",
 ]
@@ -469,7 +459,7 @@ dependencies = [
  "iso15118",
  "iso15118_exi",
  "iso15118_jsonc",
- "nettls 0.0.1 (git+https://github.com/tux-evse/iso15118-network-rs.git?branch=main)",
+ "nettls",
  "serde",
  "serde_json",
 ]
