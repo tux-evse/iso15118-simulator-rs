@@ -7,14 +7,16 @@
       "path":"${CARGO_BINDING_DIR}/libafb_injector.so",
       "simulation":"${SIMULATION_MODE}",
       "target":"iso15118-simulator",
-      "retry":{
-        "delay":100,
-        "count":99,
-        "timeout":10
+      "delay":{
+        "percent":10,
+        "min":50,
+        "max":100
       },
+      "compact":true,
       "scenarios":[
         {
           "uid":"compact-dc-iso2:1",
+          "timeout":748,
           "transactions":[
             {
               "uid":"sdp-evse",
@@ -22,12 +24,22 @@
               "injector_only":true,
               "query":{
                 "action":"discover"
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":100,
+                "count":1
               }
             },
             {
               "uid":"app-set-protocol",
               "verb":"iso2:app_proto_req",
-              "injector_only":true
+              "injector_only":true,
+              "retry":{
+                "timeout":3000,
+                "delay":100,
+                "count":1
+              }
             },
             {
               "uid":"pkg:51",
@@ -45,6 +57,11 @@
                 "tagid":"session_setup_res",
                 "proto":"iso2",
                 "msgid":1
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":56,
+                "count":1
               }
             },
             {
@@ -67,6 +84,11 @@
                 "tagid":"service_discovery_res",
                 "proto":"iso2",
                 "msgid":3
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":111,
+                "count":1
               }
             },
             {
@@ -89,12 +111,17 @@
                 "tagid":"payment_selection_res",
                 "proto":"iso2",
                 "msgid":26
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":81,
+                "count":1
               }
             },
             {
-              "uid":"pkg:73",
+              "uid":"pkg:68",
               "verb":"iso2:authorization_req",
-              "delay":121,
+              "delay":51,
               "query":{
                 "tagid":"authorization_req",
                 "proto":"iso2",
@@ -102,10 +129,15 @@
               },
               "expect":{
                 "rcode":"ok",
-                "processing":"finished",
+                "processing":"customer_interaction",
                 "tagid":"authorization_res",
                 "proto":"iso2",
                 "msgid":7
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":51,
+                "count":2
               }
             },
             {
@@ -213,12 +245,17 @@
                 "tagid":"param_discovery_res",
                 "proto":"iso2",
                 "msgid":16
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":131,
+                "count":1
               }
             },
             {
-              "uid":"pkg:256",
+              "uid":"pkg:85",
               "verb":"iso2:cable_check_req",
-              "delay":120,
+              "delay":740,
               "query":{
                 "status":{
                   "ready":true,
@@ -235,18 +272,23 @@
                   "error":"ready",
                   "notification":"none",
                   "delay":0,
-                  "isolation_status":"valid"
+                  "isolation_status":"invalid"
                 },
-                "processing":"finished",
+                "processing":"ongoing",
                 "tagid":"cable_check_res",
                 "proto":"iso2",
                 "msgid":10
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":740,
+                "count":32
               }
             },
             {
-              "uid":"pkg:317",
+              "uid":"pkg:261",
               "verb":"iso2:pre_charge_req",
-              "delay":120,
+              "delay":70,
               "query":{
                 "status":{
                   "ready":true,
@@ -276,13 +318,18 @@
                   "isolation_status":"valid"
                 },
                 "voltage":{
-                  "value":4053,
+                  "value":4996,
                   "multiplier":-1,
                   "unit":"volt"
                 },
                 "tagid":"pre_charge_res",
                 "proto":"iso2",
                 "msgid":30
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":70,
+                "count":11
               }
             },
             {
@@ -325,10 +372,1083 @@
                 "tagid":"power_delivery_res",
                 "proto":"iso2",
                 "msgid":28
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":100,
+                "count":1
               }
             },
             {
-              "uid":"pkg:4149",
+              "uid":"pkg:327",
+              "verb":"iso2:current_demand_req",
+              "delay":110,
+              "query":{
+                "status":{
+                  "ready":true,
+                  "error":"no_error",
+                  "evresssoc":55
+                },
+                "voltage_target":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_target":{
+                  "value":0,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "charging_complete":false,
+                "voltage_limit":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":5000,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "time_to_full_sock":{
+                  "value":0,
+                  "multiplier":1,
+                  "unit":"second"
+                },
+                "tagid":"current_demand_req",
+                "proto":"iso2",
+                "msgid":19
+              },
+              "expect":{
+                "rcode":"ok",
+                "evse_id":"DE*PNX*E12345*1",
+                "status":{
+                  "error":"ready",
+                  "notification":"none",
+                  "delay":0,
+                  "isolation_status":"valid"
+                },
+                "voltage":{
+                  "value":3723,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current":{
+                  "value":0,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "current_limit_reach":false,
+                "voltage_limit_reach":false,
+                "power_limit_reach":false,
+                "tuple_id":1,
+                "voltage_limit":{
+                  "value":5200,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":2582,
+                  "multiplier":-2,
+                  "unit":"ampere"
+                },
+                "power_limit":{
+                  "value":11000,
+                  "multiplier":0,
+                  "unit":"watt"
+                },
+                "meter_info":{
+                  "id":"YETI_POWERMETER",
+                  "reading":0
+                },
+                "tagid":"current_demand_res",
+                "proto":"iso2",
+                "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":110,
+                "count":1
+              }
+            },
+            {
+              "uid":"pkg:334",
+              "verb":"iso2:current_demand_req",
+              "delay":120,
+              "query":{
+                "status":{
+                  "ready":true,
+                  "error":"no_error",
+                  "evresssoc":55
+                },
+                "voltage_target":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_target":{
+                  "value":36,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "charging_complete":false,
+                "voltage_limit":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":5000,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "time_to_full_sock":{
+                  "value":0,
+                  "multiplier":1,
+                  "unit":"second"
+                },
+                "tagid":"current_demand_req",
+                "proto":"iso2",
+                "msgid":19
+              },
+              "expect":{
+                "rcode":"ok",
+                "evse_id":"DE*PNX*E12345*1",
+                "status":{
+                  "error":"ready",
+                  "notification":"none",
+                  "delay":0,
+                  "isolation_status":"valid"
+                },
+                "voltage":{
+                  "value":3723,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current":{
+                  "value":0,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "current_limit_reach":false,
+                "voltage_limit_reach":false,
+                "power_limit_reach":false,
+                "tuple_id":1,
+                "voltage_limit":{
+                  "value":5200,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":2582,
+                  "multiplier":-2,
+                  "unit":"ampere"
+                },
+                "power_limit":{
+                  "value":11000,
+                  "multiplier":0,
+                  "unit":"watt"
+                },
+                "tagid":"current_demand_res",
+                "proto":"iso2",
+                "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":120,
+                "count":1
+              }
+            },
+            {
+              "uid":"pkg:339",
+              "verb":"iso2:current_demand_req",
+              "delay":121,
+              "query":{
+                "status":{
+                  "ready":true,
+                  "error":"no_error",
+                  "evresssoc":55
+                },
+                "voltage_target":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_target":{
+                  "value":78,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "charging_complete":false,
+                "voltage_limit":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":5000,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "time_to_full_sock":{
+                  "value":0,
+                  "multiplier":1,
+                  "unit":"second"
+                },
+                "tagid":"current_demand_req",
+                "proto":"iso2",
+                "msgid":19
+              },
+              "expect":{
+                "rcode":"ok",
+                "evse_id":"DE*PNX*E12345*1",
+                "status":{
+                  "error":"ready",
+                  "notification":"none",
+                  "delay":0,
+                  "isolation_status":"valid"
+                },
+                "voltage":{
+                  "value":3644,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current":{
+                  "value":0,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "current_limit_reach":false,
+                "voltage_limit_reach":false,
+                "power_limit_reach":false,
+                "tuple_id":1,
+                "voltage_limit":{
+                  "value":5200,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":2582,
+                  "multiplier":-2,
+                  "unit":"ampere"
+                },
+                "power_limit":{
+                  "value":11000,
+                  "multiplier":0,
+                  "unit":"watt"
+                },
+                "tagid":"current_demand_res",
+                "proto":"iso2",
+                "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":121,
+                "count":1
+              }
+            },
+            {
+              "uid":"pkg:344",
+              "verb":"iso2:current_demand_req",
+              "delay":119,
+              "query":{
+                "status":{
+                  "ready":true,
+                  "error":"no_error",
+                  "evresssoc":55
+                },
+                "voltage_target":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_target":{
+                  "value":126,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "charging_complete":false,
+                "voltage_limit":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":5000,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "time_to_full_sock":{
+                  "value":0,
+                  "multiplier":1,
+                  "unit":"second"
+                },
+                "tagid":"current_demand_req",
+                "proto":"iso2",
+                "msgid":19
+              },
+              "expect":{
+                "rcode":"ok",
+                "evse_id":"DE*PNX*E12345*1",
+                "status":{
+                  "error":"ready",
+                  "notification":"none",
+                  "delay":0,
+                  "isolation_status":"valid"
+                },
+                "voltage":{
+                  "value":3622,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current":{
+                  "value":0,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "current_limit_reach":false,
+                "voltage_limit_reach":false,
+                "power_limit_reach":false,
+                "tuple_id":1,
+                "voltage_limit":{
+                  "value":5200,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":2582,
+                  "multiplier":-2,
+                  "unit":"ampere"
+                },
+                "power_limit":{
+                  "value":11000,
+                  "multiplier":0,
+                  "unit":"watt"
+                },
+                "meter_info":{
+                  "id":"YETI_POWERMETER",
+                  "reading":0
+                },
+                "tagid":"current_demand_res",
+                "proto":"iso2",
+                "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":119,
+                "count":1
+              }
+            },
+            {
+              "uid":"pkg:349",
+              "verb":"iso2:current_demand_req",
+              "delay":120,
+              "query":{
+                "status":{
+                  "ready":true,
+                  "error":"no_error",
+                  "evresssoc":55
+                },
+                "voltage_target":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_target":{
+                  "value":168,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "charging_complete":false,
+                "voltage_limit":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":5000,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "time_to_full_sock":{
+                  "value":0,
+                  "multiplier":1,
+                  "unit":"second"
+                },
+                "tagid":"current_demand_req",
+                "proto":"iso2",
+                "msgid":19
+              },
+              "expect":{
+                "rcode":"ok",
+                "evse_id":"DE*PNX*E12345*1",
+                "status":{
+                  "error":"ready",
+                  "notification":"none",
+                  "delay":0,
+                  "isolation_status":"valid"
+                },
+                "voltage":{
+                  "value":3621,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current":{
+                  "value":513,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "current_limit_reach":false,
+                "voltage_limit_reach":false,
+                "power_limit_reach":false,
+                "tuple_id":1,
+                "voltage_limit":{
+                  "value":5200,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":2582,
+                  "multiplier":-2,
+                  "unit":"ampere"
+                },
+                "power_limit":{
+                  "value":11000,
+                  "multiplier":0,
+                  "unit":"watt"
+                },
+                "tagid":"current_demand_res",
+                "proto":"iso2",
+                "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":120,
+                "count":1
+              }
+            },
+            {
+              "uid":"pkg:356",
+              "verb":"iso2:current_demand_req",
+              "delay":120,
+              "query":{
+                "status":{
+                  "ready":true,
+                  "error":"no_error",
+                  "evresssoc":55
+                },
+                "voltage_target":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_target":{
+                  "value":210,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "charging_complete":false,
+                "voltage_limit":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":5000,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "time_to_full_sock":{
+                  "value":0,
+                  "multiplier":1,
+                  "unit":"second"
+                },
+                "tagid":"current_demand_req",
+                "proto":"iso2",
+                "msgid":19
+              },
+              "expect":{
+                "rcode":"ok",
+                "evse_id":"DE*PNX*E12345*1",
+                "status":{
+                  "error":"ready",
+                  "notification":"none",
+                  "delay":0,
+                  "isolation_status":"valid"
+                },
+                "voltage":{
+                  "value":3622,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current":{
+                  "value":1990,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "current_limit_reach":false,
+                "voltage_limit_reach":false,
+                "power_limit_reach":false,
+                "tuple_id":1,
+                "voltage_limit":{
+                  "value":5200,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":3000,
+                  "multiplier":-2,
+                  "unit":"ampere"
+                },
+                "power_limit":{
+                  "value":11000,
+                  "multiplier":0,
+                  "unit":"watt"
+                },
+                "tagid":"current_demand_res",
+                "proto":"iso2",
+                "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":120,
+                "count":1
+              }
+            },
+            {
+              "uid":"pkg:361",
+              "verb":"iso2:current_demand_req",
+              "delay":120,
+              "query":{
+                "status":{
+                  "ready":true,
+                  "error":"no_error",
+                  "evresssoc":55
+                },
+                "voltage_target":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_target":{
+                  "value":258,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "charging_complete":false,
+                "voltage_limit":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":5000,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "time_to_full_sock":{
+                  "value":0,
+                  "multiplier":1,
+                  "unit":"second"
+                },
+                "tagid":"current_demand_req",
+                "proto":"iso2",
+                "msgid":19
+              },
+              "expect":{
+                "rcode":"ok",
+                "evse_id":"DE*PNX*E12345*1",
+                "status":{
+                  "error":"ready",
+                  "notification":"none",
+                  "delay":0,
+                  "isolation_status":"valid"
+                },
+                "voltage":{
+                  "value":3622,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current":{
+                  "value":1990,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "current_limit_reach":false,
+                "voltage_limit_reach":false,
+                "power_limit_reach":false,
+                "tuple_id":1,
+                "voltage_limit":{
+                  "value":5200,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":3000,
+                  "multiplier":-2,
+                  "unit":"ampere"
+                },
+                "power_limit":{
+                  "value":11000,
+                  "multiplier":0,
+                  "unit":"watt"
+                },
+                "tagid":"current_demand_res",
+                "proto":"iso2",
+                "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":120,
+                "count":1
+              }
+            },
+            {
+              "uid":"pkg:366",
+              "verb":"iso2:current_demand_req",
+              "delay":120,
+              "query":{
+                "status":{
+                  "ready":true,
+                  "error":"no_error",
+                  "evresssoc":55
+                },
+                "voltage_target":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_target":{
+                  "value":300,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "charging_complete":false,
+                "voltage_limit":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":5000,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "time_to_full_sock":{
+                  "value":0,
+                  "multiplier":1,
+                  "unit":"second"
+                },
+                "tagid":"current_demand_req",
+                "proto":"iso2",
+                "msgid":19
+              },
+              "expect":{
+                "rcode":"ok",
+                "evse_id":"DE*PNX*E12345*1",
+                "status":{
+                  "error":"ready",
+                  "notification":"none",
+                  "delay":0,
+                  "isolation_status":"valid"
+                },
+                "voltage":{
+                  "value":3624,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current":{
+                  "value":3487,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "current_limit_reach":true,
+                "voltage_limit_reach":false,
+                "power_limit_reach":true,
+                "tuple_id":1,
+                "voltage_limit":{
+                  "value":5200,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":3000,
+                  "multiplier":-2,
+                  "unit":"ampere"
+                },
+                "power_limit":{
+                  "value":11000,
+                  "multiplier":0,
+                  "unit":"watt"
+                },
+                "tagid":"current_demand_res",
+                "proto":"iso2",
+                "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":120,
+                "count":7
+              }
+            },
+            {
+              "uid":"pkg:405",
+              "verb":"iso2:current_demand_req",
+              "delay":120,
+              "query":{
+                "status":{
+                  "ready":true,
+                  "error":"no_error",
+                  "evresssoc":55
+                },
+                "voltage_target":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_target":{
+                  "value":300,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "charging_complete":false,
+                "voltage_limit":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":5000,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "time_to_full_sock":{
+                  "value":660,
+                  "multiplier":1,
+                  "unit":"second"
+                },
+                "tagid":"current_demand_req",
+                "proto":"iso2",
+                "msgid":19
+              },
+              "expect":{
+                "rcode":"ok",
+                "evse_id":"DE*PNX*E12345*1",
+                "status":{
+                  "error":"ready",
+                  "notification":"none",
+                  "delay":0,
+                  "isolation_status":"valid"
+                },
+                "voltage":{
+                  "value":3649,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current":{
+                  "value":15076,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "current_limit_reach":true,
+                "voltage_limit_reach":false,
+                "power_limit_reach":true,
+                "tuple_id":1,
+                "voltage_limit":{
+                  "value":5200,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":3000,
+                  "multiplier":-2,
+                  "unit":"ampere"
+                },
+                "power_limit":{
+                  "value":11000,
+                  "multiplier":0,
+                  "unit":"watt"
+                },
+                "tagid":"current_demand_res",
+                "proto":"iso2",
+                "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":120,
+                "count":146
+              }
+            },
+            {
+              "uid":"pkg:1214",
+              "verb":"iso2:current_demand_req",
+              "delay":120,
+              "query":{
+                "status":{
+                  "ready":true,
+                  "error":"no_error",
+                  "evresssoc":55
+                },
+                "voltage_target":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_target":{
+                  "value":300,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "charging_complete":false,
+                "voltage_limit":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":5000,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "time_to_full_sock":{
+                  "value":0,
+                  "multiplier":1,
+                  "unit":"second"
+                },
+                "tagid":"current_demand_req",
+                "proto":"iso2",
+                "msgid":19
+              },
+              "expect":{
+                "rcode":"ok",
+                "evse_id":"DE*PNX*E12345*1",
+                "status":{
+                  "error":"ready",
+                  "notification":"none",
+                  "delay":0,
+                  "isolation_status":"valid"
+                },
+                "voltage":{
+                  "value":3655,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current":{
+                  "value":15113,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "current_limit_reach":true,
+                "voltage_limit_reach":false,
+                "power_limit_reach":true,
+                "tuple_id":1,
+                "voltage_limit":{
+                  "value":5200,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":3000,
+                  "multiplier":-2,
+                  "unit":"ampere"
+                },
+                "power_limit":{
+                  "value":11000,
+                  "multiplier":0,
+                  "unit":"watt"
+                },
+                "tagid":"current_demand_res",
+                "proto":"iso2",
+                "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":120,
+                "count":528
+              }
+            },
+            {
+              "uid":"pkg:4134",
+              "verb":"iso2:current_demand_req",
+              "delay":121,
+              "query":{
+                "status":{
+                  "ready":true,
+                  "error":"no_error",
+                  "evresssoc":55
+                },
+                "voltage_target":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_target":{
+                  "value":270,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "charging_complete":false,
+                "voltage_limit":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":5000,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "time_to_full_sock":{
+                  "value":0,
+                  "multiplier":1,
+                  "unit":"second"
+                },
+                "tagid":"current_demand_req",
+                "proto":"iso2",
+                "msgid":19
+              },
+              "expect":{
+                "rcode":"ok",
+                "evse_id":"DE*PNX*E12345*1",
+                "status":{
+                  "error":"ready",
+                  "notification":"none",
+                  "delay":0,
+                  "isolation_status":"valid"
+                },
+                "voltage":{
+                  "value":3664,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current":{
+                  "value":15133,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "current_limit_reach":false,
+                "voltage_limit_reach":false,
+                "power_limit_reach":true,
+                "tuple_id":1,
+                "voltage_limit":{
+                  "value":5200,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":3000,
+                  "multiplier":-2,
+                  "unit":"ampere"
+                },
+                "power_limit":{
+                  "value":11000,
+                  "multiplier":0,
+                  "unit":"watt"
+                },
+                "tagid":"current_demand_res",
+                "proto":"iso2",
+                "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":121,
+                "count":1
+              }
+            },
+            {
+              "uid":"pkg:4139",
+              "verb":"iso2:current_demand_req",
+              "delay":120,
+              "query":{
+                "status":{
+                  "ready":true,
+                  "error":"no_error",
+                  "evresssoc":55
+                },
+                "voltage_target":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_target":{
+                  "value":60,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "charging_complete":false,
+                "voltage_limit":{
+                  "value":4080,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":5000,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "time_to_full_sock":{
+                  "value":0,
+                  "multiplier":1,
+                  "unit":"second"
+                },
+                "tagid":"current_demand_req",
+                "proto":"iso2",
+                "msgid":19
+              },
+              "expect":{
+                "rcode":"ok",
+                "evse_id":"DE*PNX*E12345*1",
+                "status":{
+                  "error":"ready",
+                  "notification":"none",
+                  "delay":0,
+                  "isolation_status":"valid"
+                },
+                "voltage":{
+                  "value":3664,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current":{
+                  "value":15269,
+                  "multiplier":-1,
+                  "unit":"ampere"
+                },
+                "current_limit_reach":false,
+                "voltage_limit_reach":false,
+                "power_limit_reach":false,
+                "tuple_id":1,
+                "voltage_limit":{
+                  "value":5200,
+                  "multiplier":-1,
+                  "unit":"volt"
+                },
+                "current_limit":{
+                  "value":3000,
+                  "multiplier":-2,
+                  "unit":"ampere"
+                },
+                "power_limit":{
+                  "value":11000,
+                  "multiplier":0,
+                  "unit":"watt"
+                },
+                "meter_info":{
+                  "id":"YETI_POWERMETER",
+                  "reading":0
+                },
+                "tagid":"current_demand_res",
+                "proto":"iso2",
+                "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":120,
+                "count":1
+              }
+            },
+            {
+              "uid":"pkg:4144",
               "verb":"iso2:current_demand_req",
               "delay":121,
               "query":{
@@ -408,6 +1528,11 @@
                 "tagid":"current_demand_res",
                 "proto":"iso2",
                 "msgid":20
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":121,
+                "count":2
               }
             },
             {
@@ -450,6 +1575,11 @@
                 "tagid":"power_delivery_res",
                 "proto":"iso2",
                 "msgid":28
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":30,
+                "count":1
               }
             },
             {
@@ -482,6 +1612,11 @@
                 "tagid":"welding_detection_res",
                 "proto":"iso2",
                 "msgid":34
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":691,
+                "count":1
               }
             },
             {
@@ -499,6 +1634,11 @@
                 "tagid":"session_stop_res",
                 "proto":"iso2",
                 "msgid":32
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":50,
+                "count":1
               }
             },
             {
@@ -507,6 +1647,11 @@
               "injector_only":true,
               "query":{
                 "action":"forget"
+              },
+              "retry":{
+                "timeout":3000,
+                "delay":100,
+                "count":1
               }
             }
           ]

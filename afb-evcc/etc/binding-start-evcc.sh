@@ -24,5 +24,5 @@ pwd
 # start binder with test config
 afb-binder -v --name afb-evcc \
     --config=$CONFDIR/binding-simu15118-evcc.yaml \
-    --config=$ROOTDIR/afb-test/etc/small-dc-iso2.json \
+    --config=$ROOTDIR/afb-test/etc/compact-dc-iso2.json \
    $*

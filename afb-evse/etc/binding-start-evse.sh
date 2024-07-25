@@ -8,7 +8,7 @@ if test -f "$1"; then
     export SCENARIO_UID="$1"
 else
     if test -z "$SCENARIO_UID"; then
-        export SCENARIO_UID="small-dc-iso2"
+        export SCENARIO_UID="compact-dc-iso2"
     fi
 fi
 
@@ -32,5 +32,5 @@ pwd
 # start binder with test config
 afb-binder -v --name=afb-evse \
     --config=$CONFDIR/binding-simu15118-evse.yaml \
-    --config=$ROOTDIR/afb-test/etc/small-dc-iso2.json \
+    --config=$ROOTDIR/afb-test/etc/compact-dc-iso2.json \
    $*
