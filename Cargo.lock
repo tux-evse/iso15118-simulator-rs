@@ -164,6 +164,7 @@ dependencies = [
 [[package]]
 name = "iso15118"
 version = "0.0.1"
+source = "git+https://github.com/tux-evse/iso15118-encoders-rs.git?branch=main#59602fc1a9f095529d2f52aeeb950102229f6474"
 dependencies = [
  "bindgen",
  "cc",
@@ -189,7 +190,7 @@ version = "0.0.1"
 dependencies = [
  "iso15118",
  "iso15118_jsonc",
- "nettls",
+ "nettls 0.0.1 (git+https://github.com/tux-evse/iso15118-network-rs.git?branch=main)",
  "serde",
  "serde_json",
 ]
@@ -199,7 +200,7 @@ name = "iso15118_jsonc"
 version = "0.0.1"
 dependencies = [
  "iso15118",
- "nettls",
+ "nettls 0.0.1",
  "serde",
  "serde_json",
 ]
@@ -274,6 +275,17 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 [[package]]
 name = "nettls"
 version = "0.0.1"
+dependencies = [
+ "bindgen",
+ "cc",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "nettls"
+version = "0.0.1"
+source = "git+https://github.com/tux-evse/iso15118-network-rs.git?branch=main#2ad79124b69b317afe796ea253b0a264c06cd740"
 dependencies = [
  "bindgen",
  "cc",
@@ -444,7 +456,7 @@ dependencies = [
  "iso15118",
  "iso15118_exi",
  "iso15118_jsonc",
- "nettls",
+ "nettls 0.0.1 (git+https://github.com/tux-evse/iso15118-network-rs.git?branch=main)",
  "serde",
  "serde_json",
 ]
@@ -457,7 +469,7 @@ dependencies = [
  "iso15118",
  "iso15118_exi",
  "iso15118_jsonc",
- "nettls",
+ "nettls 0.0.1 (git+https://github.com/tux-evse/iso15118-network-rs.git?branch=main)",
  "serde",
  "serde_json",
 ]
