@@ -7,6 +7,7 @@
       "path":"${CARGO_BINDING_DIR}/libafb_injector.so",
       "simulation":"${SIMULATION_MODE}",
       "target":"iso15118-simulator",
+      "autorun":0,
       "delay":{
         "percent":10,
         "min":50,
@@ -15,7 +16,7 @@
       "compact":true,
       "scenarios":[
         {
-          "uid":"compact-dc-iso2:1",
+          "uid":"audi-dc-iso2:1",
           "timeout":748,
           "transactions":[
             {
