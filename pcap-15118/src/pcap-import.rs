@@ -364,8 +364,8 @@ impl ScenarioLog {
         jbinding.add("api", "iso15118-${SIMULATION_MODE}")?;
         jbinding.add("path", "${CARGO_BINDING_DIR}/libafb_injector.so")?;
         jbinding.add("simulation", "${SIMULATION_MODE}")?;
-
         jbinding.add("target", "iso15118-simulator")?;
+        jbinding.add("autorun", 0)?;
         let jdelay = JsoncObj::new();
         jdelay.add("percent", DEFAULT_DELAY_PERCENT)?;
         jdelay.add("min", DEFAULT_DELAY_MIN)?;
