@@ -75,6 +75,10 @@ impl IsoToJson for CurrentDemandRequest {
             payload.set_time_to_bulk_sock(PhysicalValue::from_jsonc(value)?.as_ref())?;
         }
 
+        if let Some(value) = jsonc.optional("time_to_full_sock")? {
+            payload.set_time_to_full_sock(PhysicalValue::from_jsonc(value)?.as_ref())?;
+        }
+
         Ok(Box::new(payload))
     }
 }
