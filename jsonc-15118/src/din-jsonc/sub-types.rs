@@ -198,9 +198,11 @@ impl IsoToJson for DcEvseChargeParam {
         jsonc.add("min_voltage", self.get_min_voltage().to_jsonc()?)?;
         jsonc.add("max_current", self.get_max_current().to_jsonc()?)?;
         jsonc.add("min_current", self.get_min_current().to_jsonc()?)?;
-        jsonc.add("max_power", self.get_max_power().to_jsonc()?)?;
         jsonc.add("current_ripple", self.get_peak_current_ripple().to_jsonc()?)?;
 
+        if let Some(value) = self.get_max_power() {
+            jsonc.add("max_power", value.to_jsonc()?)?;
+        }
         if let Some(value) = self.get_regul_tolerance() {
             jsonc.add("regul_tolerance", value.to_jsonc()?)?;
         }
@@ -216,7 +218,6 @@ impl IsoToJson for DcEvseChargeParam {
         let min_voltage = PhysicalValue::from_jsonc(jsonc.get("min_voltage")?)?;
         let max_current = PhysicalValue::from_jsonc(jsonc.get("max_current")?)?;
         let min_current = PhysicalValue::from_jsonc(jsonc.get("min_current")?)?;
-        let max_power = PhysicalValue::from_jsonc(jsonc.get("max_power")?)?;
         let current_ripple = PhysicalValue::from_jsonc(jsonc.get("current_ripple")?)?;
         let mut payload = DcEvseChargeParam::new(
             &*status,
@@ -224,9 +225,13 @@ impl IsoToJson for DcEvseChargeParam {
             &*min_voltage,
             &*max_current,
             &*min_current,
-            &*max_power,
             &*current_ripple,
         )?;
+
+        if let Some(jvalue) = jsonc.optional("max_power")? {
+            let value= PhysicalValue::from_jsonc(jvalue)?;
+            payload.set_max_power(&value)?;
+        }
 
 
         if let Some(jvalue) = jsonc.optional("regul_tolerance")? {

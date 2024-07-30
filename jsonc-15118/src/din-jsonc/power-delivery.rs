@@ -58,7 +58,10 @@ impl IsoToJson for PowerDeliveryRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("ready", self.get_ready())?;
-        jsonc.add("schedule_id", self.get_schedule_id())?;
+
+        if let Some(schedule_id) = self.get_schedule_id() {
+            jsonc.add("schedule_id", schedule_id)?;
+        }
 
         let profiles = self.get_charging_profiles();
         if profiles.len() > 0 {
@@ -82,8 +85,11 @@ impl IsoToJson for PowerDeliveryRequest {
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let ready = jsonc.get("ready")?;
-        let schedule_id = jsonc.get("schedule_id")?;
-        let mut payload = PowerDeliveryRequest::new(ready, schedule_id);
+        let mut payload = PowerDeliveryRequest::new(ready);
+
+        if let Some(schedule_id) = jsonc.optional("schedule_id")? {
+            payload.set_schedule_id(schedule_id);
+        }
 
         if let Some(jvalues) = jsonc.optional::<JsoncObj>("charging_profiles")? {
             for idx in 0..jvalues.count()? {

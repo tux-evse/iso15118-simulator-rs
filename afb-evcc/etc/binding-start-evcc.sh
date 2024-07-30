@@ -1,5 +1,16 @@
 #!/bin/bash
 
+if test -z "$1"; then
+    echo "syntax: $0 relative_path_to_scenario.json"
+    exit 1
+else
+    INFILE=`pwd`/"$1"
+    if test ! -f "$INFILE"; then
+        echo "Fail to open scenario:$INFILE"
+        exit 1
+    fi
+fi
+
 cd $(dirname $0)/..
 CONFDIR=`pwd`/etc
 ROOTDIR=`pwd`/..
@@ -24,5 +35,4 @@ pwd
 # start binder with test config
 afb-binder -v --name afb-evcc \
     --config=$CONFDIR/binding-simu15118-evcc.yaml \
-    --config=$ROOTDIR/afb-test/etc/compact-dc-iso2.json \
-   $*
+    --config=$INFILE

@@ -113,7 +113,7 @@ impl IsoToJson for RelativeTimeInterval {
 impl IsoToJson for PMaxScheduleEntry {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
-        jsonc.add("pmax", self.get_pmax())?;
+        jsonc.add("value", self.get_pmax())?;
 
         if let Some(value) = self.get_relative_time_interval() {
             jsonc.add("relative_time_interval", value.to_jsonc()?)?;
@@ -127,7 +127,7 @@ impl IsoToJson for PMaxScheduleEntry {
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let pmax = jsonc.get("pmax")?;
+        let pmax = jsonc.get("value")?;
         let mut payload = PMaxScheduleEntry::new(pmax);
 
         if let Some(value) = jsonc.optional("time_interval")? {

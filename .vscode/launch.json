@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "evse-compact-15118",
+            "name": "evse-iso2-audi",
             "type": "lldb",
             "preLaunchTask": "binding-native-build",
             "request": "launch",
@@ -13,14 +13,14 @@
                 "IFACE_SIMU": "evse-veth",
                 "PKI_TLS_DIR": "./afb-test/certs",
                 "SIMULATION_MODE": "responder",
-                "SCENARIO_UID": "compact-dc-iso2",
+                "SCENARIO_UID": "audi-dc-iso2",
             },
             "args": [
                 "-vv",
                 "--monitoring",
                 "--trap-faults=0",
                 "--config=afb-evse/etc/binding-simu15118-evse.yaml",
-                "--config=afb-test/etc/compact-dc-iso2.json"
+                "--config=afb-test/etc/audi-dc-iso2.json"
             ],
             "cwd": "${workspaceFolder}",
             "initCommands": [
@@ -29,7 +29,7 @@
             ]
         },
         {
-            "name": "evcc-compact-15118",
+            "name": "evcc-iso2-audi",
             "type": "lldb",
             "preLaunchTask": "binding-native-build",
             "request": "launch",
@@ -46,7 +46,60 @@
                 "--monitoring",
                 "--trap-faults=0",
                 "--config=afb-evcc/etc/binding-simu15118-evcc.yaml",
-                "--config=afb-test/etc/compact-dc-iso2.json",
+                "--config=afb-test/etc/audi-dc-iso2.json",
+            ],
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "target stop-hook add -n _start -o continue",
+                "settings set target.disable-aslr false"
+            ]
+        },
+        {
+            "name": "evse-din-tesla",
+            "type": "lldb",
+            "preLaunchTask": "binding-native-build",
+            "request": "launch",
+            "program": "afb-binder",
+            "env": {
+                "CARGO_BINDING_DIR": "${env:CARGO_TARGET_DIR}debug",
+                "LD_LIBRARY_PATH": "/usr/local/lib64",
+                "IFACE_SIMU": "evse-veth",
+                "PKI_TLS_DIR": "./afb-test/certs",
+                "SIMULATION_MODE": "responder",
+                "SCENARIO_UID": "tesla-3-din",
+            },
+            "args": [
+                "-vv",
+                "--monitoring",
+                "--trap-faults=0",
+                "--config=afb-evse/etc/binding-simu15118-evse.yaml",
+                "--config=afb-test/etc/tesla-3-din.json"
+            ],
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "target stop-hook add -n _start -o continue",
+                "settings set target.disable-aslr false"
+            ]
+        },
+        {
+            "name": "evcc-din-tesla",
+            "type": "lldb",
+            "preLaunchTask": "binding-native-build",
+            "request": "launch",
+            "program": "afb-binder",
+            "env": {
+                "CARGO_BINDING_DIR": "${env:CARGO_TARGET_DIR}debug",
+                "LD_LIBRARY_PATH": "/usr/local/lib64",
+                "IFACE_SIMU": "evcc-veth",
+                "PKI_TLS_DIR": "./afb-test/certs",
+                "SIMULATION_MODE": "injector",
+            },
+            "args": [
+                "-v",
+                "--monitoring",
+                "--trap-faults=0",
+                "--config=afb-evcc/etc/binding-simu15118-evcc.yaml",
+                "--config=afb-test/etc/tesla-3-din.json",
             ],
             "cwd": "${workspaceFolder}",
             "initCommands": [
@@ -72,7 +125,7 @@
                 "--monitoring",
                 "--trap-faults=0",
                 "--config=afb-evcc/etc/binding-simu15118-evcc.yaml",
-                "--config=afb-test/etc/audi-dc-iso2.json",
+                "--config=afb-test/etc/audi-dc-iso2-full.json",
             ],
             "cwd": "${workspaceFolder}",
             "initCommands": [
@@ -172,7 +225,28 @@
             },
             "args": [
                 "--pcap_in=./afb-test/trace-logs/audi-dc-iso2.pcap",
-                "--json_out=/tmp/iso15118-scenario.json",
+                "--json_out=./afb-test/etc/iso15118-scenario.json",
+                "--compact=true",
+                "--verbose=0",
+            ],
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "target stop-hook add -n _start -o continue",
+                "settings set target.disable-aslr false"
+            ]
+        },
+        {
+            "name": "pcap-din-tesla-compact",
+            "type": "lldb",
+            "preLaunchTask": "binding-native-build",
+            "request": "launch",
+            "program": "${env:HOME}/.cargo/build/debug/pcap-iso15118",
+            "env": {
+                "LD_LIBRARY_PATH": "/usr/local/lib64:/usr/local/lib",
+            },
+            "args": [
+                "--pcap_in=./afb-test/trace-logs/tesla-3-din.pcap",
+                "--json_out=./afb-test/etc/tesla-3-din.json",
                 "--compact=true",
                 "--verbose=0",
             ],

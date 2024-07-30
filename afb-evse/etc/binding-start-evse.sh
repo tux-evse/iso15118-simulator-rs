@@ -1,16 +1,21 @@
 #!/bin/bash
 
+if test -z "$1"; then
+    echo "syntax: $0 relative_path_to_scenario.json"
+    exit 1
+else
+    INFILE=`pwd`/"$1"
+    if test ! -f "$INFILE"; then
+        echo "Fail to open scenario:$INFILE"
+        exit 1
+    fi
+fi
+
+export SCENARIO_UID=`basename $INFILE .json`
+
 cd $(dirname $0)/..
 CONFDIR=`pwd`/etc
 ROOTDIR=`pwd`/..
-
-if test -f "$1"; then
-    export SCENARIO_UID="$1"
-else
-    if test -z "$SCENARIO_UID"; then
-        export SCENARIO_UID="compact-dc-iso2"
-    fi
-fi
 
 # use libafb development version if any
 export LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"
@@ -32,5 +37,4 @@ pwd
 # start binder with test config
 afb-binder -v --name=afb-evse \
     --config=$CONFDIR/binding-simu15118-evse.yaml \
-    --config=$ROOTDIR/afb-test/etc/compact-dc-iso2.json \
-   $*
+    --config=$INFILE

@@ -191,6 +191,37 @@ impl IsoNetConfig {
     }
 
     #[track_caller]
+    pub fn din_encode_payload(
+        &self,
+        lock: &mut MutexGuard<RawStream>,
+        session: &IsoSessionState,
+        tag_id: din_exi::MessageTagId,
+        body: din_exi::DinBodyType,
+    ) -> Result<(), AfbError> {
+        use din_exi::*;
+
+        // build exi payload from json
+        let header = ExiMessageHeader::new(&session.session_id)?;
+
+        let exi_doc = ExiMessageDoc::new(&header, &body);
+        if let Some(_pki) = self.pki_conf {
+            match tag_id {
+                MessageTagId::CertificateInstallReq
+                | MessageTagId::CertificateUpdateReq
+                | MessageTagId::CertificateUpdateRes
+                | MessageTagId::MeteringReceiptReq => {
+                    afb_log_msg!(Critical, None, "Din Message signature not implemented");
+                    // exi_doc.pki_sign_sign(tag_id, &pki.get_private_key()?)?
+                }
+                _ => {}
+            }
+        }
+        exi_doc.encode_to_stream(lock)?;
+
+        Ok(())
+    }
+
+    #[track_caller]
     pub fn encode_to_stream(
         &self,
         lock: &mut MutexGuard<RawStream>,
@@ -217,14 +248,14 @@ impl IsoNetConfig {
                 IsoMsgResId::Iso2(tagid.match_resid())
             }
 
-            // v2g::ProtocolTagId::Din => {
-            //     use din_exi::*;
-            //     use din_jsonc::*;
-            //     let msgid = MessageTagId::from_label(tagid.as_str())?;
-            //     let body = body_from_jsonc(msgid, jsonc)?;
-            //     let header = ExiMessageHeader::new(&session.session_id)?;
-            //     ExiMessageDoc::new(&header, &body).encode_to_stream(lock)?;
-            // }
+            v2g::ProtocolTagId::Din => {
+                use din_exi::*;
+                use din_jsonc::*;
+                let tagid = MessageTagId::from_u32(msg_id);
+                let body = body_from_jsonc(tagid, jsonc)?;
+                self.din_encode_payload(lock, session, tagid, body)?;
+                IsoMsgResId::Din(tagid.match_resid())
+            }
 
             // unexpected request coming from EV
             _ => return afb_error!("controller-handle-exi", "unsupported exi document type"),
