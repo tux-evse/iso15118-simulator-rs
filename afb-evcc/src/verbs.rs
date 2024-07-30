@@ -215,7 +215,7 @@ fn app_proto_req_cb(
     use v2g::*;
 
     let ctx = context.get_ref::<IsoMsgReqCtx>()?;
-    let iso2_proto = V2G_PROTOCOLS_SUPPORTED_LIST[ProtocolTagId::Iso2 as usize];
+    let iso2_proto = V2G_PROTOCOLS_SUPPORTED_LIST[ctx.protocol as usize];
     let v2g_body = SupportedAppProtocolReq::new(iso2_proto)?.encode();
 
     ctx.ctrl.v2g_send_payload(afb_rqt, ctx, &v2g_body)
@@ -261,7 +261,7 @@ pub fn register_verbs(
         .set_callback(app_proto_req_cb)
         .set_context(IsoMsgReqCtx {
             ctrl,
-            protocol: v2g::ProtocolTagId::Unknown,
+            protocol: protocol_conf,
             msg_name: "app_proto_req",
             msg_id: v2g::MessageTagId::AppProtocolReq as u32,
             signed: false,

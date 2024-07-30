@@ -69,6 +69,7 @@ pub fn body_from_jsonc(tagid: MessageTagId, jsonc: JsoncObj) -> Result<DinBodyTy
         MessageTagId::SessionSetupReq => SessionSetupRequest::from_jsonc(jsonc)?.encode(),
         MessageTagId::SessionSetupRes => SessionSetupResponse::from_jsonc(jsonc)?.encode(),
         MessageTagId::ServiceDiscoveryReq => ServiceDiscoveryRequest::from_jsonc(jsonc)?.encode(),
+        MessageTagId::ServiceDiscoveryRes => ServiceDiscoveryResponse::from_jsonc(jsonc)?.encode(),
         MessageTagId::ServiceDetailReq => ServiceDetailRequest::from_jsonc(jsonc)?.encode(),
         MessageTagId::ServiceDetailRes => ServiceDetailResponse::from_jsonc(jsonc)?.encode(),
         MessageTagId::ContractAuthenticationReq => {
