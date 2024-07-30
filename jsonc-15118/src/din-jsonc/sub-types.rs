@@ -229,18 +229,17 @@ impl IsoToJson for DcEvseChargeParam {
         )?;
 
         if let Some(jvalue) = jsonc.optional("max_power")? {
-            let value= PhysicalValue::from_jsonc(jvalue)?;
+            let value = PhysicalValue::from_jsonc(jvalue)?;
             payload.set_max_power(&value)?;
         }
 
-
         if let Some(jvalue) = jsonc.optional("regul_tolerance")? {
-            let value= PhysicalValue::from_jsonc(jvalue)?;
+            let value = PhysicalValue::from_jsonc(jvalue)?;
             payload.set_regul_tolerance(&value)?;
         }
 
         if let Some(jvalue) = jsonc.optional("energy_to_deliver")? {
-            let value= PhysicalValue::from_jsonc(jvalue)?;
+            let value = PhysicalValue::from_jsonc(jvalue)?;
             payload.set_energy_to_deliver(&value)?;
         }
 
@@ -357,14 +356,21 @@ impl IsoToJson for PhysicalValue {
         let jsonc = JsoncObj::new();
         jsonc.add("value", self.get_value() as i32)?;
         jsonc.add("multiplier", self.get_multiplier() as i32)?;
-        jsonc.add("unit", self.get_unit().to_label())?;
+        if let Some(unit) = self.get_unit() {
+            jsonc.add("unit", unit.to_label())?;
+        }
         Ok(jsonc)
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let unit = PhysicalUnit::from_label(jsonc.get("unit")?)?;
         let multiplier = jsonc.default::<i8>("multiplier", 1)?;
         let value = jsonc.get::<i16>("value")?;
+
+        let unit= match jsonc.optional("unit")? {
+            None => "unset",
+            Some(value) => value,
+        };
+        let unit = PhysicalUnit::from_label(unit)?;
         Ok(Box::new(PhysicalValue::new(value, multiplier, unit)))
     }
 }
