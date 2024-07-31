@@ -49,7 +49,7 @@ export SIMULATION_MODE="responder"
 if test -z "$SCENARIO_UID"; then
     export SCENARIO_UID=`basename $INFILE .json`
 fi
-afb-binder -v --name afb-evcc \
+afb-binder --name afb-evcc \
     --config=$PRJDIR/afb-evse/etc/binding-simu15118-evse.yaml \
     --config=$INFILE  \
     &
@@ -59,6 +59,9 @@ RESPONDER_ID=$!
 export SIMULATION_MODE="injector"
 export IFACE_SIMU=evcc-veth
 export SCENARIO_AUTORUN=1
-afb-binder -v --name afb-evcc \
+afb-binder --name afb-evcc \
     --config=$PRJDIR/afb-evcc/etc/binding-simu15118-evcc.yaml \
     --config=$INFILE
+
+# evse does not quit automatically
+kill $RESPONDER_ID

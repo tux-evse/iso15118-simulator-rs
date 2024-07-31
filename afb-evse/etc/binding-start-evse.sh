@@ -34,6 +34,9 @@ fi
 clear
 pwd
 
+# kill any previous instance
+pkill afb-evcc
+
 # start binder with test config
 afb-binder -v --name=afb-evse \
     --config=$CONFDIR/binding-simu15118-evse.yaml \
