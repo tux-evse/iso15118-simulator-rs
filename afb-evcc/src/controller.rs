@@ -229,21 +229,20 @@ pub fn async_sdp_cb(_evtfd: &AfbEvtFd, revent: u32, ctx: &AfbCtxData) -> Result<
 fn job_timeout_cb(
     _job: &AfbSchedJob,
     signal: i32,
-    data: &AfbCtxData,
+    args: &AfbCtxData,
     _ctx: &AfbCtxData,
 ) -> Result<(), AfbError> {
     // retrieve job post arguments
-    let pending = data.get_mut::<IsoPendingState>()?;
-    pending.msg_id = IsoMsgResId::None;
-
-    if signal != 0 {
-        pending.afb_rqt.un_ref(); // job ended drop afb_rqt
-    } else {
+    if signal == 0 {
+        let pending = args.get_mut::<IsoPendingState>()?;
+        afb_log_msg!(Notice, &pending.afb_rqt, "job_timeout (no response from EVSE)");
         pending.afb_rqt.reply(
             format!("timeout msg:{:?} (no response from EVSE)", pending.msg_id),
             -100,
         );
     }
+    // cleanup job post args
+    args.free::<IsoPendingState>();
     Ok(())
 }
 
@@ -305,49 +304,6 @@ impl EvccController {
         Ok(self.state.lock().unwrap())
     }
 
-    pub fn v2g_send_payload(
-        &self,
-        afb_rqt: &AfbRequest,
-        ctx: &IsoMsgReqCtx,
-        v2g_body: &v2g::V2gAppHandDoc,
-    ) -> Result<(), AfbError> {
-        use v2g::*;
-
-        // ctrl is ready let's send messages
-        let mut state = self.lock_state()?;
-        if let None = state.connection {
-            return afb_error!("v2g_send_payload", "SDP iso15118 require");
-        }
-
-        // in simulation mode V2G does not expect any response
-        let mut stream = self.network.stream.lock_stream();
-        SupportedAppProtocolExi::encode_to_stream(&mut stream, &v2g_body)?;
-
-        // send data &wipe stream
-        let cnx = state.connection.as_ref().unwrap();
-        cnx.put_data(stream.get_buffer())?;
-        stream.reset();
-
-        // kill request in xxx ms if no response
-        let job_id = self.job_post.post(
-            ctx.watchdog,
-            IsoPendingState {
-                afb_rqt: afb_rqt.add_ref(),
-                msg_id: IsoMsgResId::None,
-                job_id: 0,
-            },
-        )?;
-
-        // update state to pending
-        state.session.pending = Some(IsoPendingState {
-            msg_id: IsoMsgResId::None,
-            afb_rqt: afb_rqt.add_ref(),
-            job_id,
-        });
-
-        Ok(())
-    }
-
     // wipe controller context (stream, lock, ...)
     pub fn reset(&self) -> Result<(), AfbError> {
         let mut state = self.lock_state()?;
@@ -402,8 +358,10 @@ impl EvccController {
 
         // if pending message waiting let's respond other wise ignore
         if let Some(pending) = &state.session.pending {
+            if pending.job_id > 0 {
+                self.job_post.abort(pending.job_id)?
+            }
             pending.afb_rqt.reply(jbody, 0);
-            self.job_post.abort(pending.job_id)?;
             state.session.pending = None;
         }
 
@@ -436,21 +394,66 @@ impl EvccController {
             let job_id = self.job_post.post(
                 ctx.watchdog,
                 IsoPendingState {
-                    afb_rqt: afb_rqt.add_ref(),
+                    afb_rqt: afb_rqt.clone(),
                     msg_id: res_id,
                     job_id: 0,
                 },
             )?;
 
+
             // update state to pending
             state.session.pending = Some(IsoPendingState {
                 msg_id: res_id,
-                afb_rqt: afb_rqt.add_ref(),
+                afb_rqt: afb_rqt.clone(),
                 job_id,
             });
         } else {
             afb_rqt.reply(AFB_NO_DATA, 0);
         }
+        Ok(())
+    }
+
+// *** Fulup merger avec la fonction exi_message_out
+    pub fn v2g_send_payload(
+        &self,
+        afb_rqt: &AfbRequest,
+        ctx: &IsoMsgReqCtx,
+        v2g_body: &v2g::V2gAppHandDoc,
+    ) -> Result<(), AfbError> {
+        use v2g::*;
+
+        // ctrl is ready let's send messages
+        let mut state = self.lock_state()?;
+        if let None = state.connection {
+            return afb_error!("v2g_send_payload", "SDP iso15118 require");
+        }
+
+        // in simulation mode V2G does not expect any response
+        let mut stream = self.network.stream.lock_stream();
+        SupportedAppProtocolExi::encode_to_stream(&mut stream, &v2g_body)?;
+
+        // send data &wipe stream
+        let cnx = state.connection.as_ref().unwrap();
+        cnx.put_data(stream.get_buffer())?;
+        stream.reset();
+
+        // kill request in xxx ms if no response
+        let job_id = self.job_post.post(
+            ctx.watchdog,
+            IsoPendingState {
+                afb_rqt: afb_rqt.clone(),
+                msg_id: IsoMsgResId::None,
+                job_id: 0,
+            },
+        )?;
+
+        // update state to pending
+        state.session.pending = Some(IsoPendingState {
+            msg_id: IsoMsgResId::None,
+            afb_rqt: afb_rqt.clone(),
+            job_id,
+        });
+
         Ok(())
     }
 }

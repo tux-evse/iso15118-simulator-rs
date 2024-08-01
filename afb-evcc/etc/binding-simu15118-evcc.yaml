@@ -1,7 +1,7 @@
-name: afb-simu15118
+name: afb-evcc
 port: 1234
 httpd: true
-threads-init: 3
+jobs-max: 64000
 alias:
   - /devtools:/usr/share/afb-ui-devtools/binder
 binding:

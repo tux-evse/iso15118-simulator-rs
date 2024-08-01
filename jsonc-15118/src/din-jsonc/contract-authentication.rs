@@ -17,12 +17,22 @@ use iso15118::prelude::din_exi::*;
 impl IsoToJson for ContractAuthenticationRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
-        jsonc.add("id",self.get_id()?)?;
+        if let Some(id) = self.get_id()? {
+            jsonc.add("id",id)?;
+        }
+        if let Some(challenge) = self.get_challenge()? {
+            jsonc.add("challenge",challenge)?;
+        }
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id= jsonc.get("id")?;
-        let payload= ContractAuthenticationRequest::new(id)?;
+        let mut payload= ContractAuthenticationRequest::new();
+        if let Some(id) = jsonc.optional("id")? {
+            payload.set_id(id)?;
+        }
+        if let Some(challenge) = jsonc.optional("challenge")? {
+            payload.set_id(challenge)?;
+        }
         Ok(Box::new(payload))
     }
 }

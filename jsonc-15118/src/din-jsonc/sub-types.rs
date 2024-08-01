@@ -310,6 +310,10 @@ impl IsoToJson for DcEvChargeParam {
         if let Ok(jvalue) = jsonc.get("energy_capacity") {
             payload.set_energy_capacity(PhysicalValue::from_jsonc(jvalue)?.as_ref())?;
         }
+
+        if let Ok(jvalue) = jsonc.get("energy_request") {
+           payload.set_energy_request(PhysicalValue::from_jsonc(jvalue)?.as_ref())?;
+        }
         if let Ok(value) = jsonc.get("bulk_soc") {
             payload.set_bulk_soc(value);
         }
@@ -366,7 +370,7 @@ impl IsoToJson for PhysicalValue {
         let multiplier = jsonc.default::<i8>("multiplier", 1)?;
         let value = jsonc.get::<i16>("value")?;
 
-        let unit= match jsonc.optional("unit")? {
+        let unit = match jsonc.optional("unit")? {
             None => "unset",
             Some(value) => value,
         };

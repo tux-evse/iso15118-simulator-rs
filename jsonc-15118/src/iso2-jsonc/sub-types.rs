@@ -327,10 +327,10 @@ impl IsoToJson for AcEvseChargeParam {
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let status = AcEvseStatusType::from_jsonc(jsonc.get("status")?)?;
-        let nom_voltage = PhysicalValue::from_jsonc(jsonc.get("max_voltage")?)?;
+        let nom_voltage = PhysicalValue::from_jsonc(jsonc.get("nom_voltage")?)?;
         let max_current = PhysicalValue::from_jsonc(jsonc.get("max_current")?)?;
         let param =
-            AcEvseChargeParam::new(status.as_ref(), nom_voltage.as_ref(), max_current.as_ref());
+            AcEvseChargeParam::new(status.as_ref(), nom_voltage.as_ref(), max_current.as_ref())?;
         Ok(Box::new(param))
     }
 }

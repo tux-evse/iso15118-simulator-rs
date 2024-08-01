@@ -12,11 +12,11 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use nettls::prelude::*;
 use iso15118::prelude::*;
+use nettls::prelude::*;
+use std::env;
 
 pub struct BindingConfig {}
-
 
 struct ApiUserData {
     iface: &'static str,
@@ -112,9 +112,14 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
     let sdp_port = jconf.default("sdp_port", 15118)?;
     let tcp_port = jconf.default("tcp_port", 61341)?;
 
+    let scenario_prefix = match env::var("SCENARIO_UID") {
+        Err(_) => jconf.get::<String>("prefix")?,
+        Ok(value) => value,
+    };
+
     let responder_conf = ResponderConfig {
         api: jconf.default("target", "iso15118-responder")?,
-        prefix: jconf.get("prefix")?,
+        prefix:  to_static_str(scenario_prefix),
     };
 
     let (tls_conf, tls_port) = match jconf.optional::<JsoncObj>("tls")? {
@@ -133,6 +138,7 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
     // create an register frontend api and register init session callback
     let api = AfbApi::new(api)
         .set_info(info)
+        .require_api(responder_conf.api)
         .set_callback(Box::new(ApiUserData {
             iface,
             prefix,

@@ -22,13 +22,13 @@ export CARGO_BINDING_DIR="${CARGO_TARGET_DIR}/debug"
 export IFACE_SIMU=evcc-veth
 export PKI_TLS_DIR="$ROOTDIR/afb-test/certs"
 export SIMULATION_MODE="injector"
+export SCENARIO_UID="evcc"
 
 ip -6 addr show $IFACE_SIMU | grep -i fe80 >/dev/null
 if test $? -ne 0; then
     echo "Error: invalid $IFACE_SIMU (0xFE80 localink missing)"
     echo " check: ./afb-test/network/client-server-bridge.sh to create a fake evse/evcc network"
 fi
-
 clear
 pwd
 

@@ -54,7 +54,7 @@ impl IsoToJson for ChargingStatusResponse {
             payload.set_max_current(PhysicalValue::from_jsonc(value)?.as_ref());
         }
 
-        if let Some(value) = jsonc.optional("set_meter_info")? {
+        if let Some(value) = jsonc.optional("meter_info")? {
             payload.set_meter_info(MeterInfo::from_jsonc(value)?.as_ref());
         }
         Ok(Box::new(payload))

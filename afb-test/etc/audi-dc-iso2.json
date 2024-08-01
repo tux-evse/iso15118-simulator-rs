@@ -179,7 +179,7 @@
                 "processing":"finished",
                 "tuples":[
                   {
-                    "description":1,
+                    "schedule_id":1,
                     "pmaxs":[
                       {
                         "pmax":{
