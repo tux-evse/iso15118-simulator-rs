@@ -17,30 +17,28 @@ use iso15118::prelude::din_exi::*;
 impl IsoToJson for SaleTariffEntry {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
-
-        if let Some(value) = self.get_start() {
-            jsonc.add("start", value)?;
-        }
-
-        if let Some(value) = self.get_duration() {
-            jsonc.add("duration", value)?;
-        }
-
         jsonc.add("price_level", self.get_price_level())?;
 
+        if let Some(value) = self.get_relative_time() {
+            jsonc.add("rtime", value.to_jsonc()?)?;
+        }
+
+        if let Some(value) = self.get_time() {
+            jsonc.add("time", value.to_jsonc()?)?;
+        }
         Ok(jsonc)
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let price= jsonc.get("price_level")?;
+        let price = jsonc.get("price_level")?;
         let mut payload = SaleTariffEntry::new(price);
 
-        if let Some(value) = jsonc.optional("start")? {
-            payload.set_start(value);
+        if let Some(value) = jsonc.optional("rtime")? {
+            payload.set_relative_time(RelativeTimeInterval::from_jsonc(value)?.as_ref());
         }
 
-        if let Some(value) = jsonc.optional("duration")? {
-            payload.set_duration(value);
+        if let Some(value) = jsonc.optional("time")? {
+            payload.set_time(TimeInterval::from_jsonc(value)?.as_ref());
         }
 
         Ok(Box::new(payload))
@@ -56,7 +54,7 @@ impl IsoToJson for SalesTariff {
         jsonc.add("price_level", self.get_price_level())?;
 
         if let Some(value) = self.get_description() {
-            jsonc.add("description", value)?;
+            jsonc.add("schedule_id", value)?;
         }
 
         let entries = self.get_entries();
@@ -76,7 +74,7 @@ impl IsoToJson for SalesTariff {
         let price_level = jsonc.get("price_level")?;
         let mut payload = SalesTariff::new(id, tariff_id, price_level)?;
 
-        if let Some(value) = jsonc.optional("description")? {
+        if let Some(value) = jsonc.optional("schedule_id")? {
             payload.set_description(value)?;
         }
 
@@ -100,12 +98,25 @@ impl IsoToJson for RelativeTimeInterval {
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let start= jsonc.get("start")?;
-        let duration= jsonc.optional("duration")?;
-        let mut payload= RelativeTimeInterval:: new(start);
+        let start = jsonc.get("start")?;
+        let duration = jsonc.optional("duration")?;
+        let mut payload = RelativeTimeInterval::new(start);
         if let Some(value) = duration {
             payload.set_duration(value);
         }
+        Ok(Box::new(payload))
+    }
+}
+
+impl IsoToJson for TimeInterval {
+    fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
+        let jsonc = JsoncObj::new();
+        jsonc.add("unused", self.get_unused())?;
+        Ok(jsonc)
+    }
+
+    fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
+        let payload = TimeInterval::new(jsonc.get("unused")?);
         Ok(Box::new(payload))
     }
 }
@@ -131,12 +142,12 @@ impl IsoToJson for PMaxScheduleEntry {
         let mut payload = PMaxScheduleEntry::new(pmax);
 
         if let Some(value) = jsonc.optional("time_interval")? {
-            payload.set_time_interval (value);
+            payload.set_time_interval(value);
         }
 
         if let Some(value) = jsonc.optional("relative_time_interval")? {
-            let time= RelativeTimeInterval::from_jsonc(value)?;
-            payload.set_relative_time_interval (time.as_ref());
+            let time = RelativeTimeInterval::from_jsonc(value)?;
+            payload.set_relative_time_interval(time.as_ref());
         }
 
         Ok(Box::new(payload))
@@ -146,7 +157,7 @@ impl IsoToJson for PMaxScheduleEntry {
 impl IsoToJson for PMaxSchedule {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
-        jsonc.add("id",self.get_id() )?;
+        jsonc.add("id", self.get_id())?;
 
         let entries = self.get_entries();
         if entries.len() > 0 {
@@ -160,11 +171,11 @@ impl IsoToJson for PMaxSchedule {
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let id= jsonc.get("id")?;
+        let id = jsonc.get("id")?;
         let mut payload = PMaxSchedule::new(id);
 
         if let Some(entries) = jsonc.optional::<JsoncObj>("entries")? {
-            for idx in 0 .. entries.count()? {
+            for idx in 0..entries.count()? {
                 payload.add_entry(PMaxScheduleEntry::from_jsonc(entries.index(idx)?)?.as_ref())?;
             }
         }
@@ -175,18 +186,18 @@ impl IsoToJson for PMaxSchedule {
 impl IsoToJson for SasScheduleTuple {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
-        jsonc.add("id",self.get_id() )?;
+        jsonc.add("id", self.get_id())?;
         jsonc.add("pmax", self.get_pmax_schedule().to_jsonc()?)?;
 
         if let Some(value) = self.get_tariff() {
-           jsonc.add("tariff", value.to_jsonc()?)?;
+            jsonc.add("tariff", value.to_jsonc()?)?;
         }
         Ok(jsonc)
     }
 
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let id = jsonc.get("id")?;
-        let pmax=  jsonc.get("pmax")?;
+        let pmax = jsonc.get("pmax")?;
         let mut payload = SasScheduleTuple::new(id, PMaxSchedule::from_jsonc(pmax)?.as_ref());
 
         if let Some(value) = jsonc.optional("tariff")? {
@@ -196,7 +207,6 @@ impl IsoToJson for SasScheduleTuple {
         Ok(Box::new(payload))
     }
 }
-
 
 impl IsoToJson for ParamDiscoveryRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {

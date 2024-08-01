@@ -135,7 +135,7 @@ impl ControllerEvse {
         {
             Ok(result) => result.get::<JsoncObj>(0)?,
             Err(error) => {
-                afb_log_msg!(Critical, self.apiv4, "AfbSubCall::call_sync api:{} verb:{} jbody:{}", self.responder.api, &api_verb, jbody);
+                afb_log_msg!(Critical, self.apiv4, "responder::call_sync api:{} verb:{} jbody:{}", self.responder.api, &api_verb, jbody);
                 return Err(self.send_error(sock, &mut state, &tagid, error)?);
             }
         };

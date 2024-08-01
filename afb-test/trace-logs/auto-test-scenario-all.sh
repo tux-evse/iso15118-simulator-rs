@@ -8,6 +8,16 @@ if test -z "$1"; then
     exit 1
 fi
 
+
+# trap ctrl-c and call ctrl_c()
+trap ctrl_c INT
+function ctrl_c() {
+        echo "CTRL-C kill $RESPONDER_ID"
+        pkill afb-evcc
+        pkill afb-evse
+        exit 1
+}
+
 PCAP_DIR=$1
 if ! test -d $PCAP_DIR; then
     echo "Invalid pcal dump directory:[$PCAP_DIR]"
@@ -20,4 +30,5 @@ for IN_FILE in $(find $PCAP_DIR -name '*dump') ; do
     $TRACEDIR/pcap-to-json.sh `pwd`/$IN_FILE $OUT_FILE && \
     $CONFDIR/auto-test-scenario.sh afb-test/etc/_autorun-scenario.json
 done
+echo "Test Done"
 

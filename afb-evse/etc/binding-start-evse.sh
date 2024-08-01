@@ -24,6 +24,7 @@ export CARGO_BINDING_DIR="${CARGO_TARGET_DIR}/debug"
 export IFACE_SIMU=evse-veth
 export PKI_TLS_DIR="$ROOTDIR/afb-test/certs"
 export SIMULATION_MODE="responder"
+export SCENARIO_UID="evse"
 
 ip -6 addr show $IFACE_SIMU | grep -i fe80 >/dev/null
 if test $? -ne 0; then

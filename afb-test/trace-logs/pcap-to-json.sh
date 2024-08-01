@@ -1,9 +1,8 @@
 #!/bin/sh
 
 CURDIR=$(dirname $0)
-cd $CURDIR
-TSTDIR=$(cd ..; pwd)
-PRJDIR=$(cd ../..; pwd)
+TSTDIR=$(cd $CURDIR/..; pwd)
+PRJDIR=$(cd $CURDIR/../..; pwd)
 INFILE=$1
 
 if test -z "$2"; then

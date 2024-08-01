@@ -1,4 +1,4 @@
-name: afb-iso15118
+name: afb-evse
 port: 1235
 httpd: true
 alias:
