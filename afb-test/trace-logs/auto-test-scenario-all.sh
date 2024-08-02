@@ -1,7 +1,7 @@
 #!/bin/bash
 TRACEDIR=$(cd `dirname $0`; pwd)
-CONFDIR=$(cd $TRACEDIR/../etc;pwd`)
-TSTDIR=$(cd $TRACEDIR/..;pwd`)
+CONFDIR=$(cd $TRACEDIR/../etc;pwd)
+TSTDIR=$(cd $TRACEDIR/..;pwd)
 
 if test -z "$1"; then
     echo "syntax: $0 path to ISO/DIN scenatio dump"
