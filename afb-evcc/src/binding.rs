@@ -115,7 +115,7 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
         };
 
         if let Some(value) = jproto.optional("verbosity")? {
-            api.set_verbosity(value);
+            api.set_verbosity(value)?;
         };
 
         // finalize api protocol group & add it to binding api
@@ -128,7 +128,7 @@ pub fn binding_init(_rootv4: AfbApiV4, jconf: JsoncObj) -> Result<&'static AfbAp
     };
 
     if let Some(value) = jconf.optional("verbosity")? {
-        api.set_verbosity(value);
+        api.set_verbosity(value)?;
     };
 
     Ok(api.finalize()?)
