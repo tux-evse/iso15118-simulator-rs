@@ -1,6 +1,33 @@
 {
     "version": "0.2.0",
     "configurations": [
+                {
+            "name": "evse-multi-plc",
+            "type": "lldb",
+            "preLaunchTask": "binding-native-build",
+            "request": "launch",
+            "program": "afb-binder",
+            "env": {
+                "CARGO_BINDING_DIR": "${env:CARGO_TARGET_DIR}debug",
+                "LD_LIBRARY_PATH": "/usr/local/lib64",
+                "IFACE_SIMU": "enp0s31f6",
+                "PKI_TLS_DIR": "./afb-test/certs",
+                "SIMULATION_MODE": "injector",
+                "SCENARIO_UID": "audi-dc-iso2",
+            },
+            "args": [
+                "-v",
+                "--monitoring",
+                "--trap-faults=0",
+                "--config=afb-evcc/etc/binding-simu15118-evcc.yaml",
+                "--config=afb-test/etc/audi-dc-iso2.json"
+            ],
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "target stop-hook add -n _start -o continue",
+                "settings set target.disable-aslr false"
+            ]
+        },
         {
             "name": "evse-iso2-audi",
             "type": "lldb",
