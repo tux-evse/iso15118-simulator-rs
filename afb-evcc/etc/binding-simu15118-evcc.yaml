@@ -1,7 +1,6 @@
 name: afb-evcc
 port: 1234
 httpd: true
-jobs-max: 64000
 alias:
   - /devtools:/usr/share/afb-ui-devtools/binder
 binding:
