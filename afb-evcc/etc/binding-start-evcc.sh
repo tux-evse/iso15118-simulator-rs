@@ -1,14 +1,12 @@
 #!/bin/bash
 
-if test -z "$1"; then
-    echo "syntax: $0 relative_path_to_scenario.json"
-    exit 1
-else
+if ! test -z "$1"; then
     INFILE=`pwd`/"$1"
     if test ! -f "$INFILE"; then
         echo "Fail to open scenario:$INFILE"
         exit 1
     fi
+    SCENARIO_BINDING="--config=$INFILE"
 fi
 
 cd $(dirname $0)/..
@@ -38,4 +36,4 @@ pkill afb-evcc
 # start binder with test config
 afb-binder -v --name afb-evcc \
     --config=$CONFDIR/binding-simu15118-evcc.yaml \
-    --config=$INFILE
+    $SCENARIO_BINDING

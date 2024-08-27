@@ -16,6 +16,19 @@ Provide a JSON Afb-V4 api to ISO15118-encoders. Each ISO message is exposed a Af
     cargo build --features afbv4
 ```
 
+## Binary prebuild package.
+
+Binary packages are available for Fedora/OpenSuSE/Ubuntu stable and previous-stable versions.
+
+```
+wget https://raw.githubusercontent.com/redpesk-devtools/redpesk-sdk-tools/master/install-redpesk-sdk.sh
+sh install-redpesk-sdk.sh --no-recommends
+dnf/zypper/apt install iso15118-simulator-rs
+```
+
+To upload manually binary packages from repository check: https://download.redpesk.bzh/redpesk-lts/batz-2.0-update/sdk-third-party/
+
+
 ## OCI container (podman/docker)
 ```
 cd oci-15118
@@ -155,12 +168,3 @@ Output file
   ]
 }
 ```
-FULUP: TBD
-------------
-
-evcc controller:489 let response = match exi_decode_from_stream
-
-alligner avec le comportement evse
- - lecture du buffer
- - lecture du body
- - mise en jsonc
