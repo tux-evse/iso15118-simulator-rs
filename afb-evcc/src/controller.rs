@@ -235,7 +235,11 @@ fn job_timeout_cb(
     // retrieve job post arguments
     if signal == 0 {
         let pending = args.get_mut::<IsoPendingState>()?;
-        afb_log_msg!(Notice, &pending.afb_rqt, "job_timeout (no response from EVSE)");
+        afb_log_msg!(
+            Notice,
+            &pending.afb_rqt,
+            "job_timeout (no response from EVSE)"
+        );
         pending.afb_rqt.reply(
             format!("timeout msg:{:?} (no response from EVSE)", pending.msg_id),
             -100,
@@ -400,7 +404,6 @@ impl EvccController {
                 },
             )?;
 
-
             // update state to pending
             state.session.pending = Some(IsoPendingState {
                 msg_id: res_id,
@@ -413,7 +416,7 @@ impl EvccController {
         Ok(())
     }
 
-// *** Fulup merger avec la fonction exi_message_out
+    // *** Fulup merger avec la fonction exi_message_out
     pub fn v2g_send_payload(
         &self,
         afb_rqt: &AfbRequest,
