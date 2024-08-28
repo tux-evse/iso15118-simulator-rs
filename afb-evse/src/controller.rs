@@ -21,6 +21,7 @@ use iso15118_exi::prelude::*;
 use iso15118_jsonc::prelude::*;
 use nettls::prelude::*;
 use std::sync::{Mutex, MutexGuard};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Copy)]
 pub struct ResponderConfig {
@@ -64,6 +65,15 @@ impl ControllerEvse {
     pub fn lock_state(&self) -> Result<MutexGuard<'_, IsoSessionState>, AfbError> {
         let guard = self.session.lock().unwrap();
         Ok(guard)
+    }
+
+    fn create_session(&self) -> Result<Vec<u8>, AfbError> {
+        let random = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(elapsed) => (elapsed.as_millis() & 0xFFFFFFFFFFFFFFFF) as  u64,
+            Err(_) => return afb_error!("evse-create-session", "fail to get system time"),
+        };
+        let session_id = unsafe { std::mem::transmute::<u64, [u8; 8]>(random) };
+        Ok(session_id.to_vec())
     }
 
     fn send_error(
@@ -117,8 +127,18 @@ impl ControllerEvse {
                     self.network.send_exi_stream(sock)
                 };
             }
-            IsoMsgBody::Din(body) => din_jsonc::body_to_jsonc(&body)?,
-            IsoMsgBody::Iso2(body) => iso2_jsonc::body_to_jsonc(&body)?,
+            IsoMsgBody::Din(body) => {
+                if body.get_tagid() == din_exi::MessageTagId::SessionSetupReq {
+                    state.session_id= self.create_session()?;
+                }
+                din_jsonc::body_to_jsonc(&body)?
+            },
+            IsoMsgBody::Iso2(body) => {
+                if body.get_tagid() == iso2_exi::MessageTagId::SessionSetupReq {
+                    state.session_id= self.create_session()?;
+                }
+                iso2_jsonc::body_to_jsonc(&body)?
+            },
         };
 
         // send request to responder and wait for jsonc reply to encode as response to iso15118
@@ -131,14 +151,21 @@ impl ControllerEvse {
         );
 
         // call scenario responder api
-        let response = match AfbSubCall::call_sync(self.apiv4, self.responder.api, &api_verb, jbody.clone())
-        {
-            Ok(result) => result.get::<JsoncObj>(0)?,
-            Err(error) => {
-                afb_log_msg!(Critical, self.apiv4, "responder::call_sync api:{} verb:{} jbody:{}", self.responder.api, &api_verb, jbody);
-                return Err(self.send_error(sock, &mut state, &tagid, error)?);
-            }
-        };
+        let response =
+            match AfbSubCall::call_sync(self.apiv4, self.responder.api, &api_verb, jbody.clone()) {
+                Ok(result) => result.get::<JsoncObj>(0)?,
+                Err(error) => {
+                    afb_log_msg!(
+                        Critical,
+                        self.apiv4,
+                        "responder::call_sync api:{} verb:{} jbody:{}",
+                        self.responder.api,
+                        &api_verb,
+                        jbody
+                    );
+                    return Err(self.send_error(sock, &mut state, &tagid, error)?);
+                }
+            };
 
         // check if incoming message expect a response
         if let Some(msgid) = response.optional::<u32>("msgid")? {
@@ -157,5 +184,4 @@ impl ControllerEvse {
         }
         Ok(())
     }
-
 }

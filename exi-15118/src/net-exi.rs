@@ -150,6 +150,9 @@ impl IsoNetConfig {
         msg_id: u32,
         jbody: JsoncObj,
     ) -> Result<IsoMsgResId, AfbError> {
+
+
+
         // move tcp socket data into exi stream buffer
         let mut lock = self.stream.lock_stream();
 
@@ -278,25 +281,24 @@ impl IsoNetConfig {
                 let app_protocol_req = match v2g_msg {
                     v2g::V2gMsgBody::Request(app_protocol) => {
                         // compare AppHandSupportedAppProtocolReq with evse supported protocols
-                        let (rcode, schema_id) = match app_protocol
-                            .match_protocol(&v2g::V2G_PROTOCOLS_SUPPORTED_LIST)
-                        {
-                            Err(_rcode) => {
-                                return afb_error!(
-                                    "decode_from_stream",
-                                    "SDP no supported iso protocol founded"
-                                )
-                            }
-                            Ok((rcode, proto)) => {
-                                afb_log_msg!(
-                                    Debug,
-                                    None,
-                                    "iso-app-hand: selected protocol:{}",
-                                    proto.get_name()
-                                );
-                                (rcode, proto.get_schema())
-                            }
-                        };
+                        let (rcode, schema_id) =
+                            match app_protocol.match_protocol(&v2g::V2G_PROTOCOLS_SUPPORTED_LIST) {
+                                Err(_rcode) => {
+                                    return afb_error!(
+                                        "decode_from_stream",
+                                        "SDP no supported iso protocol founded"
+                                    )
+                                }
+                                Ok((rcode, proto)) => {
+                                    afb_log_msg!(
+                                        Debug,
+                                        None,
+                                        "iso-app-hand: selected protocol:{}",
+                                        proto.get_name()
+                                    );
+                                    (rcode, proto.get_schema())
+                                }
+                            };
 
                         let v2g_response =
                             v2g::SupportedAppProtocolRes::new(rcode, schema_id as u8).encode();
@@ -304,9 +306,9 @@ impl IsoNetConfig {
                         IsoMsgBody::Sdp(schema_id)
                     }
                     v2g::V2gMsgBody::Response(app_protocol) => {
-                        let schema_id=  ProtocolTagId::from_u8(app_protocol.get_schema());
+                        let schema_id = ProtocolTagId::from_u8(app_protocol.get_schema());
                         IsoMsgBody::Sdp(schema_id)
-                    },
+                    }
                 };
                 app_protocol_req
             }
@@ -333,7 +335,9 @@ impl IsoNetConfig {
 
                 // we have to store session_id as it is use to create every following response messages
                 match &body {
-                    MessageBody::SessionSetupReq(msg) => session.session_id = msg.get_id().to_vec(),
+                    MessageBody::SessionSetupRes(_msg) => {
+                        session.session_id = header.get_session_id().to_vec()
+                    }
                     MessageBody::PaymentDetailsReq(msg) => {
                         // extract certificate and check it match with ca_trust root list
                         let contract = msg.get_contract_chain();
@@ -380,11 +384,18 @@ impl IsoNetConfig {
                 use din_exi::*;
                 let message = ExiMessageDoc::decode_from_stream(&mut lock)?;
 
+                let header = message.get_header();
+                let body = message.get_body()?;
+
+                // Fulup TBD handle Din signature
+
                 // we have to store session_id as it is use to create every following response messages
-                let payload = message.get_body()?;
-                if let MessageBody::SessionSetupReq(msg) = payload {
-                    session.session_id = msg.get_id().to_vec();
-                };
+                match &body {
+                    MessageBody::SessionSetupRes(_msg) => {
+                        session.session_id = header.get_session_id().to_vec()
+                    }
+                    _ => {}
+                }
                 IsoMsgBody::Din(message.get_body()?)
             }
 

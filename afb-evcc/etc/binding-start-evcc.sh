@@ -1,4 +1,7 @@
 #!/bin/bash
+if test -f /etc/default/iso15118-simulator.conf; then
+   source /etc/default/iso15118-simulator.conf
+fi
 
 if ! test -z "$1"; then
     INFILE=`pwd`/"$1"
