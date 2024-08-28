@@ -31,7 +31,7 @@ use std::io::Write;
 
 #[track_caller]
 fn err_usage(uid: &str, data: &str) -> Result<(), AfbError> {
-    println!("usage: pcap-iso15118 --pcap_in=xxx.pcap --json_out=scenario.json [--compact=true] [--max_count=xx] [--verbose=1] [--key_log_in=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx]");
+    println!("usage: pcap-iso15118 --pcap_in=xxx.pcap --json_out=scenario.json [--minimal=true] [--compact=true] [--max_count=xx] [--verbose=1] [--key_log_in=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx]");
     return afb_error!(uid, "{}", data);
 }
 
@@ -216,19 +216,24 @@ impl PreviousTransaction {
     }
 }
 
+#[derive(Clone,Copy)]
+enum CompactMode {
+    None,
+    Reduced,
+    Minimal,
+}
+
 struct ScenarioLog {
     protocol: ScenarioProto,
     jtransactions: JsoncObj,
     jscenarios: JsoncObj,
     pkg_start: u32,
-    compact: bool,
 }
 
 impl ScenarioLog {
     fn new(
         pkg_count: u32,
         protocol: v2g::ProtocolTagId,
-        compact: bool,
         debug_only: bool,
     ) -> Result<Self, AfbError> {
         let protocol = match protocol {
@@ -243,7 +248,6 @@ impl ScenarioLog {
             jscenarios: JsoncObj::array(),
             jtransactions: JsoncObj::array(),
             pkg_start: pkg_count,
-            compact,
         };
 
         let jsdp = JsoncObj::parse(format!(
@@ -291,39 +295,25 @@ impl ScenarioLog {
         // reserve an average of 1s per transaction
         jscenario.add("timeout", self.jtransactions.count()?)?;
 
-        if self.compact == false {
-            jscenario.add("transactions", self.jtransactions.clone())?;
-        } else {
-            // in compact mode we wait for last expected value of a request
-            let jtransac = JsoncObj::array();
-            let mut previous_transac: Option<PreviousTransaction> = None;
-            for idx in 0..self.jtransactions.count()? {
-                let current_transac = self.jtransactions.index::<JsoncObj>(idx)?;
+        match ctx.compact_mode {
+            CompactMode::None => {
+                jscenario.add("transactions", self.jtransactions.clone())?;
+            }
+            CompactMode::Reduced => {
+                // in compact mode we wait for last expected value of a request
+                let jtransac = JsoncObj::array();
+                let mut previous_transac: Option<PreviousTransaction> = None;
+                for idx in 0..self.jtransactions.count()? {
+                    let current_transac = self.jtransactions.index::<JsoncObj>(idx)?;
 
-                let current_verb = current_transac.get::<String>("verb")?;
-                let current_query = match current_transac.optional::<JsoncObj>("query")? {
-                    None => "".to_string(),
-                    Some(value) => value.to_string(),
-                };
+                    let current_verb = current_transac.get::<String>("verb")?;
+                    let current_query = match current_transac.optional::<JsoncObj>("query")? {
+                        None => "".to_string(),
+                        Some(value) => value.to_string(),
+                    };
 
-                match &mut previous_transac {
-                    None => {
-                        previous_transac = Some(PreviousTransaction {
-                            delay: current_transac.default("delay", DEFAULT_CALL_DELAY)?,
-                            count: 1,
-                            transac: current_transac,
-                            verb: current_verb,
-                            query: current_query,
-                        });
-                    }
-                    Some(previous) => {
-                        if current_verb == previous.verb && current_query == previous.query {
-                            previous.count += 1;
-                        } else {
-                            // add retry option the old transaction
-                            jtransac.append(previous.to_jsonc()?)?;
-
-                            // we are facing a new transaction let's store initial command
+                    match &mut previous_transac {
+                        None => {
                             previous_transac = Some(PreviousTransaction {
                                 delay: current_transac.default("delay", DEFAULT_CALL_DELAY)?,
                                 count: 1,
@@ -332,15 +322,79 @@ impl ScenarioLog {
                                 query: current_query,
                             });
                         }
+                        Some(previous) => {
+                            if current_verb == previous.verb && current_query == previous.query {
+                                previous.count += 1;
+                            } else {
+                                // add retry option the old transaction
+                                jtransac.append(previous.to_jsonc()?)?;
+
+                                // we are facing a new transaction let's store initial command
+                                previous_transac = Some(PreviousTransaction {
+                                    delay: current_transac.default("delay", DEFAULT_CALL_DELAY)?,
+                                    count: 1,
+                                    transac: current_transac,
+                                    verb: current_verb,
+                                    query: current_query,
+                                });
+                            }
+                        }
                     }
                 }
-            }
 
-            if let Some(previous) = &previous_transac {
-                jtransac.append(previous.to_jsonc()?)?;
+                if let Some(previous) = &previous_transac {
+                    jtransac.append(previous.to_jsonc()?)?;
+                }
+                jscenario.add("transactions", jtransac)?;
             }
+            CompactMode::Minimal => {
+                // in minimal mode we wait only for positive rcode
+                let jtransac = JsoncObj::array();
+                let mut previous_transac: Option<PreviousTransaction> = None;
+                for idx in 0..self.jtransactions.count()? {
+                    let current_transac = self.jtransactions.index::<JsoncObj>(idx)?;
 
-            jscenario.add("transactions", jtransac)?;
+                    let current_verb = current_transac.get::<String>("verb")?;
+                    let current_query = match current_transac.optional::<JsoncObj>("query")? {
+                        None => "".to_string(),
+                        Some(value) => value.to_string(),
+                    };
+
+                    match &mut previous_transac {
+                        None => {
+                            previous_transac = Some(PreviousTransaction {
+                                delay: current_transac.default("delay", DEFAULT_CALL_DELAY)?,
+                                count: 1,
+                                transac: current_transac,
+                                verb: current_verb,
+                                query: current_query,
+                            });
+                        }
+                        Some(previous) => {
+                            if current_verb == previous.verb {
+                                previous.count += 1;
+                            } else {
+                                // add retry option the old transaction
+                                jtransac.append(previous.to_jsonc()?)?;
+
+                                // we are facing a new transaction let's store initial command
+                                previous_transac = Some(PreviousTransaction {
+                                    delay: current_transac.default("delay", DEFAULT_CALL_DELAY)?,
+                                    count: 1,
+                                    transac: current_transac,
+                                    verb: current_verb,
+                                    query: current_query,
+                                });
+                            }
+                        }
+                    }
+                }
+
+                if let Some(previous) = &previous_transac {
+                    jtransac.append(previous.to_jsonc()?)?;
+                }
+                jscenario.add("transactions", jtransac)?;
+            }
         }
 
         // save scenario and reset transaction for next tcp/iso session
@@ -371,11 +425,11 @@ impl ScenarioLog {
         jdelay.add("min", DEFAULT_DELAY_MIN)?;
         jdelay.add("max", DEFAULT_DELAY_MAX)?;
         jbinding.add("delay", jdelay)?;
-        if self.compact {
-            jbinding.add("compact", true)?;
-        } else {
-            jbinding.add("loop", true)?;
-        }
+        match ctx.compact_mode {
+            CompactMode::None => jbinding.add("loop", true)?,
+            CompactMode::Reduced => jbinding.add("compact", true)?,
+            CompactMode::Minimal => jbinding.add("minimal", true)?,
+        };
         jbinding.add("scenarios", self.jscenarios.clone())?;
         self.jscenarios = JsoncObj::array();
 
@@ -401,7 +455,7 @@ struct LoggerCtx {
     msg_delay: u128,
     session_protocol: v2g::ProtocolTagId,
     supported_protocols: Vec<v2g::AppHandAppProtocolType>,
-    compact: bool,
+    compact_mode: CompactMode,
 }
 
 impl LoggerCtx {
@@ -428,9 +482,9 @@ impl LoggerCtx {
     }
 
     pub fn set_compact(&mut self, value: &str) -> Result<&mut Self, AfbError> {
-        let compact = match value.to_lowercase().as_str() {
-            "true" | "1" => true,
-            "false" | "0" => false,
+        match value.to_lowercase().as_str() {
+            "true" | "1" => self.compact_mode = CompactMode::Reduced,
+            "false" | "0" => {},
             _ => {
                 return afb_error!(
                     "pcap-compact-mode",
@@ -438,13 +492,23 @@ impl LoggerCtx {
                     value
                 )
             }
-        };
-        self.compact = compact;
+        }
         Ok(self)
     }
 
-    pub fn get_compact(&self) -> bool {
-        self.compact
+    pub fn set_minimal(&mut self, value: &str) -> Result<&mut Self, AfbError> {
+        match value.to_lowercase().as_str() {
+            "true" | "1" => self.compact_mode = CompactMode::Minimal,
+            "false" | "0" => {},
+            _ => {
+                return afb_error!(
+                    "pcap-minimal-mode",
+                    "invalid value expect true|false got:{}",
+                    value
+                )
+            }
+        };
+        Ok(self)
     }
 
     pub fn log_to_file(&mut self, jsonc: JsoncObj) -> Result<(), AfbError> {
@@ -585,7 +649,6 @@ fn packet_handler_cb(
                     ctx.scenario = RefCell::new(ScenarioLog::new(
                         pkg_count,
                         ctx.session_protocol,
-                        ctx.get_compact(),
                         debug_only,
                     )?);
                 }
@@ -636,19 +699,14 @@ fn packet_handler_cb(
 
 fn main() -> Result<(), AfbError> {
     let args: Vec<String> = env::args().collect();
-    if args.len() < 1 {
+    if args.len() < 2 {
         return err_usage("arguments missing", args[0].as_str());
     }
 
     let mut pcaps = PcapHandle::new();
     let mut logger = LoggerCtx {
         session_protocol: v2g::ProtocolTagId::Unknown,
-        scenario: RefCell::new(ScenarioLog::new(
-            0,
-            v2g::ProtocolTagId::Unknown,
-            false,
-            true,
-        )?),
+        scenario: RefCell::new(ScenarioLog::new(0, v2g::ProtocolTagId::Unknown, true)?),
         supported_protocols: Vec::new(),
         timestamp: Duration::new(0, 0),
         log_fd: None,
@@ -658,7 +716,7 @@ fn main() -> Result<(), AfbError> {
         data_len: 0,
         exi_len: 0,
         msg_delay: 0,
-        compact: false,
+        compact_mode: CompactMode::None,
     };
 
     for idx in 1..args.len() {
@@ -687,6 +745,9 @@ fn main() -> Result<(), AfbError> {
             }
             "--compact" => {
                 logger.set_compact(parts[1])?;
+            }
+            "--minimal" => {
+                logger.set_minimal(parts[1])?;
             }
             "--tcp_port" => {
                 let port = match parts[1].parse() {
