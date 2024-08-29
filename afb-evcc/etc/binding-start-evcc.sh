@@ -24,6 +24,7 @@ export PATH="/usr/local/lib64:$PATH"
 #----------------------------------------
 DEBUG="NO"
 export CARGO_BINDING_DIR="/usr/redpesk/iso15118-simulator-rs/lib"
+export INJECTOR_BINDING_DIR="/usr/redpesk/injector-binding-rs/lib"
 export IFACE_SIMU="evcc-veth"
 export SCENARIO_UID="evcc"
 export SIMULATION_MODE="injector"
@@ -35,6 +36,7 @@ while [[ $# -gt 0 ]];do
         -d|--debug)
             DEBUG="YES";
             export CARGO_BINDING_DIR="${CARGO_TARGET_DIR}/debug"
+            export INJECTOR_BINDING_DIR="${CARGO_TARGET_DIR}/debug"
             CONFDIR=$(pwd)/etc
             ROOTDIR=$(pwd)/..
             export PKI_TLS_DIR="$ROOTDIR/afb-test/certs"

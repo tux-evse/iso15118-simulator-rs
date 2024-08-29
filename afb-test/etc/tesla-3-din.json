@@ -4,7 +4,7 @@
       "uid":"iso15118-simulator",
       "info":"./afb-test/trace-logs/tesla-3-din.pcap",
       "api":"iso15118-${SIMULATION_MODE}",
-      "path":"${CARGO_BINDING_DIR}/libafb_injector.so",
+      "path":"${INJECTOR_BINDING_DIR}/libafb_injector.so",
       "simulation":"${SIMULATION_MODE}",
       "target":"iso15118-simulator",
       "autorun":0,
