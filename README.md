@@ -16,25 +16,18 @@ Provide a JSON Afb-V4 api to ISO15118-encoders. Each ISO message is exposed a Af
     cargo build --features afbv4
 ```
 
-## Binary packages
-Binary packages are available for Fedora/OpenSuSE/Ubuntu stable and previous-stable versions. *Expect for Cargo+Cmake expert compiling the iso15118-simulator is not as simple as it should. The simulator+dependencies contains 40000 lines of Rust and has multiple C dependencies that recursively pull new dependencies.*
+## Binary prebuild package.
 
-For quick start it is recommended to also install on top of iso15118-simulator-rs
- * iso15118-simulator-test: contains some sample config & scenario
- * dsv2gshark: wireshark iso15118 plugin
+Binary packages are available for Fedora/OpenSuSE/Ubuntu stable and previous-stable versions.
 
 ```
 wget https://raw.githubusercontent.com/redpesk-devtools/redpesk-sdk-tools/master/install-redpesk-sdk.sh
 sh install-redpesk-sdk.sh --no-recommends
-sudo dnf/zypper/apt install iso15118-simulator-rs
-sudo dnf/zypper/apt install iso15118-simulator-test
-sudo dnf/zypper/apt install dsv2gshark
+dnf/zypper/apt install iso15118-simulator-rs
 ```
 
-After declaring redpesk-sdk repositories, you should see iso15118 package from your preferred package management tool.
-![simulator-binary-packages](./Docs/images/redpesk-iso15118-rpm.png)
+To upload manually binary packages from repository check: https://download.redpesk.bzh/redpesk-lts/batz-2.0-update/sdk-third-party/
 
-Note: For manual binary packages directly from repository check: https://download.redpesk.bzh/redpesk-lts/batz-2.0-update/sdk-third-party/
 
 ## OCI container (podman/docker)
 ```
@@ -78,13 +71,97 @@ sdp_port:    15118     # default 15118
     * [json](iso15118-2/docs/api-res.json)
     * [yaml](iso15118-2/docs/api-res.yaml)
 
+## Scenarios files
+
+Creating scenario manually from scratch is long and boring, we recommend to generate scenarios template directly from existing pcap/pcapng tcpdump capture files. You may find few pcap sample into afb-test/trace-logs directory and many more from https://github.com/EVerest/logfiles.git where every '*.dump' file uses pcap/wireshark syntax.
+
+Command line
+```
+/pcap-iso15118  --pcap_in=./afb-test/trace-logs/audi-dc-iso2.pcap --json_out=./afb-test/trace-logs/_audi-dc-iso2.json
+```
+
+options:
+* --compact=true group identical sequential request+query into one single request (ex: cable-check) and wait for final expected response.
+* --minimal=true identical to --compact except that the injector only check 'response status' and not the other value of the response.
+* --key_log=/xxx/master-key this mode allow to decrypt TLS-1.3 crypted tcpdump capture. masterkey file should follow [NSS-KEY_LOG format](https://www.ietf.org/archive/id/draft-thomson-tls-keylogfile-00.html)
+
+Output file
+```jsonc
+{
+"uid":"iso15118-simulator",
+"info":"./afb-test/trace-logs/audi-dc-iso2.pcap",
+"api":"iso15118-${SIMULATION_MODE}",
+"path":"${CARGO_BINDING_DIR}/libafb_injector.so",
+"simulation":"${SIMULATION_MODE}",
+"target":"iso15118-simulator",
+"autorun":0,
+"delay":{
+"percent":10,
+"min":50,
+"max":100
+},
+"compact":true,
+"scenarios":[
+{
+    "uid":"audi-dc-iso2:1",
+    "timeout":748,
+    "transactions":[
+    {
+        "uid":"sdp-evse",
+        "verb":"iso2:sdp_evse_req",
+        "injector_only":true,
+        "query":{
+        "action":"discover"
+        },
+        "retry":{
+        "timeout":3000,
+        "delay":100,
+        "count":1
+        }
+    },
+    {
+        "uid":"app-set-protocol",
+        "verb":"iso2:app_proto_req",
+        "injector_only":true,
+        "retry":{
+        "timeout":3000,
+        "delay":100,
+        "count":1
+        }
+    },
+    {
+        "uid":"pkg:51",
+        "verb":"iso2:session_setup_req",
+        "delay":56,
+        "query":{
+        "id":"[00,7d,fa,07,5e,4a]",
+        "tagid":"session_setup_req",
+        "proto":"iso2",
+        "msgid":0
+        },
+        "expect":{
+        "id":"DE*PNX*E12345*1",
+        "rcode":"new_session",
+        "tagid":"session_setup_res",
+        "proto":"iso2",
+        "msgid":1
+        },
+        "retry":{
+        "timeout":3000,
+        "delay":56,
+        "count":1
+        }
+    }
+}]}
+```
+
 ## Debug
 
 To introspect iso15118  trace use dsv2shark wireshark plugin with nss-key-log master keys.
 
 Plugin:
  * source: https://github.com/dspace-group/dsV2Gshark
- * binary Linux packages: dnf/zypper/apt install dsv2gshark
+ * binary Linux packages: https://download.redpesk.bzh/redpesk-lts/batz-2.0-update/sdk-third-party/ (dnf/zypper/apt install dsv2gshark)
 
 Using NSS-KEY-LOG master key file to decrypt TLS with wireshark
 ```
@@ -95,83 +172,4 @@ Using socat to check tls server config
 ```
 socat -6 "OPENSSL-CONNECT:[fe80::ac52:27ff:fef3:d0d7%evcc-veth]:64109,snihost=xxx,verify=0" stdio
 
-```
-## Current development status
-
-This module is under deep development. Initial version supports ISO-2, the other stacks (Iso-20, Din) will come as soon as iso15118-encoder-rs implements them.
-
-## Usage
-
-The simulator might be used in standalone mode to in conjunction with injector-binding-rs to automate testing scenarios.
-
-## Test
-
-```bash
-cargo test --package iso15118-2 --lib -- encoders_test --show-output
-```
-
-## Scenarios files
-
-You may generate your scenarios directly from pcap/pcapng tcpdump files. You may find few pcap sample into afb-test/trace-logs directory and many more from https://github.com/EVerest/logfiles.git where every '*.dump' file uses pcap/wireshark syntax.
-
-Command line
-```
-iso15118 --pcap_in=./afb-test/trace-logs/abb-normal-din.pcap --log_path=/tmp/iso15118-scenario.json
-```
-
-Output file
-```jsonc
-{
-  "uid":"./afb-test/trace-logs/abb-normal-din.pcap",
-  "info":"/tmp/iso15118-scenario.json",
-  "api":"pcap-simu",
-  "path":"${CARGO_TARGET_DIR}debug/libafb_iso15118_simulator.so",
-  "scenarios":[
-    {
-      "uid":"scenario-1",
-      "target":"iso15118-din",
-      "transactions":[
-        {
-          "uid":"pkg:42",
-          "verb":"session_setup_req",
-          "delay":16,
-          "query":{
-            "id":"[02,01,02,03,04,02]",
-            "tagid":"session_setup_req"
-          },
-          "expect":{
-            "id":"[00]",
-            "rcode":"ok",
-            "stamp":0,
-            "tagid":"session_setup_res"
-          }
-        },
-        {
-          "uid":"pkg:46",
-          "verb":"service_discovery_req",
-          "delay":12,
-          "query":{
-            "category":"ev_charger",
-            "tagid":"service_discovery_req"
-          },
-          "expect":{
-            "rcode":"ok",
-            "charging":{
-              "tag":{
-                "id":1,
-                "category":"ev_charger"
-              },
-              "transfer":"dc_extended",
-              "isfree":false
-            },
-            "payments":[
-              "external"
-            ],
-            "tagid":"service_discovery_res"
-          }
-        },
-      ],
-    }
-  ]
-}
 ```
