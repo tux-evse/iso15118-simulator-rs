@@ -14,7 +14,7 @@ export FWALL_ZONE=work
 
 echo "Fake evcc/evse network config for development desktop"
 echo ---
-if test $UID != 0; then
+if test "$(id -u)" != 0; then
     echo "(hoops) this command requires admin privileges (use sudo)"
     exit 1
 fi
