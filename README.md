@@ -16,18 +16,25 @@ Provide a JSON Afb-V4 api to ISO15118-encoders. Each ISO message is exposed a Af
     cargo build --features afbv4
 ```
 
-## Binary prebuild package.
+## Binary packages
+Binary packages are available for Fedora/OpenSuSE/Ubuntu stable and previous-stable versions. *Expect for Cargo+Cmake expert compiling the iso15118-simulator is not as simple as it should. The simulator+dependencies contains 40000 lines of Rust and has multiple C dependencies that recursively pull new dependencies.*
 
-Binary packages are available for Fedora/OpenSuSE/Ubuntu stable and previous-stable versions.
+For quick start it is recommended to also install on top of iso15118-simulator-rs
+ * iso15118-simulator-test: contains some sample config & scenario
+ * dsv2gshark: wireshark iso15118 plugin
 
 ```
 wget https://raw.githubusercontent.com/redpesk-devtools/redpesk-sdk-tools/master/install-redpesk-sdk.sh
 sh install-redpesk-sdk.sh --no-recommends
-dnf/zypper/apt install iso15118-simulator-rs
+sudo dnf/zypper/apt install iso15118-simulator-rs
+sudo dnf/zypper/apt install iso15118-simulator-test
+sudo dnf/zypper/apt install dsv2gshark
 ```
 
-To upload manually binary packages from repository check: https://download.redpesk.bzh/redpesk-lts/batz-2.0-update/sdk-third-party/
+After declaring redpesk-sdk repositories, you should see iso15118 package from your preferred package management tool.
+![simulator-binary-packages](./Docs/images/redpesk-iso15118-rpm.png)
 
+Note: For manual binary packages directly from repository check: https://download.redpesk.bzh/redpesk-lts/batz-2.0-update/sdk-third-party/
 
 ## OCI container (podman/docker)
 ```
@@ -77,7 +84,7 @@ To introspect iso15118  trace use dsv2shark wireshark plugin with nss-key-log ma
 
 Plugin:
  * source: https://github.com/dspace-group/dsV2Gshark
- * binary Linux packages: https://download.redpesk.bzh/redpesk-lts/batz-2.0-update/sdk-third-party/ (dnf/zypper/apt install dsv2gshark)
+ * binary Linux packages: dnf/zypper/apt install dsv2gshark
 
 Using NSS-KEY-LOG master key file to decrypt TLS with wireshark
 ```
