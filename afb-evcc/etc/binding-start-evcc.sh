@@ -8,7 +8,7 @@ function usage {
         -h|--help \t displays this text\n
         -d|--debug \t run the script in debug mode\n\
         -i|--iface \t specify the network interface (default:\"evcc-veth\")\n\
-        -c|--scenario_uid \t specify the scenario uid (default:\"evcc\")\n\ 
+        -c|--scenario_uid \t specify the scenario uid (default:\"evcc\")\n\
         -f|--scenario_file \t \n\
         -s|--simulation \t specify the simulator mode (default:\"injector\")\n\
         -p|--pki_tls_sim_dir \t specify *.pem files directory (_client_chain.pem,_client_key.pem,_contract_chain.pem,_contract_key.pem)\n\
