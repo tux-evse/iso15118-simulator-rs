@@ -25,9 +25,19 @@ export PATH="/usr/local/lib64:$PATH"
 DEBUG="NO"
 export CARGO_BINDING_DIR="/usr/redpesk/iso15118-simulator-rs/lib"
 export INJECTOR_BINDING_DIR="/usr/redpesk/injector-binding-rs/lib"
+
+if test -z "$IFACE_SIMU"; then
 export IFACE_SIMU="evcc-veth"
+fi
+
+if test -z "$SCENARIO_UID"; then
 export SCENARIO_UID="evcc"
+fi
+
+if test -z "$SIMULATION_MODE"; then
 export SIMULATION_MODE="injector"
+fi
+
 #----------------------------------------
 
 while [[ $# -gt 0 ]];do
@@ -62,6 +72,11 @@ while [[ $# -gt 0 ]];do
             export PKI_TLS_DIR=$2;
             shift 2;
         ;;
+        -m|--simulation_conf)
+            export SIMULATION_CONF=$2;
+            shift 2;
+        ;;
+        
         -h|--help)
             usage;
         ;;
@@ -84,6 +99,9 @@ pwd
 pkill afb-evcc
 
 if ! test -z "$PKI_TLS_DIR"; then
+    if test -z "$SIMULATION_CONF"; then
+        export SIMULATION_CONF="${CONFDIR}/binding-simu15118-evcc.yaml"
+    fi
     if test ! -f "${PKI_TLS_DIR}/_client_chain.pem"; then
         echo "Fail to open pem file:${PKI_TLS_DIR}/_client_chain.pem"
         usage
@@ -101,7 +119,19 @@ if ! test -z "$PKI_TLS_DIR"; then
         usage
     fi
 else
-    echo "Fail: PKI_TLS_DIR must be define (-p|--pki_tls_sim_dir) $PKI_TLS_DIR"
+    if test -z "$SIMULATION_CONF"; then
+        export SIMULATION_CONF="${CONFDIR}/binding-simu15118-evcc-no-tls.yaml"
+    fi
+    echo "Warning: To active tls support, PKI_TLS_DIR must be define (-p|--pki_tls_sim_dir) $PKI_TLS_DIR"
+fi
+
+if ! test -z "$SIMULATION_CONF"; then
+    if test ! -f "$SIMULATION_CONF"; then
+        echo "Fail to open scenario:$SIMULATION_CONF"
+        usage
+    fi
+else
+    echo "Fail: The scenario conf file must be define ( -m|--simulation_conf) $SIMULATION_CONF"
     usage
 fi
 
@@ -115,9 +145,7 @@ else
     usage
 fi
 
-SCENARIO_BINDING="--config=$SCENARIO_FILE"
-
 # start binder with test config
 afb-binder -v --name afb-evcc \
-    --config="${CONFDIR}/binding-simu15118-evcc.yaml" \
-    "${SCENARIO_BINDING}"
+    --config="${SIMULATION_CONF}" \
+    --config="${SCENARIO_FILE}"

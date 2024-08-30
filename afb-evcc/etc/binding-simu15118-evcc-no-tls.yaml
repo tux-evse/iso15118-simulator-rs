@@ -1,0 +1,54 @@
+name: afb-evcc
+port: 1234
+httpd: true
+alias:
+  - /devtools:/usr/share/afb-ui-devtools/binder
+binding:
+  - uid: iso15118-simulator
+    path: ${CARGO_BINDING_DIR}/libafb_sim15118_evcc.so
+    info: RUST ISO-15118 EV Simulator
+    iface: ${IFACE_SIMU}     # default lo
+    ip6_prefix: 0xFE80       # default 0
+    # sdp_port:    15118     # default 15118
+    protocols:
+      - uid: din
+        info: iso15118-din no TLS
+        verbs:
+          - contract_authentication_req
+          - session_setup_req
+          - service_discovery_req
+          - service_detail_req
+          - cable_check_req
+          - certificate_install_req
+          - certificate_update_req
+          - param_discovery_req
+          - charging_status_req
+          - current_demand_req
+          - metering_receipt_req
+          - payment_details_req
+          - payment_selection_req
+          - power_delivery_req
+          - pre_charge_req
+          - session_stop_req
+          - welding_detection_req
+
+      - uid: iso2
+        info: "iso15118-2 tls-1.2"
+        verbs:
+          - session_setup_req
+          - service_discovery_req
+          - service_detail_req
+          - authorization_req
+          - cable_check_req
+          - certificate_install_req
+          - certificate_update_req
+          - param_discovery_req
+          - charging_status_req
+          - current_demand_req
+          - metering_receipt_req
+          - payment_details_req
+          - payment_selection_req
+          - power_delivery_req
+          - pre_charge_req
+          - session_stop_req
+          - welding_detection_req
