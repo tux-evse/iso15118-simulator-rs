@@ -5,12 +5,16 @@ fi
 
 function usage {
     printf "Usage: \n\
-        -h|--help \t displays this text\n
+        -h|--help \t displays this text\n\
         -d|--debug \t run the script in debug mode\n\
-        -i|--iface \t specify the network interface (default:\"evcc-veth\")\n\
-        -c|--scenario_uid \t specify the scenario uid (default:\"evcc\")\n\
+        -i|--iface \t specify the network interface (default:\"evcc-veth\" or from env var IFACE_SIMU)\n\
+        -c|--scenario_uid \t specify the scenario uid (default:\"evcc\" or from env var SCENARIO_UID)\n\
         -f|--scenario_file \t \n\
-        -s|--simulation \t specify the simulator mode (default:\"injector\")\n\
+        -s|--simulation \t specify the simulator mode (default:\"injector\" or from env var SIMULATION_MODE)\n\
+        -m|--simulation_conf \t specify the simulator conf \n\
+                \t\t\t(default:\"${CONFDIR}/binding-simu15118-evcc.yaml\" if tls support\n\
+                \t\t\t or     :\"${CONFDIR}/binding-simu15118-evcc-no-tls.yaml\" if no tls support\n\
+                \t\t\t or from env var SIMULATION_CONF)\n\
         -p|--pki_tls_sim_dir \t specify *.pem files directory (_client_chain.pem,_client_key.pem,_contract_chain.pem,_contract_key.pem)\n\
         "
     exit
@@ -30,10 +34,6 @@ if test -z "$IFACE_SIMU"; then
 export IFACE_SIMU="evcc-veth"
 fi
 
-if test -z "$SCENARIO_UID"; then
-export SCENARIO_UID="evcc"
-fi
-
 if test -z "$SIMULATION_MODE"; then
 export SIMULATION_MODE="injector"
 fi
@@ -47,9 +47,8 @@ while [[ $# -gt 0 ]];do
             DEBUG="YES";
             export CARGO_BINDING_DIR="${CARGO_TARGET_DIR}/debug"
             export INJECTOR_BINDING_DIR="${CARGO_TARGET_DIR}/debug"
-            CONFDIR=$(pwd)/etc
+            CONFDIR=$(pwd)/afb-evcc/etc
             ROOTDIR=$(pwd)/..
-            export PKI_TLS_DIR="$ROOTDIR/afb-test/certs"
             shift 1;
         ;;
         -i|--iface)
