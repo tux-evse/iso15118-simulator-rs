@@ -146,6 +146,10 @@ Using socat to check tls server config
 socat -6 "OPENSSL-CONNECT:[fe80::ac52:27ff:fef3:d0d7%evcc-veth]:64109,snihost=xxx,verify=0" stdio
 ```
 
+## Quick video introduction to Tux-Evse Open Source iso15118-simulator
+
+<https://player.vimeo.com/video/1004557448>
+
 ## Current development status
 
 This module is under deep development. Initial version supports ISO-2, the other stacks (Iso-20, Din) will come as soon as iso15118-encoder-rs implements them.

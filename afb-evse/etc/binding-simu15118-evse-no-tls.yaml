@@ -1,0 +1,16 @@
+name: afb-evse
+port: 1235
+httpd: true
+alias:
+  - /devtools:/usr/share/afb-ui-devtools/binder
+binding:
+  - uid: iso15118-evse
+    path: ${CARGO_BINDING_DIR}/libafb_sim15118_evse.so
+    info: RUST ISO-15118 EVSE simulator binding
+    iface: ${IFACE_SIMU} # default lo
+    ip6_prefix: 0xFE80 # default 0
+    sdp_port: 15118
+    tcp_port: 61341
+    target: iso15118-responder
+    prefix: ${SCENARIO_UID}:1 # uid(scenario)
+

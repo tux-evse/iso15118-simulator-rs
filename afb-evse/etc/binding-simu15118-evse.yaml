@@ -5,7 +5,7 @@ alias:
   - /devtools:/usr/share/afb-ui-devtools/binder
 binding:
   - uid: iso15118-evse
-    path: ${CARGO_TARGET_DIR}debug/libafb_sim15118_evse.so
+    path: ${CARGO_BINDING_DIR}/libafb_sim15118_evse.so
     info: RUST ISO-15118 EVSE simulator binding
     iface: ${IFACE_SIMU} # default lo
     ip6_prefix: 0xFE80 # default 0
