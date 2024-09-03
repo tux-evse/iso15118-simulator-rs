@@ -5,6 +5,9 @@ Provide a JSON Afb-V4 api to ISO15118-encoders. Each ISO message is exposed a Af
 
  ![simulator-screencast](./Docs/images/simulator-iso15118-iso2.png)
 
+## Quick video introduction to Tux-Evse Open Source iso15118-simulator
+
+<https://player.vimeo.com/video/1004557448>
 
 ## Binary packages
 
@@ -145,10 +148,6 @@ Using socat to check tls server config
 ```bash
 socat -6 "OPENSSL-CONNECT:[fe80::ac52:27ff:fef3:d0d7%evcc-veth]:64109,snihost=xxx,verify=0" stdio
 ```
-
-## Quick video introduction to Tux-Evse Open Source iso15118-simulator
-
-<https://player.vimeo.com/video/1004557448>
 
 ## Current development status
 
