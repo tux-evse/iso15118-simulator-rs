@@ -17,6 +17,7 @@ export LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"
 export PATH="/usr/local/lib64:$PATH"
 
 export CARGO_BINDING_DIR="/usr/redpesk/iso15118-simulator-rs/lib"
+export INJECTOR_BINDING_DIR="/usr/redpesk/injector-binding-rs/lib"
 
 export IFACE_SIMU=evse-veth
 export SIMULATION_MODE="responder"
@@ -30,6 +31,7 @@ while [[ $# -gt 0 ]];do
         -d|--debug)
             DEBUG="YES";
             export CARGO_BINDING_DIR="${CARGO_TARGET_DIR}/debug"
+            export INJECTOR_BINDING_DIR="${CARGO_TARGET_DIR}/debug"
             CONFDIR=`pwd`/etc
             ROOTDIR=`pwd`/..
             shift 1;
