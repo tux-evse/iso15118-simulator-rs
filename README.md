@@ -15,7 +15,7 @@ Binary packages are available for Fedora/OpenSuSE/Ubuntu stable and previous-sta
 
 For quick start it is recommended to also install on top of iso15118-simulator-rs:
 
-* iso15118-simulator-rs-test: contains some sample config & scenario (Ubuntu Binaries: work in progress ...)
+* iso15118-simulator-rs-test: contains some sample config & scenario
 * dsv2gshark: wireshark iso15118 plugin
 
 ```bash
