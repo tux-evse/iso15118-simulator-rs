@@ -77,7 +77,7 @@ binding-start-evcc --pki_tls_sim_dir ./temp/ --scenario_file /etc/default/tesla-
 Also, you can specify the configuration file:
 
 ```bash
-binding-start-evcc --simulation_conf /etc/default/binding-simu15118-evcc-no-tls.yaml --scenario_file /etc/default/tesla-3-din.json
+binding-start-evcc --pki_tls_sim_dir ./temp/ --simulation_conf /etc/default/binding-simu15118-evcc.yaml --scenario_file /etc/default/tesla-3-din.json
 ```
 
 Or use a configuration file without tls/pki:
