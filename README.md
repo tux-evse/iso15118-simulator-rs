@@ -74,10 +74,22 @@ Now, select a scenario and run the simulator:
 binding-start-evcc --pki_tls_sim_dir ./temp/ --scenario_file /etc/default/tesla-3-din.json
 ```
 
+Also, you can specify the configuration file:
+
+```bash
+binding-start-evcc --simulation_conf /etc/default/binding-simu15118-evcc-no-tls.yaml --scenario_file /etc/default/tesla-3-din.json
+```
+
+Or use a configuration file without tls/pki:
+
+```bash
+binding-start-evcc --simulation_conf /etc/default/binding-simu15118-evcc-no-tls.yaml --scenario_file /etc/default/tesla-3-din.json
+```
+
 ## Dependencies
 
-* https://github.com/tux-evse/iso15118-encoders-rs
-* https://github.com/redpesk-common/afb-librust
+* <https://github.com/tux-evse/iso15118-encoders-rs>
+* <https://github.com/redpesk-common/afb-librust>
 
 ## Compilation
 

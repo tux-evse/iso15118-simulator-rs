@@ -3,20 +3,45 @@ if test -f /etc/default/iso15118-simulator.conf; then
    source /etc/default/iso15118-simulator.conf
 fi
 
+RED='\e[0;31m'
+LGRAY="\e[37m"
+LGREEN="\e[32m"
+LBLEU="\e[94m"
+NC='\e[0m'
+
+BOLD="\e[1m"
+NB="\e[0m"
+
+FLASH="\e[5m"
+NF="\e[0m"
+
+print_Warning() {
+  echo -e "${LGRAY}${BOLD}WARNING${NB}${NC}: $1\e[0m"
+}
+
+print_Failed() {
+  echo -e "${RED}${BOLD}${FLASH}FAILED${NF}${NB}${NC}: $1\e[0m"
+}
+
+print_Failed_parameter() {
+  print_Failed "No parameter for $1"
+  exit 1
+}
+
 function usage {
     printf "Usage: \n\
         -h|--help \t displays this text\n\
         -d|--debug \t run the script in debug mode\n\
-        -i|--iface \t specify the network interface (default:\"evcc-veth\" or from env var IFACE_SIMU)\n\
-        -c|--scenario_uid \t specify the scenario uid (default:\"evcc\" or from env var SCENARIO_UID)\n\
+        -i|--iface \t specify the network interface (default:\"${LBLEU}evcc-veth${NC}\" or from env var ${LBLEU}IFACE_SIMU${NC})\n\
+        -c|--scenario_uid \t specify the scenario uid (default:\"${LBLEU}evcc${NC}\" or from env var ${LBLEU}SCENARIO_UID${NC})\n\
         -f|--scenario_file \t \n\
-        -s|--simulation \t specify the simulator mode (default:\"injector\" or from env var SIMULATION_MODE)\n\
+        -s|--simulation \t specify the simulator mode (default:\"${LBLEU}injector${NC}\" or from env var ${LBLEU}SIMULATION_MODE${NC})\n\
         -m|--simulation_conf \t specify the simulator conf \n\
-                \t\t\t(default:\"${CONFDIR}/binding-simu15118-evcc.yaml\" if tls support\n\
-                \t\t\t or     :\"${CONFDIR}/binding-simu15118-evcc-no-tls.yaml\" if no tls support\n\
-                \t\t\t or from env var SIMULATION_CONF)\n\
+                \t\t\t(default:\"${CONFDIR}/binding-simu15118-evcc.yaml\" if ${LBLEU}tls${NC} support\n\
+                \t\t\t or     :\"${CONFDIR}/binding-simu15118-evcc-no-tls.yaml\" if ${LBLEU}no tls${NC} support\n\
+                \t\t\t or from env var ${LBLEU}SIMULATION_CONF${NC})\n\
         -p|--pki_tls_sim_dir \t specify *.pem files directory (_client_chain.pem,_client_key.pem,_contract_chain.pem,_contract_key.pem)\n\
-        "
+"
     exit
 }
 CONFDIR="/etc/default/"
@@ -54,26 +79,44 @@ while [[ $# -gt 0 ]];do
         -i|--iface)
             export IFACE_SIMU=$2;
             shift 2;
+            if [ -z "${IFACE_SIMU}" ]; then
+                print_Failed_parameter  "-i|--iface"
+            fi;
         ;;
         -c|--scenario_uid)
             export SCENARIO_UID=$2;
             shift 2;
+            if [ -z "${SCENARIO_UID}" ]; then
+                print_Failed_parameter  "-c|--scenario_uid"
+            fi;
         ;;
         -f|--scenario_file)
             export SCENARIO_FILE=$2;
             shift 2;
+            if [ -z "${SCENARIO_FILE}" ]; then
+                print_Failed_parameter  "-f|--scenario_file"
+            fi;
         ;;
         -s|--simulation)
             export SIMULATION_MODE=$2;
             shift 2;
+            if [ -z "${SIMULATION_MODE}" ]; then
+                print_Failed_parameter  "-s|--simulation"
+            fi;
         ;;
         -p|--pki_tls_sim_dir)
             export PKI_TLS_DIR=$2;
             shift 2;
+            if [ -z "${PKI_TLS_DIR}" ]; then
+                print_Failed_parameter  "-p|--pki_tls_sim_dir"
+            fi;
         ;;
         -m|--simulation_conf)
             export SIMULATION_CONF=$2;
             shift 2;
+            if [ -z "${SIMULATION_CONF}" ]; then
+                print_Failed_parameter  "-m|--simulation_conf"
+            fi;
         ;;
         
         -h|--help)
@@ -87,8 +130,8 @@ done
 
 ip -6 addr show "${IFACE_SIMU}" | grep -i fe80 >/dev/null
 if test $? -ne 0; then
-    echo "Error: invalid ${IFACE_SIMU} (0xFE80 localink missing)"
-    echo " check: client-server-bridge (./afb-test/network/client-server-bridge.sh) to create a fake evse/evcc network"
+    print_Failed "invalid ${IFACE_SIMU} (0xFE80 localink missing)"
+    echo "check: client-server-bridge (./afb-test/network/client-server-bridge.sh) to create a fake evse/evcc network"
     exit 1
 fi
 clear
@@ -102,45 +145,45 @@ if ! test -z "$PKI_TLS_DIR"; then
         export SIMULATION_CONF="${CONFDIR}/binding-simu15118-evcc.yaml"
     fi
     if test ! -f "${PKI_TLS_DIR}/_client_chain.pem"; then
-        echo "Fail to open pem file:${PKI_TLS_DIR}/_client_chain.pem"
+        print_Failed "to open pem file:${PKI_TLS_DIR}/_client_chain.pem"
         usage
     fi
     if test ! -f "${PKI_TLS_DIR}/_client_key.pem"; then
-        echo "Fail to open pem file:${PKI_TLS_DIR}/_client_key.pem"
+        print_Failed "to open pem file:${PKI_TLS_DIR}/_client_key.pem"
         usage
     fi
     if test ! -f "${PKI_TLS_DIR}/_contract_chain.pem"; then
-        echo "Fail to open pem file:${PKI_TLS_DIR}/_contract_chain.pem"
+        print_Failed "to open pem file:${PKI_TLS_DIR}/_contract_chain.pem"
         usage
     fi
     if test ! -f "${PKI_TLS_DIR}/_contract_key.pem"; then
-        echo "Fail to open pem file:${PKI_TLS_DIR}/_contract_key.pem"
+        print_Failed "to open pem file:${PKI_TLS_DIR}/_contract_key.pem"
         usage
     fi
 else
     if test -z "$SIMULATION_CONF"; then
         export SIMULATION_CONF="${CONFDIR}/binding-simu15118-evcc-no-tls.yaml"
     fi
-    echo "Warning: To active tls support, PKI_TLS_DIR must be define (-p|--pki_tls_sim_dir) $PKI_TLS_DIR"
+    print_Warning "To active tls support, PKI_TLS_DIR must be define (-p|--pki_tls_sim_dir) $PKI_TLS_DIR"
 fi
 
 if ! test -z "$SIMULATION_CONF"; then
     if test ! -f "$SIMULATION_CONF"; then
-        echo "Fail to open scenario:$SIMULATION_CONF"
+        print_Failed "to open scenario:$SIMULATION_CONF"
         usage
     fi
 else
-    echo "Fail: The scenario conf file must be define ( -m|--simulation_conf) $SIMULATION_CONF"
+    print_Failed "The scenario conf file must be define ( -m|--simulation_conf) $SIMULATION_CONF"
     usage
 fi
 
 if ! test -z "$SCENARIO_FILE"; then
     if test ! -f "$SCENARIO_FILE"; then
-        echo "Fail to open scenario:$SCENARIO_FILE"
+        print_Failed "to open scenario:$SCENARIO_FILE"
         usage
     fi
 else
-    echo "Fail: The scenario  file must be define (-f|--scenario_file) $SCENARIO_FILE"
+    print_Failed "The scenario  file must be define (-f|--scenario_file) $SCENARIO_FILE"
     usage
 fi
 
