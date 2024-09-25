@@ -164,7 +164,7 @@ else
     if test -z "$SIMULATION_CONF"; then
         export SIMULATION_CONF="${CONFDIR}/binding-simu15118-evcc-no-tls.yaml"
     fi
-    print_Warning "To active tls support, PKI_TLS_DIR must be define (-p|--pki_tls_sim_dir) $PKI_TLS_DIR"
+    print_Warning "To active tls support, PKI_TLS_DIR must be defined (-p|--pki_tls_sim_dir) $PKI_TLS_DIR"
 fi
 
 if ! test -z "$SIMULATION_CONF"; then
@@ -173,7 +173,7 @@ if ! test -z "$SIMULATION_CONF"; then
         usage
     fi
 else
-    print_Failed "The scenario conf file must be define ( -m|--simulation_conf) $SIMULATION_CONF"
+    print_Failed "The scenario conf file must be defined ( -m|--simulation_conf) $SIMULATION_CONF"
     usage
 fi
 
@@ -183,7 +183,7 @@ if ! test -z "$SCENARIO_FILE"; then
         usage
     fi
 else
-    print_Failed "The scenario  file must be define (-f|--scenario_file) $SCENARIO_FILE"
+    print_Failed "The scenario  file must be defined (-f|--scenario_file) $SCENARIO_FILE"
     usage
 fi
 
