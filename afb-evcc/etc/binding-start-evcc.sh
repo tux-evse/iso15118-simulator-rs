@@ -32,9 +32,9 @@ function usage {
     printf "Usage: \n\
         -h|--help \t displays this text\n\
         -d|--debug \t run the script in debug mode\n\
+        -f|--scenario_file \t mandatory(default:\"${LBLEU}${CONFDIR}/tesla-3-din.json${NC}\")\n\
         -i|--iface \t specify the network interface (default:\"${LBLEU}evcc-veth${NC}\" or from env var ${LBLEU}IFACE_SIMU${NC})\n\
         -c|--scenario_uid \t specify the scenario uid (default:\"${LBLEU}evcc${NC}\" or from env var ${LBLEU}SCENARIO_UID${NC})\n\
-        -f|--scenario_file \t \n\
         -s|--simulation \t specify the simulator mode (default:\"${LBLEU}injector${NC}\" or from env var ${LBLEU}SIMULATION_MODE${NC})\n\
         -m|--simulation_conf \t specify the simulator conf \n\
                 \t\t\t(default:\"${CONFDIR}/binding-simu15118-evcc.yaml\" if ${LBLEU}tls${NC} support\n\
