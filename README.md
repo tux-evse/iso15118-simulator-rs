@@ -86,6 +86,40 @@ Or use a configuration file without tls/pki:
 binding-start-evcc --simulation_conf /etc/default/binding-simu15118-evcc-no-tls.yaml --scenario_file /etc/default/tesla-3-din.json
 ```
 
+## Run the responder after package installation
+
+Now, select a scenario and run the responder:
+
+```bash
+binding-start-evse --pki_tls_sim_dir ./temp/ --scenario_file  /etc/default/tesla-3-din.json
+```
+
+Also, you can specify the configuration file:
+
+```bash
+binding-start-evse --pki_tls_sim_dir ./temp/ --simulation_conf /etc/default/binding-simu15118-evse.yaml --scenario_file /etc/default/tesla-3-din.json
+```
+
+Or use a configuration file without tls/pki:
+
+```bash
+binding-start-evse --simulation_conf /etc/default/binding-simu15118-evse-no-tls.yaml --scenario_file /etc/default/tesla-3-din.json
+```
+
+## Open the devtools
+
+You can open the simulator devtools interface with:
+
+```bash
+xdg-open http://localhost:1234/devtools/
+```
+
+You can open the responder devtools interface with:
+
+```bash
+xdg-open http://localhost:1235/devtools/
+```
+
 ## Dependencies
 
 * <https://github.com/tux-evse/iso15118-encoders-rs>
