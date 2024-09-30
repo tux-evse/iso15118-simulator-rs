@@ -66,7 +66,7 @@ A script can help you to configure the GnuTLS certificate.
 mkcerts -i ./temp
 ```
 
-## Run the simulator after package installation
+## Run EVCC(vehicle) simulator after package installation
 
 Now, select a scenario and run the simulator:
 
@@ -74,19 +74,13 @@ Now, select a scenario and run the simulator:
 binding-start-evcc --pki_tls_sim_dir ./temp/ --scenario_file /etc/default/tesla-3-din.json
 ```
 
-Also, you can specify the configuration file:
-
-```bash
-binding-start-evcc --pki_tls_sim_dir ./temp/ --simulation_conf /etc/default/binding-simu15118-evcc.yaml --scenario_file /etc/default/tesla-3-din.json
-```
-
-Or use a configuration file without tls/pki:
+You can use a prebuild configuration without tls/pki:
 
 ```bash
 binding-start-evcc --simulation_conf /etc/default/binding-simu15118-evcc-no-tls.yaml --scenario_file /etc/default/tesla-3-din.json
 ```
 
-## Run the responder after package installation
+## Run EVSE(charger) simulator after package installation
 
 Now, select a scenario and run the responder:
 
@@ -94,16 +88,20 @@ Now, select a scenario and run the responder:
 binding-start-evse --pki_tls_sim_dir ./temp/ --scenario_file  /etc/default/tesla-3-din.json
 ```
 
-Also, you can specify the configuration file:
-
-```bash
-binding-start-evse --pki_tls_sim_dir ./temp/ --simulation_conf /etc/default/binding-simu15118-evse.yaml --scenario_file /etc/default/tesla-3-din.json
-```
-
-Or use a configuration file without tls/pki:
+You can use a prebuild configuration without tls/pki:
 
 ```bash
 binding-start-evse --simulation_conf /etc/default/binding-simu15118-evse-no-tls.yaml --scenario_file /etc/default/tesla-3-din.json
+```
+
+## Quick run (simulating both EVSE+EVCC
+
+```bash
+sudo client-server-bridge # Create virtual network
+mkcerts -i ./temp # Create dev certificate
+binding-start-evcc --pki_tls_sim_dir ./temp/ --scenario_file /etc/default/tesla-3-din.json # Start vehicle simulation(injector)
+binding-start-evse --pki_tls_sim_dir ./temp/ --scenario_file  /etc/default/tesla-3-din.json # Start charger simulator(responder)
+xdg-open http://localhost:1234/devtools/ #(Clic on tesla-3-din:1:0 -> EXEC & SEND)
 ```
 
 ## Open the devtools
