@@ -117,7 +117,7 @@ CONFDIR="/etc/default/"
 ip -6 addr show "$IFACE_SIMU" | grep -i fe80 >/dev/null
 if test $? -ne 0; then
     print_Failed "invalid ${IFACE_SIMU} (0xFE80 localink missing)"
-    echo " check: ./afb-test/network/client-server-bridge.sh to create a fake evse/evcc network"
+    echo " check: client-server-bridge to create a fake evse/evcc network"
 fi
 
 if ! test -z "$PKI_TLS_DIR"; then
