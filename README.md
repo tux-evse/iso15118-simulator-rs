@@ -94,7 +94,7 @@ You can use a prebuild configuration without tls/pki:
 binding-start-evse --simulation_conf /etc/default/binding-simu15118-evse-no-tls.yaml --scenario_file /etc/default/tesla-3-din.json
 ```
 
-## Quick run (simulating both EVSE+EVCC
+## Quick run (simulating both EVSE+EVCC)
 
 ```bash
 sudo client-server-bridge # Create virtual network
