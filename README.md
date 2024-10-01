@@ -219,7 +219,7 @@ You may generate your scenarios directly from pcap/pcapng tcpdump files. You may
 Command line
 
 ```bash
-iso15118 --pcap_in=./afb-test/trace-logs/abb-normal-din.pcap --log_path=/tmp/iso15118-scenario.json
+pcap-iso15118 --pcap_in=./afb-test/trace-logs/abb-normal-din.pcap --log_path=/tmp/iso15118-scenario.json
 ```
 
 Output file
