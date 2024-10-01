@@ -100,13 +100,13 @@ binding-start-evse --simulation_conf /etc/default/binding-simu15118-evse-no-tls.
 # register redpesk/tuxevse repository and install packages
   wget https://raw.githubusercontent.com/redpesk-devtools/redpesk-sdk-tools/master/install-redpesk-sdk.sh && sh install-redpesk-sdk.sh --no-recommends
   sudo dnf/zypper/apt install iso15118-simulator-rs iso15118-simulator-rs-test
-# implment virtual network, create certificate and start both vehicle and charger simulation on a scenario
+# implement virtual network, create certificate and start both vehicle and charger simulation on a scenario
   sudo client-server-bridge # Create virtual network
   mkcerts -i ./temp ;# Create dev certificate
   binding-start-evcc --pki_tls_sim_dir ./temp/ --scenario_file /etc/default/tesla-3-din.json ;# Start vehicle simulation(injector)
   binding-start-evse --pki_tls_sim_dir ./temp/ --scenario_file  /etc/default/tesla-3-din.json ;# Start charger simulator(responder)
-# connect on webui to start choosen simulation scenario
-xdg-open http://localhost:1234/devtools/ ;#(Click on tesla-3-din:1:0 -> EXEC & SEND)
+# connect on vehicle webui simulator to start choosen scenario
+  xdg-open http://localhost:1234/devtools/ ;#(Click on tesla-3-din:1:0 -> EXEC & SEND)
 ```
 
 ## Open the devtools
