@@ -20,7 +20,7 @@ For quick start it is recommended to also install on top of iso15118-simulator-r
 
 ```bash
 wget https://raw.githubusercontent.com/redpesk-devtools/redpesk-sdk-tools/master/install-redpesk-sdk.sh
-sh install-redpesk-sdk.sh --no-recommends
+bash install-redpesk-sdk.sh --no-recommends
 sudo dnf/zypper/apt install iso15118-simulator-rs
 sudo dnf/zypper/apt install iso15118-simulator-rs-test
 sudo dnf/zypper/apt install dsv2gshark
