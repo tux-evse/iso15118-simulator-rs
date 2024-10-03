@@ -1,6 +1,6 @@
 #!/bin/bash
-if test -f /etc/default/iso15118-simulator.conf; then
-   source /etc/default/iso15118-simulator.conf
+if test -f /etc/default/iso15118-simulator-rs/iso15118-simulator.conf; then
+   source /etc/default/iso15118-simulator-rs/iso15118-simulator.conf
 fi
 
 RED='\e[0;31m'
@@ -44,7 +44,7 @@ function usage {
 "
     exit
 }
-CONFDIR="/etc/default/"
+CONFDIR="/etc/default/iso15118-simulator-rs/"
 
 # use libafb development version if any
 export LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"

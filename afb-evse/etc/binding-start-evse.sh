@@ -40,7 +40,7 @@ function usage {
     exit
 }
 
-CONFDIR="/etc/default/"
+CONFDIR="/etc/default/iso15118-simulator-rs/"
 #----------------------------------------
 DEBUG="NO"
 
@@ -112,7 +112,7 @@ fi
 
 export SCENARIO_UID=`basename $INFILE .json`
 
-CONFDIR="/etc/default/"
+CONFDIR="/etc/default/iso15118-simulator-rs/"
 
 ip -6 addr show "$IFACE_SIMU" | grep -i fe80 >/dev/null
 if test $? -ne 0; then

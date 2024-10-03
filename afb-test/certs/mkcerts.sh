@@ -10,7 +10,7 @@ function usage {
     exit
 }
 
-template_cert_dir="/etc/default/"
+template_cert_dir="/etc/default/iso15118-simulator-rs/"
 DST="."
 
 while [[ $# -gt 0 ]];do
