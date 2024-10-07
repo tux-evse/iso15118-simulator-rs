@@ -48,8 +48,14 @@ DEBUG="NO"
 export LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"
 export PATH="/usr/local/lib64:$PATH"
 
+if test -z "$CARGO_BINDING_DIR"; then
 export CARGO_BINDING_DIR="/usr/redpesk/iso15118-simulator-rs/lib"
+fi
+
+if test -z "$INJECTOR_BINDING_DIR"; then
 export INJECTOR_BINDING_DIR="/usr/redpesk/injector-binding-rs/lib"
+fi
+
 
 export IFACE_SIMU=evse-veth
 export SIMULATION_MODE="responder"

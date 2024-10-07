@@ -13,7 +13,7 @@
         "min":50,
         "max":100
       },
-      "minimal":true,
+      "compact":"minimal",
       "scenarios":[
         {
           "uid":"tesla-3-din:1",
@@ -50,14 +50,19 @@
                 "id":"[dc,44,27,1d,cd,45]",
                 "tagid":"session_setup_req",
                 "proto":"din",
-                "msgid":0
+                "msgid":0,
+                "pkgid":47
               },
-              "expect":{
+              "response":{
                 "id":"[44,45,2a,50,4e,58,2a,45,31,32,33,34,35,2a,31]",
                 "rcode":"new_session",
                 "tagid":"session_setup_res",
                 "proto":"din",
-                "msgid":1
+                "msgid":1,
+                "pkgid":49
+              },
+              "expect":{
+                "rcode":"new_session"
               },
               "retry":{
                 "timeout":3000,
@@ -73,9 +78,10 @@
                 "category":"ev_charger",
                 "tagid":"service_discovery_req",
                 "proto":"din",
-                "msgid":2
+                "msgid":2,
+                "pkgid":50
               },
-              "expect":{
+              "response":{
                 "rcode":"ok",
                 "charging":{
                   "tag":{
@@ -90,7 +96,11 @@
                 ],
                 "tagid":"service_discovery_res",
                 "proto":"din",
-                "msgid":3
+                "msgid":3,
+                "pkgid":52
+              },
+              "expect":{
+                "rcode":"ok"
               },
               "retry":{
                 "timeout":3000,
@@ -111,13 +121,18 @@
                 ],
                 "tagid":"payment_selection_req",
                 "proto":"din",
-                "msgid":27
+                "msgid":27,
+                "pkgid":53
               },
-              "expect":{
+              "response":{
                 "rcode":"ok",
                 "tagid":"payment_selection_res",
                 "proto":"din",
-                "msgid":28
+                "msgid":28,
+                "pkgid":55
+              },
+              "expect":{
+                "rcode":"ok"
               },
               "retry":{
                 "timeout":3000,
@@ -132,14 +147,19 @@
               "query":{
                 "tagid":"contract_authentication_req",
                 "proto":"din",
-                "msgid":15
+                "msgid":15,
+                "pkgid":56
               },
-              "expect":{
+              "response":{
                 "rcode":"ok",
                 "processing":"ongoing",
                 "tagid":"contract_authentication_res",
                 "proto":"din",
-                "msgid":16
+                "msgid":16,
+                "pkgid":58
+              },
+              "expect":{
+                "rcode":"ok"
               },
               "retry":{
                 "timeout":3000,
@@ -177,9 +197,10 @@
                 },
                 "tagid":"param_discovery_req",
                 "proto":"din",
-                "msgid":17
+                "msgid":17,
+                "pkgid":67
               },
-              "expect":{
+              "response":{
                 "rcode":"ok",
                 "tuples":[
                   {
@@ -248,7 +269,11 @@
                 },
                 "tagid":"param_discovery_res",
                 "proto":"din",
-                "msgid":18
+                "msgid":18,
+                "pkgid":69
+              },
+              "expect":{
+                "rcode":"ok"
               },
               "retry":{
                 "timeout":3000,
@@ -268,9 +293,10 @@
                 },
                 "tagid":"cable_check_req",
                 "proto":"din",
-                "msgid":9
+                "msgid":9,
+                "pkgid":70
               },
-              "expect":{
+              "response":{
                 "rcode":"ok",
                 "status":{
                   "error":"ready",
@@ -281,7 +307,11 @@
                 "processing":"ongoing",
                 "tagid":"cable_check_res",
                 "proto":"din",
-                "msgid":10
+                "msgid":10,
+                "pkgid":72
+              },
+              "expect":{
+                "rcode":"ok"
               },
               "retry":{
                 "timeout":3000,
@@ -311,9 +341,10 @@
                 },
                 "tagid":"pre_charge_req",
                 "proto":"din",
-                "msgid":31
+                "msgid":31,
+                "pkgid":1344
               },
-              "expect":{
+              "response":{
                 "rcode":"ok",
                 "status":{
                   "error":"ready",
@@ -328,7 +359,11 @@
                 },
                 "tagid":"pre_charge_res",
                 "proto":"din",
-                "msgid":32
+                "msgid":32,
+                "pkgid":1346
+              },
+              "expect":{
+                "rcode":"ok"
               },
               "retry":{
                 "timeout":3000,
@@ -352,9 +387,10 @@
                 },
                 "tagid":"power_delivery_req",
                 "proto":"din",
-                "msgid":29
+                "msgid":29,
+                "pkgid":1357
               },
-              "expect":{
+              "response":{
                 "rcode":"ok",
                 "dc_evse_status":{
                   "error":"ready",
@@ -364,7 +400,11 @@
                 },
                 "tagid":"power_delivery_res",
                 "proto":"din",
-                "msgid":30
+                "msgid":30,
+                "pkgid":1359
+              },
+              "expect":{
+                "rcode":"ok"
               },
               "retry":{
                 "timeout":3000,
@@ -410,9 +450,10 @@
                 },
                 "tagid":"current_demand_req",
                 "proto":"din",
-                "msgid":21
+                "msgid":21,
+                "pkgid":1360
               },
-              "expect":{
+              "response":{
                 "rcode":"ok",
                 "status":{
                   "error":"ready",
@@ -450,7 +491,11 @@
                 },
                 "tagid":"current_demand_res",
                 "proto":"din",
-                "msgid":22
+                "msgid":22,
+                "pkgid":1362
+              },
+              "expect":{
+                "rcode":"ok"
               },
               "retry":{
                 "timeout":3000,
@@ -474,9 +519,10 @@
                 },
                 "tagid":"power_delivery_req",
                 "proto":"din",
-                "msgid":29
+                "msgid":29,
+                "pkgid":7607
               },
-              "expect":{
+              "response":{
                 "rcode":"ok",
                 "dc_evse_status":{
                   "error":"ready",
@@ -486,7 +532,11 @@
                 },
                 "tagid":"power_delivery_res",
                 "proto":"din",
-                "msgid":30
+                "msgid":30,
+                "pkgid":7609
+              },
+              "expect":{
+                "rcode":"ok"
               },
               "retry":{
                 "timeout":3000,
@@ -501,13 +551,18 @@
               "query":{
                 "tagid":"session_stop_req",
                 "proto":"din",
-                "msgid":33
+                "msgid":33,
+                "pkgid":7610
               },
-              "expect":{
+              "response":{
                 "rcode":"ok",
                 "tagid":"session_stop_res",
                 "proto":"din",
-                "msgid":34
+                "msgid":34,
+                "pkgid":7612
+              },
+              "expect":{
+                "rcode":"ok"
               },
               "retry":{
                 "timeout":3000,

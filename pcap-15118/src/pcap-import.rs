@@ -63,7 +63,6 @@ impl ScenarioDin {
 
         let msg_id = body.get_tagid();
         let jbody = body_to_jsonc(body)?;
-        jbody.add("pkgid", pkg_count)?;
 
         // if not response pending store msg_id and with body arguments as json
         match &self.pending {
@@ -86,6 +85,7 @@ impl ScenarioDin {
 
             Some(pending) => {
                 if msg_id == *pending {
+                    self.jtransaction.add("ruid", format!("pkg:{}", pkg_count).as_str())?;
                     match compact_mode {
                         CompactMode::Minimal => {
                             let jrcode = jbody.get::<JsoncObj>("rcode")?;
@@ -151,7 +151,6 @@ impl ScenarioIso2 {
 
         let msg_id = body.get_tagid();
         let jbody = body_to_jsonc(body)?;
-        jbody.add("pkgid", pkg_count)?;
 
         // if not response pending store msg_id and with body arguments as json
         match &self.pending {
@@ -174,6 +173,8 @@ impl ScenarioIso2 {
 
             Some(pending) => {
                 if msg_id == *pending {
+                    self.jtransaction.add("ruid", format!("pkg:{}", pkg_count).as_str())?;
+
                     match compact_mode {
                         CompactMode::Minimal => {
                             let jrcode = jbody.get::<JsoncObj>("rcode")?;
@@ -516,9 +517,9 @@ impl LoggerCtx {
         Ok(self)
     }
 
-    pub fn set_mode(&mut self, mode: CompactMode) -> Result<&mut Self, AfbError> {
+    pub fn set_mode(&mut self, mode: CompactMode) -> &mut Self {
         self.compact_mode = mode;
-        Ok(self)
+        self
     }
 
     pub fn log_to_file(&mut self, jsonc: JsoncObj) -> Result<(), AfbError> {
@@ -772,7 +773,7 @@ fn main() -> Result<(), AfbError> {
                     "basic" => CompactMode::Basic,
                     _ => return err_usage("invalid compact-mode", parts[1]),
                 };
-                logger.set_mode(mode)?;
+                logger.set_mode(mode);
             }
             "--tcp_port" => {
                 let port = match parts[1].parse() {

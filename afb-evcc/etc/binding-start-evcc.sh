@@ -52,8 +52,14 @@ export PATH="/usr/local/lib64:$PATH"
 
 #----------------------------------------
 DEBUG="NO"
+
+if test -z "$CARGO_BINDING_DIR"; then
 export CARGO_BINDING_DIR="/usr/redpesk/iso15118-simulator-rs/lib"
+fi
+
+if test -z "$INJECTOR_BINDING_DIR"; then
 export INJECTOR_BINDING_DIR="/usr/redpesk/injector-binding-rs/lib"
+fi
 
 if test -z "$IFACE_SIMU"; then
 export IFACE_SIMU="evcc-veth"
@@ -118,7 +124,7 @@ while [[ $# -gt 0 ]];do
                 print_Failed_parameter  "-m|--simulation_conf"
             fi;
         ;;
-        
+
         -h|--help)
             usage;
         ;;

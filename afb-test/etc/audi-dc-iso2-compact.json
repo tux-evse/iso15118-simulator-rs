@@ -13,7 +13,7 @@
         "min":50,
         "max":100
       },
-      "compact":true,
+      "compact":"basic",
       "scenarios":[
         {
           "uid":"audi-dc-iso2:1",
@@ -52,6 +52,7 @@
                 "proto":"iso2",
                 "msgid":0
               },
+              "ruid":"pkg:53",
               "expect":{
                 "id":"DE*PNX*E12345*1",
                 "rcode":"new_session",
@@ -74,6 +75,7 @@
                 "proto":"iso2",
                 "msgid":2
               },
+              "ruid":"pkg:58",
               "expect":{
                 "rcode":"ok",
                 "transfers":[
@@ -107,6 +109,7 @@
                 "proto":"iso2",
                 "msgid":25
               },
+              "ruid":"pkg:63",
               "expect":{
                 "rcode":"ok",
                 "tagid":"payment_selection_res",
@@ -128,6 +131,7 @@
                 "proto":"iso2",
                 "msgid":6
               },
+              "ruid":"pkg:70",
               "expect":{
                 "rcode":"ok",
                 "processing":"customer_interaction",
@@ -174,6 +178,7 @@
                 "proto":"iso2",
                 "msgid":15
               },
+              "ruid":"pkg:80",
               "expect":{
                 "rcode":"ok",
                 "processing":"finished",
@@ -267,6 +272,7 @@
                 "proto":"iso2",
                 "msgid":9
               },
+              "ruid":"pkg:87",
               "expect":{
                 "rcode":"ok",
                 "status":{
@@ -310,6 +316,7 @@
                 "proto":"iso2",
                 "msgid":29
               },
+              "ruid":"pkg:263",
               "expect":{
                 "rcode":"ok",
                 "status":{
@@ -362,6 +369,7 @@
                 "proto":"iso2",
                 "msgid":27
               },
+              "ruid":"pkg:324",
               "expect":{
                 "rcode":"ok",
                 "dc_evse_status":{
@@ -420,6 +428,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:331",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -512,6 +521,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:336",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -600,6 +610,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:341",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -688,6 +699,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:346",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -780,6 +792,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:351",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -868,6 +881,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:358",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -956,6 +970,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:363",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -1044,6 +1059,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:368",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -1132,6 +1148,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:407",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -1220,6 +1237,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:1216",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -1308,6 +1326,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:4136",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -1396,6 +1415,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:4141",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -1488,6 +1508,7 @@
                 "proto":"iso2",
                 "msgid":19
               },
+              "ruid":"pkg:4146",
               "expect":{
                 "rcode":"ok",
                 "evse_id":"DE*PNX*E12345*1",
@@ -1565,6 +1586,7 @@
                 "proto":"iso2",
                 "msgid":27
               },
+              "ruid":"pkg:4158",
               "expect":{
                 "rcode":"ok",
                 "dc_evse_status":{
@@ -1597,6 +1619,7 @@
                 "proto":"iso2",
                 "msgid":33
               },
+              "ruid":"pkg:4163",
               "expect":{
                 "rcode":"ok",
                 "status":{
@@ -1630,6 +1653,7 @@
                 "proto":"iso2",
                 "msgid":31
               },
+              "ruid":"pkg:4170",
               "expect":{
                 "rcode":"ok",
                 "tagid":"session_stop_res",
