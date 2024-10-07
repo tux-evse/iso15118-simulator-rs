@@ -31,7 +31,7 @@ use std::io::Write;
 
 #[track_caller]
 fn err_usage(uid: &str, data: &str) -> Result<(), AfbError> {
-    println!("usage: pcap-iso15118 --pcap_in=xxx.pcap --json_out=scenario.json [--minimal=true] [--compact=true] [--max_count=xx] [--verbose=1] [--key_log_in=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx]");
+    println!("usage: pcap-iso15118 --pcap_in=xxx.pcap --json_out=scenario.json [--compact=none,basic,minimal] [--verbose=1] [--key_log_in=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx]");
     return afb_error!(uid, "{}", data);
 }
 
@@ -53,6 +53,7 @@ impl ScenarioDin {
     fn log_response(
         &mut self,
         jtransactions: JsoncObj,
+        compact_mode: CompactMode,
         pkg_count: u32,
         delay: u128,
         body: &din_exi::MessageBody,
@@ -61,6 +62,8 @@ impl ScenarioDin {
         use din_jsonc::*;
 
         let msg_id = body.get_tagid();
+        let jbody = body_to_jsonc(body)?;
+        jbody.add("pkgid", pkg_count)?;
 
         // if not response pending store msg_id and with body arguments as json
         match &self.pending {
@@ -70,7 +73,7 @@ impl ScenarioDin {
                     jsonc.add("uid", format!("pkg:{}", pkg_count).as_str())?;
                     jsonc.add("verb", format!("din:{}", msg_id.to_label()).as_str())?;
                     jsonc.add("delay", delay as u64)?;
-                    jsonc.add("query", body_to_jsonc(body)?)?;
+                    jsonc.add("query", jbody)?;
                     jsonc
                 };
                 let res_id = msg_id.match_resid();
@@ -83,7 +86,19 @@ impl ScenarioDin {
 
             Some(pending) => {
                 if msg_id == *pending {
-                    self.jtransaction.add("expect", body_to_jsonc(body)?)?;
+                    match compact_mode {
+                        CompactMode::Minimal => {
+                            let jrcode = jbody.get::<JsoncObj>("rcode")?;
+                            self.jtransaction.add("response", jbody)?;
+
+                            let jresponse = JsoncObj::new();
+                            jresponse.add("rcode", jrcode)?;
+                            self.jtransaction.add("expect", jresponse)?;
+                        }
+                        _ => {
+                            self.jtransaction.add("expect", jbody)?;
+                        }
+                    }
                     self.pending = None;
                 } else {
                     return afb_error!(
@@ -126,6 +141,7 @@ impl ScenarioIso2 {
     fn log_response(
         &mut self,
         jtransactions: JsoncObj,
+        compact_mode: CompactMode,
         pkg_count: u32,
         delay: u128,
         body: &iso2_exi::MessageBody,
@@ -134,6 +150,8 @@ impl ScenarioIso2 {
         use iso2_jsonc::*;
 
         let msg_id = body.get_tagid();
+        let jbody = body_to_jsonc(body)?;
+        jbody.add("pkgid", pkg_count)?;
 
         // if not response pending store msg_id and with body arguments as json
         match &self.pending {
@@ -143,7 +161,7 @@ impl ScenarioIso2 {
                     jsonc.add("uid", format!("pkg:{}", pkg_count).as_str())?;
                     jsonc.add("verb", format!("iso2:{}", msg_id.to_label()).as_str())?;
                     jsonc.add("delay", delay as u64)?;
-                    jsonc.add("query", body_to_jsonc(body)?)?;
+                    jsonc.add("query", jbody)?;
                     jsonc
                 };
                 let res_id = msg_id.match_resid();
@@ -156,7 +174,19 @@ impl ScenarioIso2 {
 
             Some(pending) => {
                 if msg_id == *pending {
-                    self.jtransaction.add("expect", body_to_jsonc(body)?)?;
+                    match compact_mode {
+                        CompactMode::Minimal => {
+                            let jrcode = jbody.get::<JsoncObj>("rcode")?;
+                            self.jtransaction.add("response", jbody)?;
+
+                            let jresponse = JsoncObj::new();
+                            jresponse.add("rcode", jrcode)?;
+                            self.jtransaction.add("expect", jresponse)?;
+                        }
+                        _ => {
+                            self.jtransaction.add("expect", jbody)?;
+                        }
+                    }
                     self.pending = None;
                 } else {
                     return afb_error!(
@@ -216,11 +246,20 @@ impl PreviousTransaction {
     }
 }
 
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 enum CompactMode {
     None,
-    Reduced,
+    Basic,
     Minimal,
+}
+impl CompactMode {
+    pub fn to_label(&self) -> &str {
+        match self {
+            CompactMode::None => "none",
+            CompactMode::Minimal => "minimal",
+            CompactMode::Basic => "basic",
+        }
+    }
 }
 
 struct ScenarioLog {
@@ -299,7 +338,7 @@ impl ScenarioLog {
             CompactMode::None => {
                 jscenario.add("transactions", self.jtransactions.clone())?;
             }
-            CompactMode::Reduced => {
+            CompactMode::Basic => {
                 // in compact mode we wait for last expected value of a request
                 let jtransac = JsoncObj::array();
                 let mut previous_transac: Option<PreviousTransaction> = None;
@@ -425,11 +464,7 @@ impl ScenarioLog {
         jdelay.add("min", DEFAULT_DELAY_MIN)?;
         jdelay.add("max", DEFAULT_DELAY_MAX)?;
         jbinding.add("delay", jdelay)?;
-        match ctx.compact_mode {
-            CompactMode::None => jbinding.add("loop", true)?,
-            CompactMode::Reduced => jbinding.add("compact", true)?,
-            CompactMode::Minimal => jbinding.add("minimal", true)?,
-        };
+        jbinding.add("compact", ctx.compact_mode.to_label())?;
         jbinding.add("scenarios", self.jscenarios.clone())?;
         self.jscenarios = JsoncObj::array();
 
@@ -481,33 +516,8 @@ impl LoggerCtx {
         Ok(self)
     }
 
-    pub fn set_compact(&mut self, value: &str) -> Result<&mut Self, AfbError> {
-        match value.to_lowercase().as_str() {
-            "true" | "1" => self.compact_mode = CompactMode::Reduced,
-            "false" | "0" => {},
-            _ => {
-                return afb_error!(
-                    "pcap-compact-mode",
-                    "invalid value expect true|false got:{}",
-                    value
-                )
-            }
-        }
-        Ok(self)
-    }
-
-    pub fn set_minimal(&mut self, value: &str) -> Result<&mut Self, AfbError> {
-        match value.to_lowercase().as_str() {
-            "true" | "1" => self.compact_mode = CompactMode::Minimal,
-            "false" | "0" => {},
-            _ => {
-                return afb_error!(
-                    "pcap-minimal-mode",
-                    "invalid value expect true|false got:{}",
-                    value
-                )
-            }
-        };
+    pub fn set_mode(&mut self, mode: CompactMode) -> Result<&mut Self, AfbError> {
+        self.compact_mode = mode;
         Ok(self)
     }
 
@@ -667,7 +677,13 @@ fn packet_handler_cb(
                 let body = din_msg.get_body()?;
 
                 // if no pending response track it otherwise wait for it
-                logger.log_response(jtransactions, pkg_count, ctx.msg_delay, &body)?;
+                logger.log_response(
+                    jtransactions,
+                    ctx.compact_mode,
+                    pkg_count,
+                    ctx.msg_delay,
+                    &body,
+                )?;
             }
         }
 
@@ -680,7 +696,13 @@ fn packet_handler_cb(
                 let body = iso2_msg.get_body()?;
 
                 // if no pending response track it otherwise wait for it
-                logger.log_response(jtransactions, pkg_count, ctx.msg_delay, &body)?;
+                logger.log_response(
+                    jtransactions,
+                    ctx.compact_mode,
+                    pkg_count,
+                    ctx.msg_delay,
+                    &body,
+                )?;
             }
         }
 
@@ -716,7 +738,7 @@ fn main() -> Result<(), AfbError> {
         data_len: 0,
         exi_len: 0,
         msg_delay: 0,
-        compact_mode: CompactMode::None,
+        compact_mode: CompactMode::Basic,
     };
 
     for idx in 1..args.len() {
@@ -744,15 +766,18 @@ fn main() -> Result<(), AfbError> {
                 logger.set_log_file(parts[1])?;
             }
             "--compact" => {
-                logger.set_compact(parts[1])?;
-            }
-            "--minimal" => {
-                logger.set_minimal(parts[1])?;
+                let mode = match parts[1].to_ascii_lowercase().as_str() {
+                    "none" => CompactMode::None,
+                    "minimal" => CompactMode::Minimal,
+                    "basic" => CompactMode::Basic,
+                    _ => return err_usage("invalid compact-mode", parts[1]),
+                };
+                logger.set_mode(mode)?;
             }
             "--tcp_port" => {
                 let port = match parts[1].parse() {
                     Ok(value) => value,
-                    Err(_) => return err_usage("invalid-port", arg.as_str()),
+                    Err(_) => return err_usage("invalid-tcp-port", parts[1]),
                 };
                 pcaps.set_tcp_port(port);
             }
@@ -762,14 +787,14 @@ fn main() -> Result<(), AfbError> {
             "--max_count" => {
                 let count = match parts[1].parse() {
                     Ok(value) => value,
-                    Err(_) => return err_usage("invalid-count", arg.as_str()),
+                    Err(_) => return err_usage("invalid-max-count", parts[1]),
                 };
                 pcaps.set_max_packets(count);
             }
             "--verbose" => {
                 let verbose = match parts[1].parse() {
                     Ok(value) => value,
-                    Err(_) => return err_usage("invalid-verbosity_level", arg.as_str()),
+                    Err(_) => return err_usage("invalid-verbosity_level", parts[1]),
                 };
                 pcaps.set_verbose(verbose);
             }

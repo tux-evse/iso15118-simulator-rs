@@ -219,8 +219,15 @@ You may generate your scenarios directly from pcap/pcapng tcpdump files. You may
 Command line
 
 ```bash
-pcap-iso15118 --pcap_in=./afb-test/trace-logs/abb-normal-din.pcap --log_path=/tmp/iso15118-scenario.json
+pcap-iso15118 --pcap_in=./afb-test/trace-logs/audi-dc-iso2.pcap --json_out==/tmp/iso15118-scenario.json --compact=basic
 ```
+
+--compact:
+ * none: extract and replay every requests (expect exact response match for every request)
+ * basic: only play once each unique request+query  (as none expect exact response match)
+ * minimal: only play once unique unique request(independently on query values). Loop on reuqest until receiving expected answer.
+
+Note: in minimal mode pcap-iso15118 by default only check "rcode" values. It is user responsibility to to add in expected fields in scenario file (usually taken from response field)
 
 Output file
 
