@@ -10,7 +10,7 @@
  *
  */
 
-#[cfg(not(afbv4))]
+#[cfg(not(feature = "afbv4"))]
 extern crate afbv4;
 
 // pcap C/Rust Api mapping

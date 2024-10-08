@@ -9,6 +9,7 @@ build = "capi/build.rs"
 [features]
 default = []
 afbmock=[]
+afbv4=[]
 
 
 [dependencies]

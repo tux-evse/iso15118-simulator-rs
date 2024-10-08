@@ -15,7 +15,7 @@
     html_favicon_url = "https://iot.bzh/images/defaults/favicon.ico"
 )]
 
-#[cfg(not(afbv4))]
+#[cfg(not(feature = "afbv4"))]
 extern crate afbv4;
 
 #[path = "verbs.rs"]
