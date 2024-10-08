@@ -131,8 +131,18 @@ xdg-open http://localhost:1235/devtools/
 ## Compilation
 
 ```bash
-    cargo build --features afbv4
+    cargo add --git https://github.com/redpesk-common/afb-librust afbv4 --optional
 ```
+
+## Run from development tree
+```bash
+export CARGO_BINDING_DIR=~/.cargo/build/debug/; export INJECTOR_BINDING_DIR=~/.cargo/build/debug/
+
+./afb-evcc/etc/binding-start-evcc.sh -f ./afb-test/etc/audi-dc-iso2-minimal.json -m ./afb-evcc/etc/binding-simu15118-evcc-no-tls.yaml
+
+./afb-evse/etc/binding-start-evse.sh -f ./afb-test/etc/audi-dc-iso2-minimal.json -m ./afb-evse/etc/binding-simu15118-evse-no-tls.yaml
+```
+
 
 ## OCI container (podman/docker)
 
