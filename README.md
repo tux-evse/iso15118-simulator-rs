@@ -235,7 +235,7 @@ pcap-iso15118 --pcap_in=./afb-test/trace-logs/audi-dc-iso2.pcap --json_out==/tmp
 --compact:
  * none: extract and replay every requests (expect exact response match for every request)
  * basic: only play once each unique request+query  (as none expect exact response match)
- * minimal: only play once unique unique request(independently on query values). Loop on reuqest until receiving expected answer.
+ * strong: only play once unique unique request(independently on query values). Loop on reuqest until receiving expected answer.
 
 Note: in minimal mode pcap-iso15118 by default only check "rcode" values. It is user responsibility to to add in expected fields in scenario file (usually taken from response field)
 

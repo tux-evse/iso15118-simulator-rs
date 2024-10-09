@@ -31,7 +31,7 @@ use std::io::Write;
 
 #[track_caller]
 fn err_usage(uid: &str, data: &str) -> Result<(), AfbError> {
-    println!("usage: pcap-iso15118 --pcap_in=xxx.pcap --json_out=scenario.json [--compact=none,basic,minimal] [--verbose=1] [--key_log_in=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx]");
+    println!("usage: pcap-iso15118 --pcap_in=xxx.pcap --json_out=scenario.json [--compact=none,basic,strong] [--verbose=1] [--key_log_in=/xxx/master-key.log] [--tcp_port=xxx] [--max_count=xxx]");
     return afb_error!(uid, "{}", data);
 }
 
@@ -87,7 +87,7 @@ impl ScenarioDin {
                 if msg_id == *pending {
                     self.jtransaction.add("ruid", format!("pkg:{}", pkg_count).as_str())?;
                     match compact_mode {
-                        CompactMode::Minimal => {
+                        CompactMode::Strong => {
                             let jrcode = jbody.get::<JsoncObj>("rcode")?;
                             self.jtransaction.add("response", jbody)?;
 
@@ -176,7 +176,7 @@ impl ScenarioIso2 {
                     self.jtransaction.add("ruid", format!("pkg:{}", pkg_count).as_str())?;
 
                     match compact_mode {
-                        CompactMode::Minimal => {
+                        CompactMode::Strong => {
                             let jrcode = jbody.get::<JsoncObj>("rcode")?;
                             self.jtransaction.add("response", jbody)?;
 
@@ -251,13 +251,13 @@ impl PreviousTransaction {
 enum CompactMode {
     None,
     Basic,
-    Minimal,
+    Strong,
 }
 impl CompactMode {
     pub fn to_label(&self) -> &str {
         match self {
             CompactMode::None => "none",
-            CompactMode::Minimal => "minimal",
+            CompactMode::Strong => "strong",
             CompactMode::Basic => "basic",
         }
     }
@@ -387,7 +387,7 @@ impl ScenarioLog {
                 }
                 jscenario.add("transactions", jtransac)?;
             }
-            CompactMode::Minimal => {
+            CompactMode::Strong => {
                 // in minimal mode we wait only for positive rcode
                 let jtransac = JsoncObj::array();
                 let mut previous_transac: Option<PreviousTransaction> = None;
@@ -769,7 +769,7 @@ fn main() -> Result<(), AfbError> {
             "--compact" => {
                 let mode = match parts[1].to_ascii_lowercase().as_str() {
                     "none" => CompactMode::None,
-                    "minimal" => CompactMode::Minimal,
+                    "strong" => CompactMode::Strong,
                     "basic" => CompactMode::Basic,
                     _ => return err_usage("invalid compact-mode", parts[1]),
                 };
