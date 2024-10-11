@@ -153,7 +153,7 @@
                 "--monitoring",
                 "--trap-faults=0",
                 "--config=afb-evse/etc/binding-simu15118-evse.yaml",
-                "--config=afb-test/etc/tesla-3-din.json"
+                "--config=afb-test/etc/audi-dc-iso2-compact.json"
             ],
             "cwd": "${workspaceFolder}",
             "initCommands": [
@@ -180,7 +180,7 @@
                 "--monitoring",
                 "--trap-faults=0",
                 "--config=afb-evcc/etc/binding-simu15118-evcc.yaml",
-                "--config=afb-test/etc/tesla-3-din.json",
+                "--config=afb-test/etc/audi-dc-iso2-compact.json",
             ],
             "cwd": "${workspaceFolder}",
             "initCommands": [
@@ -401,7 +401,7 @@
             },
             "args": [
                 "--pcap_in=./afb-test/trace-logs/tesla-3-din.pcap",
-                "--json_out=./afb-test/etc/tesla-3-din.json",
+                "--json_out=./afb-test/etc/audi-dc-iso2-compact.json",
                 "--minimal=true",
                 "--verbose=0",
             ],

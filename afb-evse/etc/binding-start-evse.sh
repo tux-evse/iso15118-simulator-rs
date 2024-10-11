@@ -30,7 +30,7 @@ function usage {
     printf "Usage: \n\
         -h|--help \t displays this text\n\
         -d|--debug \t run the script in debug mode\n\
-        -f|--scenario_file \t mandatory(default:\"${LBLEU}${CONFDIR}/tesla-3-din.json${NC}\")\n\
+        -f|--scenario_file \t mandatory(default:\"${LBLEU}${CONFDIR}/audi-dc-iso2-compact.json${NC}\")\n\
         -m|--simulation_conf \t specify the simulator conf \n\
                 \t\t\t(default:\"${CONFDIR}/binding-simu15118-evcc.yaml\" if ${LBLEU}tls${NC} support\n\
                 \t\t\t or     :\"${CONFDIR}/binding-simu15118-evcc-no-tls.yaml\" if ${LBLEU}no tls${NC} support\n\
