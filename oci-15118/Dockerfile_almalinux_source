@@ -11,7 +11,7 @@ ENV PKG_CONFIG_PATH=/usr/local/lib64/pkgconfig:/usr/local/lib/pkgconfig
 ENV PATH=/usr/local/bin:$PATH
 WORKDIR /src
 
-RUN <<EOF
+ 
     # clone afb source repositories
     git clone https://github.com/redpesk-core/afb-binding &&
     git clone https://github.com/redpesk-core/afb-libafb  &&
@@ -75,6 +75,7 @@ SHARELIST="
     /usr/local/share
     /usr/local/share/afb-binder
     /usr/local/share/afb-ui-devtools
+    /usr/share/misc/magic.mgc
 "
 !!conf
 ./mkTinyRootFs.bash config=minimal-iso15118.conf target=/tmp/stage2-rootfs

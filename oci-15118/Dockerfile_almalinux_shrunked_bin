@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1.2
+
+# STAGE 1: build the executable
+FROM  registry.redpesk.bzh/tux-evse/afb-iso15118_almalinux:0.1 AS builder
+
+RUN <<EOF
+microdnf  --nodocs -y install git
+EOF
+
+RUN <<EOF
+# prepare tiny-root-fs with afb and minimal dependencies
+git clone https://github.com/fulup-bzh/mkTinyRootFs &&
+(cd mkTinyRootFs &&
+# wget https://github.com/fulup-bzh/mkTinyRootFs/raw/master/Samples/oci-sample.conf &&
+cat >> minimal-iso15118.conf <<!!conf
+# executable searched from path
+BINLIST="
+    /lib64/ld-linux-x86-64.so.2
+    /usr/bin/bash
+    /usr/bin/grep
+    /usr/sbin/ip
+    /usr/bin/pkill
+    /usr/bin/clear
+    /usr/bin/afb-binder
+    /usr/redpesk/iso15118-simulator-rs/lib/libafb_sim15118_evcc.so
+    /usr/redpesk/iso15118-simulator-rs/lib/libafb_sim15118_evse.so
+    /usr/redpesk/injector-binding-rs/lib/libafb_injector.so
+    /usr/lib/libiso15118.so.1.0
+    /usr/bin/pcap-iso15118
+    /usr/bin/binding-start-evcc
+    /usr/bin/binding-start-evse
+"
+SHARELIST="
+    /usr/share/iso15118-simulator-rs/*
+    /usr/share/afb-ui-devtools/binder/*
+    /usr/share/misc/magic.mgc
+"
+!!conf
+./mkTinyRootFs.bash config=minimal-iso15118.conf target=/tmp/stage2-rootfs
+)
+
+EOF
+
+# # # STAGE 2: build the container
+FROM scratch As final
+
+COPY --from=builder /tmp/stage2-rootfs/ /
+
+ENV LD_LIBRARY_PATH="/usr/lib"

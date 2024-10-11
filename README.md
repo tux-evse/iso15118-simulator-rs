@@ -71,13 +71,13 @@ mkcerts -i ./temp
 Now, select a scenario and run the simulator:
 
 ```bash
-binding-start-evcc --pki_tls_sim_dir ./temp/ --scenario_file /etc/default/iso15118-simulator-rs/tesla-3-din.json
+binding-start-evcc --pki_tls_sim_dir ./temp/ --scenario_file /usr/share/iso15118-simulator-rs/tesla-3-din.json
 ```
 
 You can use a prebuild configuration without tls/pki:
 
 ```bash
-binding-start-evcc --simulation_conf /etc/default/iso15118-simulator-rs/binding-simu15118-evcc-no-tls.yaml --scenario_file /etc/default/iso15118-simulator-rs/tesla-3-din.json
+binding-start-evcc --simulation_conf /usr/share/iso15118-simulator-rs/binding-simu15118-evcc-no-tls.yaml --scenario_file /usr/share/iso15118-simulator-rs/tesla-3-din.json
 ```
 
 ## Run EVSE(charger) simulator after package installation
@@ -85,13 +85,13 @@ binding-start-evcc --simulation_conf /etc/default/iso15118-simulator-rs/binding-
 Now, select a scenario and run the responder:
 
 ```bash
-binding-start-evse --pki_tls_sim_dir ./temp/ --scenario_file  /etc/default/iso15118-simulator-rs/tesla-3-din.json
+binding-start-evse --pki_tls_sim_dir ./temp/ --scenario_file  /usr/share/iso15118-simulator-rs/tesla-3-din.json
 ```
 
 You can use a prebuild configuration without tls/pki:
 
 ```bash
-binding-start-evse --simulation_conf /etc/default/iso15118-simulator-rs/binding-simu15118-evse-no-tls.yaml --scenario_file /etc/default/iso15118-simulator-rs/tesla-3-din.json
+binding-start-evse --simulation_conf /usr/share/iso15118-simulator-rs/binding-simu15118-evse-no-tls.yaml --scenario_file /usr/share/iso15118-simulator-rs/tesla-3-din.json
 ```
 
 ## Quick start (simulating both EVSE+EVCC)
@@ -103,8 +103,8 @@ binding-start-evse --simulation_conf /etc/default/iso15118-simulator-rs/binding-
 # implement virtual network, create certificate and start both vehicle and charger simulation on a scenario
   sudo client-server-bridge # Create virtual network
   mkcerts -i ./temp ;# Create dev certificate
-  binding-start-evcc --pki_tls_sim_dir ./temp/ --scenario_file /etc/default/iso15118-simulator-rs/tesla-3-din.json ;# Start vehicle simulation(injector)
-  binding-start-evse --pki_tls_sim_dir ./temp/ --scenario_file  /etc/default/iso15118-simulator-rs/tesla-3-din.json ;# Start charger simulator(responder)
+  binding-start-evcc --pki_tls_sim_dir ./temp/ --scenario_file /usr/share/iso15118-simulator-rs/tesla-3-din.json ;# Start vehicle simulation(injector)
+  binding-start-evse --pki_tls_sim_dir ./temp/ --scenario_file  /usr/share/iso15118-simulator-rs/tesla-3-din.json ;# Start charger simulator(responder)
 # connect on vehicle webui simulator to start choosen scenario
   xdg-open http://localhost:1234/devtools/ ;#(Click on tesla-3-din:1:0 -> EXEC & SEND)
 ```

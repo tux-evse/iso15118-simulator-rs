@@ -1,6 +1,6 @@
 #!/bin/bash
-if test -f /etc/default/iso15118-simulator-rs/iso15118-simulator.conf; then
-   source /etc/default/iso15118-simulator-rs/iso15118-simulator.conf
+if test -f /usr/share/iso15118-simulator-rs/iso15118-simulator.conf; then
+   source /usr/share/iso15118-simulator-rs/iso15118-simulator.conf
 fi
 
 RED='\e[0;31m'
@@ -31,7 +31,7 @@ print_Failed_parameter() {
 function usage {
     printf "Usage: \n\
         -h|--help \t displays this text\n\
-        -d|--debug \t run the script in debug mode\n\
+        -d|--debug \t run the script in local+debug mode\n\
         -f|--scenario_file \t mandatory(default:\"${LBLEU}${CONFDIR}/tesla-3-din.json${NC}\")\n\
         -i|--iface \t specify the network interface (default:\"${LBLEU}evcc-veth${NC}\" or from env var ${LBLEU}IFACE_SIMU${NC})\n\
         -c|--scenario_uid \t specify the scenario uid (default:\"${LBLEU}evcc${NC}\" or from env var ${LBLEU}SCENARIO_UID${NC})\n\
@@ -44,7 +44,7 @@ function usage {
 "
     exit
 }
-CONFDIR="/etc/default/iso15118-simulator-rs/"
+CONFDIR="/usr/share/iso15118-simulator-rs/"
 
 # use libafb development version if any
 export LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"

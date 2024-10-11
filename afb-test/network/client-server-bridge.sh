@@ -12,6 +12,9 @@ export WG_PORT=51820
 export SLAC_IFACE=eth2
 export FWALL_ZONE=work
 
+
+set -x
+
 echo "Fake evcc/evse network config for development desktop"
 echo ---
 if test "$(id -u)" != 0; then
@@ -27,17 +30,19 @@ echo -- clean previous config
 echo "-- configure bridge "
   ip link add name evse-tun type bridge
   ip link set dev evse-tun up
+  ip addr add 10.1.1.10/24 dev evse-tun
 
 echo "-- create a virtual interface for iso-binding/simulator listen"
-  ip link add evse-veth type veth peer name evse-bridge;
-  ip link set evse-bridge up;
+  ip link add evse-veth type veth peer name evse-link;
+  ip link set evse-link up;
   ip link set evse-veth up;
-  ip link set evse-bridge master evse-tun;
+  ip link set evse-link master evse-tun;
 
-  ip link add evcc-veth type veth peer name evcc-bridge;
-  ip link set evcc-bridge up;
+  ip link add evcc-veth type veth peer name evcc-link;
+  ip link set evcc-link up;
   ip link set evcc-veth up;
-  ip link set evcc-bridge master evse-tun;
+  ip link set evcc-link master evse-tun;
+#  ip addr add 10.1.1.1/24 dev evcc-veth
 
 
 echo "-- display 'evse-tun' bridge config"

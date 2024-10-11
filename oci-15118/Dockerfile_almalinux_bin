@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1.2
+
+# STAGE 1: build the executable
+FROM docker.io/almalinux/9-minimal AS builder
+
+RUN <<EOF
+cat << AEOF > /etc/yum.repos.d/redpesk.repo
+[redpesk-sdk-1]
+name=redpesk-sdk-1
+baseurl=https://download.redpesk.bzh/redpesk-lts/batz-2.0-update/sdk/AlmaLinux_9
+enabled=1
+gpgcheck=1
+gpgkey=https://download.redpesk.bzh/redpesk-lts/batz-2.0-update/sdk/AlmaLinux_9/repodata/repomd.xml.key
+[redpesk-sdk-2]
+name=redpesk-sdk-2
+baseurl=https://download.redpesk.bzh/redpesk-lts/batz-2.0-update/sdk-third-party//AlmaLinux_9
+enabled=1
+gpgcheck=1
+gpgkey=https://download.redpesk.bzh/redpesk-lts/batz-2.0-update/sdk-third-party//AlmaLinux_9/repodata/repomd.xml.key
+AEOF
+
+microdnf  --nodocs -y install sudo iproute procps-ng ncurses
+microdnf --nodocs --refresh -y install iso15118-simulator-rs-test
+microdnf clean all
+
+EOF
+
