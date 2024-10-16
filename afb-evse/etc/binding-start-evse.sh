@@ -36,6 +36,7 @@ function usage {
                 \t\t\t or     :\"${CONFDIR}/binding-simu15118-evcc-no-tls.yaml\" if ${LBLEU}no tls${NC} support\n\
                 \t\t\t or from env var ${LBLEU}SIMULATION_CONF${NC})\n\
         -p|--pki_tls_sim_dir \t specify *.pem files directory (_client_chain.pem,_client_key.pem,_contract_chain.pem,_contract_key.pem)\n\
+        -n|--no-clean \t do not clean the terminal\n\
         "
     exit
 }
@@ -43,6 +44,7 @@ function usage {
 CONFDIR="/usr/share/iso15118-simulator-rs/"
 #----------------------------------------
 DEBUG="NO"
+NO_CLEAN=false
 
 # use libafb development version if any
 export LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"
@@ -94,6 +96,10 @@ while [[ $# -gt 0 ]];do
             if [ -z "${SIMULATION_CONF}" ]; then
                 print_Failed_parameter  "-m|--simulation_conf"
             fi;
+        ;;
+        -n|--no-clean)
+            NO_CLEAN=true
+            shift 1;
         ;;
         -h|--help)
             usage;
@@ -153,11 +159,13 @@ else
     print_Warning "To active tls support, PKI_TLS_DIR must be define (-p|--pki_tls_sim_dir) $PKI_TLS_DIR"
 fi
 
-clear
-pwd
+if [ "${NO_CLEAN}" == false ]; then
+    clear
+    pwd
 
-# kill any previous instance
-pkill afb-evse
+    # kill any previous instance
+    pkill afb-evse
+fi
 
 echo afb-binder -v --name=afb-evse \
     --config="${SIMULATION_CONF}" \

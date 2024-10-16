@@ -41,6 +41,7 @@ function usage {
                 \t\t\t or     :\"${CONFDIR}/binding-simu15118-evcc-no-tls.yaml\" if ${LBLEU}no tls${NC} support\n\
                 \t\t\t or from env var ${LBLEU}SIMULATION_CONF${NC})\n\
         -p|--pki_tls_sim_dir \t specify *.pem files directory (_client_chain.pem,_client_key.pem,_contract_chain.pem,_contract_key.pem)\n\
+        -n|--no-clean \t do not clean the terminal\n\
 "
     exit
 }
@@ -52,6 +53,7 @@ export PATH="/usr/local/lib64:$PATH"
 
 #----------------------------------------
 DEBUG="NO"
+NO_CLEAN=false
 
 if test -z "$CARGO_BINDING_DIR"; then
 export CARGO_BINDING_DIR="/usr/redpesk/iso15118-simulator-rs/lib"
@@ -124,7 +126,10 @@ while [[ $# -gt 0 ]];do
                 print_Failed_parameter  "-m|--simulation_conf"
             fi;
         ;;
-
+        -n|--no-clean)
+            NO_CLEAN=true
+            shift 1;
+        ;;
         -h|--help)
             usage;
         ;;
@@ -140,11 +145,13 @@ if test $? -ne 0; then
     echo "check: client-server-bridge (client-server-bridge) to create a fake evse/evcc network"
     exit 1
 fi
-clear
-pwd
 
-# kill any previous instance
-pkill afb-evcc
+if [ "${NO_CLEAN}" == false ]; then
+    clear
+    pwd
+    # kill any previous instance
+    pkill afb-evcc
+fi
 
 if ! test -z "$PKI_TLS_DIR"; then
     if test -z "$SIMULATION_CONF"; then
@@ -192,6 +199,10 @@ else
     print_Failed "The scenario  file must be defined (-f|--scenario_file) $SCENARIO_FILE"
     usage
 fi
+
+echo afb-binder -v --name afb-evcc \
+    --config="${SIMULATION_CONF}" \
+    --config="${SCENARIO_FILE}"
 
 # start binder with test config
 afb-binder -v --name afb-evcc \

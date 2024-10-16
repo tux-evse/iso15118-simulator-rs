@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1.2
 
 # STAGE 1: build the executable
-FROM  registry.redpesk.bzh/tux-evse/afb-iso15118_almalinux:0.1 AS builder
+FROM  localhost/afb-iso15118_almalinux AS builder
 
 RUN <<EOF
-microdnf  --nodocs -y install git findutils
+microdnf  --nodocs -y install git findutils which
 microdnf  --nodocs -y install crypto-policies
 EOF
 
@@ -30,11 +30,17 @@ BINLIST="
     /usr/bin/pcap-iso15118
     /usr/bin/binding-start-evcc
     /usr/bin/binding-start-evse
+    /usr/bin/ls
+    /usr/bin/coreutils
+    /usr/bin/ldd
 "
+
 SHARELIST="
     /usr/share/iso15118-simulator-rs/*
     /usr/share/afb-ui-devtools/binder/*
+    /etc/crypto-policies/back-ends/*
     /etc/crypto-policies/*
+    /usr/share/crypto-policies/DEFAULT/*
     /usr/share/crypto-policies/*
 "
 !!conf
@@ -42,11 +48,10 @@ SHARELIST="
 
 cd /tmp/stage2-rootfs/
 
-mv /tmp/stage2-rootfs/lib64 /tmp/stage2-rootfs/usr/
-mv /tmp/stage2-rootfs/lib /tmp/stage2-rootfs/usr/
-
-ln -s /usr/lib64 /tmp/stage2-rootfs/lib64
-ln -s /usr/lib /tmp/stage2-rootfs/lib
+#mv /tmp/stage2-rootfs/lib64 /tmp/stage2-rootfs/usr/
+#mv /tmp/stage2-rootfs/lib /tmp/stage2-rootfs/usr/
+#ln -s /usr/lib64 /tmp/stage2-rootfs/lib64
+#ln -s /usr/lib /tmp/stage2-rootfs/lib
 
 echo "_________________"
 du -h --max-depth=1 .
