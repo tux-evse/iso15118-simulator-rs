@@ -4,7 +4,8 @@
 FROM  registry.redpesk.bzh/tux-evse/afb-iso15118_almalinux:0.1 AS builder
 
 RUN <<EOF
-microdnf  --nodocs -y install git
+microdnf  --nodocs -y install git findutils
+microdnf  --nodocs -y install crypto-policies
 EOF
 
 RUN <<EOF
@@ -33,10 +34,45 @@ BINLIST="
 SHARELIST="
     /usr/share/iso15118-simulator-rs/*
     /usr/share/afb-ui-devtools/binder/*
-    /usr/share/misc/magic.mgc
+    /etc/crypto-policies/*
+    /usr/share/crypto-policies/*
 "
 !!conf
 ./mkTinyRootFs.bash config=minimal-iso15118.conf target=/tmp/stage2-rootfs
+
+cd /tmp/stage2-rootfs/
+
+mv /tmp/stage2-rootfs/lib64 /tmp/stage2-rootfs/usr/
+mv /tmp/stage2-rootfs/lib /tmp/stage2-rootfs/usr/
+
+ln -s /usr/lib64 /tmp/stage2-rootfs/lib64
+ln -s /usr/lib /tmp/stage2-rootfs/lib
+
+echo "_________________"
+du -h --max-depth=1 .
+echo "_________________"
+du -h --max-depth=1 ./etc
+echo "_________________"
+du -h --max-depth=1 ./usr
+echo "_________________"
+du -h --max-depth=1 ./usr/bin
+echo "_________________"
+du -h --max-depth=1 ./lib64
+echo "_________________"
+ls -l -h ./lib64 | sort -h
+echo "_________________"
+du -h --max-depth=1 ./usr/sbin
+echo "_________________"
+du -h --max-depth=1 ./usr/lib
+echo "_________________"
+ls -l -h ./usr/lib | sort -h
+echo "_________________"
+du -h --max-depth=1 ./usr/redpesk
+echo "_________________"
+du -h --max-depth=1 ./usr/share
+echo "_________________"
+find . | sort
+echo "_________________"
 )
 
 EOF
