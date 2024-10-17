@@ -122,8 +122,6 @@ if test ! -f "$INFILE"; then
 fi
 #----------------------------------------
 
-export SCENARIO_UID=`basename $INFILE .json`
-
 CONFDIR="/usr/share/iso15118-simulator-rs/"
 
 ip -6 addr show "$IFACE_SIMU" | grep -i fe80 >/dev/null
