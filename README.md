@@ -94,6 +94,21 @@ You can use a prebuild configuration without tls/pki:
 binding-start-evse --simulation_conf /usr/share/iso15118-simulator-rs/binding-simu15118-evse-no-tls.yaml --scenario_file /usr/share/iso15118-simulator-rs/audi-dc-iso2-compact.json
 ```
 
+## Quick start (simulating both EVSE+EVCC)
+
+```bash
+# register redpesk/tuxevse repository and install packages
+  wget https://raw.githubusercontent.com/redpesk-devtools/redpesk-sdk-tools/master/install-redpesk-sdk.sh && sh install-redpesk-sdk.sh --no-recommends
+  sudo dnf/zypper/apt install iso15118-simulator-rs iso15118-simulator-rs-test
+# implement virtual network, create certificate and start both vehicle and charger simulation on a scenario
+  sudo client-server-bridge # Create virtual network
+  mkcerts -i ./temp ;# Create dev certificate
+  binding-start-evcc --pki_tls_sim_dir ./temp/ --scenario_file /usr/share/iso15118-simulator-rs/audi-dc-iso2-compact.json ;# Start vehicle simulation(injector)
+  binding-start-evse --pki_tls_sim_dir ./temp/ --scenario_file  /usr/share/iso15118-simulator-rs/audi-dc-iso2-compact.json ;# Start charger simulator(responder)
+# connect on vehicle webui simulator to start choosen scenario
+  xdg-open http://localhost:1234/devtools/ ;#(Click on audi-dc-iso2:1:0 -> EXEC & SEND)
+```
+
 ## Test the binder with Podman
 
 Use podman to test the binders without installing any thing (if you use docker, just replace every "podman" by "docker").
@@ -124,22 +139,7 @@ Now open your browser <http://localhost:1234/devtools/>:
 xdg-open http://localhost:1234/devtools/
 ```
 
-And click on **tesla-3-din:1:0 -> EXEC & SEND**
-
-## Quick start (simulating both EVSE+EVCC)
-
-```bash
-# register redpesk/tuxevse repository and install packages
-  wget https://raw.githubusercontent.com/redpesk-devtools/redpesk-sdk-tools/master/install-redpesk-sdk.sh && sh install-redpesk-sdk.sh --no-recommends
-  sudo dnf/zypper/apt install iso15118-simulator-rs iso15118-simulator-rs-test
-# implement virtual network, create certificate and start both vehicle and charger simulation on a scenario
-  sudo client-server-bridge # Create virtual network
-  mkcerts -i ./temp ;# Create dev certificate
-  binding-start-evcc --pki_tls_sim_dir ./temp/ --scenario_file /usr/share/iso15118-simulator-rs/audi-dc-iso2-compact.json ;# Start vehicle simulation(injector)
-  binding-start-evse --pki_tls_sim_dir ./temp/ --scenario_file  /usr/share/iso15118-simulator-rs/audi-dc-iso2-compact.json ;# Start charger simulator(responder)
-# connect on vehicle webui simulator to start choosen scenario
-  xdg-open http://localhost:1234/devtools/ ;#(Click on tesla-3-din:1:0 -> EXEC & SEND)
-```
+And click on **audi-dc-iso2:1:0 -> EXEC & SEND**
 
 ## Open the devtools
 
