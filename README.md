@@ -124,13 +124,13 @@ sudo ./client-server-bridge.sh
 Open a terminal and run:
 
 ```bash
-podman run --rm --name podman_evcc --network=host --cap-add=NET_ADMIN -it registry.redpesk.bzh/tux-evse/afb-iso15118:0.1  bash -c "binding-start-evcc --simulation_conf /usr/share/iso15118-simulator-rs/binding-simu15118-evcc-no-tls.yaml --scenario_file /usr/share/iso15118-simulator-rs/audi-dc-iso2-compact.json --no-clean"
+podman run --rm --name podman_evcc --network=host --cap-add=NET_ADMIN -it registry.redpesk.bzh/tux-evse/afb-iso15118:v0.1  bash -c "binding-start-evcc --simulation_conf /usr/share/iso15118-simulator-rs/binding-simu15118-evcc-no-tls.yaml --scenario_file /usr/share/iso15118-simulator-rs/audi-dc-iso2-compact.json --no-clean"
 ```
 
 Open an other terminal and run:
 
 ```bash
-podman run --rm --name podman_evse --network=host --cap-add=NET_ADMIN -it registry.redpesk.bzh/tux-evse/afb-iso15118:0.1  bash -c "binding-start-evse --simulation_conf /usr/share/iso15118-simulator-rs/binding-simu15118-evse-no-tls.yaml --scenario_file /usr/share/iso15118-simulator-rs/audi-dc-iso2-compact.json --no-clean"
+podman run --rm --name podman_evse --network=host --cap-add=NET_ADMIN -it registry.redpesk.bzh/tux-evse/afb-iso15118:v0.1  bash -c "binding-start-evse --simulation_conf /usr/share/iso15118-simulator-rs/binding-simu15118-evse-no-tls.yaml --scenario_file /usr/share/iso15118-simulator-rs/audi-dc-iso2-compact.json --no-clean"
 ```
 
 Now open your browser <http://localhost:1234/devtools/>:
