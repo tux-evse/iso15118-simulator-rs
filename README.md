@@ -141,6 +141,20 @@ xdg-open http://localhost:1234/devtools/
 
 And click on **audi-dc-iso2:1:0 -> EXEC & SEND**
 
+PS: if you have some troubles with your firewall, don't forget to configure it or disable it for the test.
+
+```json
+0: ERROR :{
+  "jtype": "afb-reply",
+  "request": {
+    "status": "internal-error",
+    "info": "{\"uid\":\"job_transaction_cb\",
+\"info\":\"unexpected status for uid:sdp-evse count:0\"}",
+    "code": -100
+  }
+}
+```
+
 ## Open the devtools
 
 You can open the simulator devtools interface with:
