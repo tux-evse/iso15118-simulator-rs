@@ -1,0 +1,70 @@
+git mv # syntax=docker/dockerfile:1.2
+
+# STAGE 1: build the executable
+FROM  localhost/afb-iso15118_almalinux AS builder
+
+RUN <<EOF
+microdnf  --nodocs -y install findutils
+EOF
+
+RUN <<EOF
+BINFILES=" \
+    /lib64/ld-linux-x86-64.so.2 \
+    /usr/bin/bash \
+    /usr/bin/grep \
+    /usr/sbin/ip \
+    /usr/bin/afb-binder \
+    /usr/redpesk/iso15118-simulator-rs/lib/libafb_sim15118_evcc.so \
+    /usr/redpesk/iso15118-simulator-rs/lib/libafb_sim15118_evse.so \
+    /usr/redpesk/injector-binding-rs/lib/libafb_injector.so \
+    /usr/lib/libiso15118.so.1.0 \
+    /usr/bin/pcap-iso15118 \
+"
+
+LISTFILES=$(ldd ${BINFILES} | awk 'NF == 1 { next }
+                $2 == "=>" && $3 ~ /^\// { print $3; next }
+                $1 ~ /^\// { print $1 }' | sort -u)
+
+echo LISTFILES $LISTFILES
+
+for file in $LISTFILES $BINFILES; do
+    DESTDIR=/tmp/stage2-rootfs/$(dirname "${file}")
+    mkdir -p "${DESTDIR}"
+    echo cp "${file}" "${DESTDIR}"
+    cp "${file}" "${DESTDIR}"
+done
+
+mkdir -p /tmp/stage2-rootfs/usr/share/
+mkdir -p /tmp/stage2-rootfs/etc/
+mkdir -p /tmp/stage2-rootfs/usr/bin/
+
+cp -ar /usr/share/iso15118-simulator-rs /tmp/stage2-rootfs/usr/share/
+cp -ar /usr/share/afb-ui-devtools       /tmp/stage2-rootfs/usr/share/
+
+cp -a /usr/bin/binding-start-evcc /tmp/stage2-rootfs/usr/bin/
+cp -a /usr/bin/binding-start-evse /tmp/stage2-rootfs/usr/bin/
+
+cd /tmp/stage2-rootfs/
+
+echo "_________________"
+du -h --max-depth=1 .
+echo "_________________"
+du -h --max-depth=1 ./usr
+echo "_________________"
+du -h --max-depth=1 ./usr/redpesk
+echo "_________________"
+du -h --max-depth=1 ./usr/share
+echo "_________________"
+find . | sort
+echo "_________________"
+ls -lhS ./lib/ | sort -h
+echo "_________________"
+ls -lhS ./lib64/ | sort -h
+echo "_________________"
+
+EOF
+
+# # # STAGE 2: build the container
+FROM scratch As final
+COPY --from=builder /tmp/stage2-rootfs/ /
+ENV LD_LIBRARY_PATH="/usr/lib"
