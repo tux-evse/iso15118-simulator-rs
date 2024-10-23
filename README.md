@@ -155,6 +155,12 @@ PS: if you have some troubles with your firewall, don't forget to configure it o
 }
 ```
 
+If you use **firewalld** as firewall, a solution can be:
+
+```bash
+sudo firewall-cmd --zone=trusted --add-interface=evse-tun;
+```
+
 ## Open the devtools
 
 You can open the simulator devtools interface with:
