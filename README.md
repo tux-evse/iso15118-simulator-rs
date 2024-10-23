@@ -143,7 +143,7 @@ And click on **audi-dc-iso2:1:0 -> EXEC & SEND**
 
 PS: if you have some troubles with your firewall, don't forget to configure it or disable it for the test.
 
-```json
+```yaml
 0: ERROR :{
   "jtype": "afb-reply",
   "request": {
