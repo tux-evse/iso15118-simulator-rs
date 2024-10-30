@@ -316,12 +316,12 @@ impl IsoToJson for DcEvseChargeParam {
         )?;
 
         if let Some(jvalue) = jsonc.optional("regul_tolerance")? {
-            let value= PhysicalValue::from_jsonc(jvalue)?;
+            let value = PhysicalValue::from_jsonc(jvalue)?;
             payload.set_regul_tolerance(&value)?;
         }
 
         if let Some(jvalue) = jsonc.optional("energy_to_deliver")? {
-            let value= PhysicalValue::from_jsonc(jvalue)?;
+            let value = PhysicalValue::from_jsonc(jvalue)?;
             payload.set_energy_to_deliver(&value)?;
         }
 
