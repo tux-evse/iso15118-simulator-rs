@@ -12,8 +12,19 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use base64::prelude::*;
 use iso15118::prelude::iso2_exi::*;
+
+fn base64_decode(base64: &str) -> Result<Vec<u8>, AfbError> {
+    use base64::prelude::*;
+    BASE64_STANDARD
+        .decode(base64)
+        .or_else(|_| afb_error!("base64-decode", "Malformed base64 string"))
+}
+
+fn base64_encode(data: &[u8]) -> String {
+    use base64::prelude::*;
+    BASE64_STANDARD.encode(data)
+}
 
 impl IsoToJson for EmaidType {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -111,27 +122,21 @@ impl IsoToJson for CertificateChainType {
         if let Some(value) = self.get_id() {
             jsonc.add("id", value)?;
         }
-        jsonc.add("cert", self.get_cert())?;
+        jsonc.add("cert", &base64_encode(self.get_cert()))?;
 
         let subcerts = self.get_subcerts();
         if subcerts.len() > 0 {
             let jsubcerts = JsoncObj::array();
             for subcert in subcerts {
-                jsubcerts.append(subcert)?;
+                jsubcerts.append(&base64_encode(subcert))?;
             }
             jsonc.add("sub_certs", jsubcerts)?;
         }
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let base64 = jsonc.get::<String>("cert")?;
-        let decoded = match BASE64_STANDARD.decode(base64) {
-            Err(_) => {
-                return afb_error!("certificate-chain-jsonc", "Malformed base64 certificate");
-            }
-            Ok(value) => value,
-        };
-        let mut cert_chain = CertificateChainType::new(&decoded)?;
+        let cert_data = base64_decode(&jsonc.get::<String>("cert")?)?;
+        let mut cert_chain = CertificateChainType::new(&cert_data)?;
 
         if let Some(value) = jsonc.optional::<&str>("id")? {
             cert_chain.set_id(value)?;
@@ -139,13 +144,7 @@ impl IsoToJson for CertificateChainType {
 
         if let Some(jsub_certs) = jsonc.optional::<JsoncObj>("sub_certs")? {
             for idx in 0..jsub_certs.count()? {
-                let base64 = jsub_certs.index::<String>(idx)?;
-                let decoded = match BASE64_STANDARD.decode(base64) {
-                    Err(_) => {
-                        return afb_error!("certificate-chain-jsonc", "Malformed base64 sub-certificate");
-                    }
-                    Ok(value) => value,
-                };
+                let decoded = base64_decode(&jsub_certs.index::<String>(idx)?)?;
                 cert_chain.add_subcert(&decoded)?;
             }
         }
