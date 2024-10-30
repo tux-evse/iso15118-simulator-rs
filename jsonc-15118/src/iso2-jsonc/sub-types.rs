@@ -12,18 +12,14 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::iso2_exi::*;
+use iso15118::prelude::{iso2_exi::*, GnuPkiDatum};
 
 fn base64_decode(base64: &str) -> Result<Vec<u8>, AfbError> {
-    use base64::prelude::*;
-    BASE64_STANDARD
-        .decode(base64)
-        .or_else(|_| afb_error!("base64-decode", "Malformed base64 string"))
+    GnuPkiDatum::new(base64.as_bytes()).b64decode().map(|x| x.to_vec())
 }
 
 fn base64_encode(data: &[u8]) -> String {
-    use base64::prelude::*;
-    BASE64_STANDARD.encode(data)
+    GnuPkiDatum::new(data).b64encode().unwrap().to_string().unwrap()
 }
 
 impl IsoToJson for EmaidType {
