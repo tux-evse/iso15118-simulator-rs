@@ -12,6 +12,7 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
+use base64::prelude::*;
 use iso15118::prelude::iso2_exi::*;
 
 impl IsoToJson for EmaidType {
@@ -123,8 +124,14 @@ impl IsoToJson for CertificateChainType {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let base64 = jsonc.get::<Vec<u8>>("cert")?;
-        let mut cert_chain = CertificateChainType::new(&base64)?;
+        let base64 = jsonc.get::<String>("cert")?;
+        let decoded = match BASE64_STANDARD.decode(base64) {
+            Err(_) => {
+                return afb_error!("certificate-chain-jsonc", "Malformed base64 certificate");
+            }
+            Ok(value) => value,
+        };
+        let mut cert_chain = CertificateChainType::new(&decoded)?;
 
         if let Some(value) = jsonc.optional::<&str>("id")? {
             cert_chain.set_id(value)?;
@@ -132,8 +139,14 @@ impl IsoToJson for CertificateChainType {
 
         if let Some(jsub_certs) = jsonc.optional::<JsoncObj>("sub_certs")? {
             for idx in 0..jsub_certs.count()? {
-                let data = jsub_certs.index::<Vec<u8>>(idx)?;
-                cert_chain.add_subcert(&data)?;
+                let base64 = jsub_certs.index::<String>(idx)?;
+                let decoded = match BASE64_STANDARD.decode(base64) {
+                    Err(_) => {
+                        return afb_error!("certificate-chain-jsonc", "Malformed base64 sub-certificate");
+                    }
+                    Ok(value) => value,
+                };
+                cert_chain.add_subcert(&decoded)?;
             }
         }
         Ok(Box::new(cert_chain))
