@@ -173,8 +173,18 @@ impl IsoNetConfig {
     ) -> Result<(), AfbError> {
         use iso2_exi::*;
 
+        let null_session = vec![0 as u8];
+
+        let session_id = {
+            if session.session_id.len() == 0 {
+                &null_session
+            } else {
+                &session.session_id
+            }
+        };
+
         // build exi payload from json
-        let header = ExiMessageHeader::new(&session.session_id)?;
+        let header = ExiMessageHeader::new(session_id)?;
 
         let mut exi_doc = ExiMessageDoc::new(&header, &body);
         if let Some(pki) = self.pki_conf {
