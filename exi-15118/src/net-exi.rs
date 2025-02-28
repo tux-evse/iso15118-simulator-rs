@@ -150,9 +150,6 @@ impl IsoNetConfig {
         msg_id: u32,
         jbody: JsoncObj,
     ) -> Result<IsoMsgResId, AfbError> {
-
-
-
         // move tcp socket data into exi stream buffer
         let mut lock = self.stream.lock_stream();
 
@@ -192,6 +189,7 @@ impl IsoNetConfig {
                 MessageTagId::CertificateInstallReq
                 | MessageTagId::CertificateUpdateReq
                 | MessageTagId::CertificateUpdateRes
+                | MessageTagId::AuthorizationReq
                 | MessageTagId::MeteringReceiptReq => {
                     exi_doc.pki_sign_sign(tag_id, &pki.get_private_key()?)?
                 }
@@ -241,6 +239,7 @@ impl IsoNetConfig {
         session: &IsoSessionState,
         msg_id: u32,
         jsonc: JsoncObj,
+        pki_conf: Option<&'static PkiConfig>,
     ) -> Result<IsoMsgResId, AfbError> {
         // extract message id from json
 
@@ -256,7 +255,24 @@ impl IsoNetConfig {
                 use iso2_exi::*;
                 use iso2_jsonc::*;
                 let tagid = MessageTagId::from_u32(msg_id);
-                let body = body_from_jsonc(tagid, jsonc)?;
+                match tagid {
+                    MessageTagId::AuthorizationReq => {
+                        // Add the challenge from the session if needed
+                        if jsonc.optional::<String>("challenge")?.is_none()
+                            && session.challenge.len() > 0
+                        {
+                            jsonc.add("challenge", &base64_encode(session.challenge.as_ref()))?;
+                        }
+                    },
+                    MessageTagId::MeteringReceiptReq => {
+                        // Ass the session id if not present
+                        if jsonc.optional::<String>("session")?.is_none() {
+                            jsonc.add("session", &bytes_to_hexa(&session.session_id))?;
+                        }
+                    }
+                    _ => {}
+                }
+                let body = body_from_jsonc(tagid, jsonc, pki_conf.clone())?;
                 self.iso2_encode_payload(lock, session, tagid, body)?;
                 IsoMsgResId::Iso2(tagid.match_resid())
             }
@@ -347,6 +363,9 @@ impl IsoNetConfig {
                 match &body {
                     MessageBody::SessionSetupRes(_msg) => {
                         session.session_id = header.get_session_id().to_vec()
+                    }
+                    MessageBody::PaymentDetailsRes(msg) => {
+                        session.challenge = msg.get_challenge().to_vec();
                     }
                     MessageBody::PaymentDetailsReq(msg) => {
                         // extract certificate and check it match with ca_trust root list

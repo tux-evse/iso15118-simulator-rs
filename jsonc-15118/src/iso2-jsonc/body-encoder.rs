@@ -10,9 +10,9 @@
  *
  */
 
-use afbv4::prelude::*;
 use crate::prelude::*;
-use iso15118::prelude::iso2_exi::*;
+use afbv4::prelude::*;
+use iso15118::prelude::{iso2_exi::*, PkiConfig};
 
 pub fn body_to_jsonc(body: &MessageBody) -> Result<JsoncObj, AfbError> {
     let jsonc = match body {
@@ -64,7 +64,11 @@ pub fn body_to_jsonc(body: &MessageBody) -> Result<JsoncObj, AfbError> {
     Ok(jsonc)
 }
 
-pub fn body_from_jsonc(tagid: MessageTagId, jsonc: JsoncObj) -> Result<Iso2BodyType, AfbError> {
+pub fn body_from_jsonc(
+    tagid: MessageTagId,
+    jsonc: JsoncObj,
+    pki_conf: Option<&'static PkiConfig>,
+) -> Result<Iso2BodyType, AfbError> {
     let payload = match tagid {
         MessageTagId::SessionSetupReq => SessionSetupRequest::from_jsonc(jsonc)?.encode(),
         MessageTagId::SessionSetupRes => SessionSetupResponse::from_jsonc(jsonc)?.encode(),
@@ -94,7 +98,13 @@ pub fn body_from_jsonc(tagid: MessageTagId, jsonc: JsoncObj) -> Result<Iso2BodyT
         MessageTagId::CurrentDemandRes => CurrentDemandResponse::from_jsonc(jsonc)?.encode(),
         MessageTagId::MeteringReceiptReq => MeteringReceiptRequest::from_jsonc(jsonc)?.encode(),
         MessageTagId::MeteringReceiptRes => MeteringReceiptResponse::from_jsonc(jsonc)?.encode(),
-        MessageTagId::PaymentDetailsReq => PaymentDetailsRequest::from_jsonc(jsonc)?.encode(),
+        MessageTagId::PaymentDetailsReq => {
+            if let Some(pki_conf) = pki_conf {
+                PaymentDetailsRequest::from_jsonc_and_pki(jsonc, pki_conf)?.encode()
+            } else {
+                PaymentDetailsRequest::from_jsonc(jsonc)?.encode()
+            }
+        }
         MessageTagId::PaymentDetailsRes => PaymentDetailsResponse::from_jsonc(jsonc)?.encode(),
         MessageTagId::PaymentSelectionReq => PaymentSelectionRequest::from_jsonc(jsonc)?.encode(),
         MessageTagId::PaymentSelectionRes => PaymentSelectionResponse::from_jsonc(jsonc)?.encode(),

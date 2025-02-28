@@ -10,10 +10,10 @@
  *
  */
 
+use crate::prelude::iso2_jsonc::base64_decode;
 use crate::prelude::*;
 use afbv4::prelude::*;
 use iso15118::prelude::iso2_exi::*;
-
 
 impl IsoToJson for AuthorizationRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -27,14 +27,14 @@ impl IsoToJson for AuthorizationRequest {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let mut payload= AuthorizationRequest::new();
+        let mut payload = AuthorizationRequest::new();
 
         if let Some(value) = jsonc.optional("id")? {
-           payload.set_id(value)?;
+            payload.set_id(value)?;
         }
 
-        if let Some(base64) = jsonc.optional::<Vec<u8>>("challenge")? {
-           payload.set_challenge(&base64)?;
+        if let Some(base64) = jsonc.optional::<&str>("challenge")? {
+            payload.set_challenge(&base64_decode(base64)?)?;
         }
 
         Ok(Box::new(payload))
@@ -50,8 +50,8 @@ impl IsoToJson for AuthorizationResponse {
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
-        let processing= EvseProcessing::from_label(jsonc.get("processing")?)?;
-        let payload= AuthorizationResponse::new(rcode, processing);
+        let processing = EvseProcessing::from_label(jsonc.get("processing")?)?;
+        let payload = AuthorizationResponse::new(rcode, processing);
         Ok(Box::new(payload))
     }
 }

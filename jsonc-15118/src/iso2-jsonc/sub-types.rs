@@ -12,7 +12,7 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::iso2_exi::*;
+use iso15118::prelude::{iso2_exi::*, GnuPkiDatum};
 
 impl IsoToJson for EmaidType {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -106,25 +106,27 @@ impl IsoToJson for CertificateRootList {
 
 impl IsoToJson for CertificateChainType {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
+        use crate::prelude::iso2_jsonc::base64_encode;
         let jsonc = JsoncObj::new();
         if let Some(value) = self.get_id() {
             jsonc.add("id", value)?;
         }
-        jsonc.add("cert", self.get_cert())?;
+        jsonc.add("cert", &base64_encode(self.get_cert()))?;
 
         let subcerts = self.get_subcerts();
         if subcerts.len() > 0 {
             let jsubcerts = JsoncObj::array();
             for subcert in subcerts {
-                jsubcerts.append(subcert)?;
+                jsubcerts.append(&base64_encode(subcert))?;
             }
             jsonc.add("sub_certs", jsubcerts)?;
         }
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let base64 = jsonc.get::<Vec<u8>>("cert")?;
-        let mut cert_chain = CertificateChainType::new(&base64)?;
+        use crate::prelude::iso2_jsonc::base64_decode;
+        let cert_data = base64_decode(&jsonc.get::<String>("cert")?)?;
+        let mut cert_chain = CertificateChainType::new(&cert_data)?;
 
         if let Some(value) = jsonc.optional::<&str>("id")? {
             cert_chain.set_id(value)?;
@@ -132,8 +134,8 @@ impl IsoToJson for CertificateChainType {
 
         if let Some(jsub_certs) = jsonc.optional::<JsoncObj>("sub_certs")? {
             for idx in 0..jsub_certs.count()? {
-                let data = jsub_certs.index::<Vec<u8>>(idx)?;
-                cert_chain.add_subcert(&data)?;
+                let decoded = base64_decode(&jsub_certs.index::<String>(idx)?)?;
+                cert_chain.add_subcert(&decoded)?;
             }
         }
         Ok(Box::new(cert_chain))
@@ -303,12 +305,12 @@ impl IsoToJson for DcEvseChargeParam {
         )?;
 
         if let Some(jvalue) = jsonc.optional("regul_tolerance")? {
-            let value= PhysicalValue::from_jsonc(jvalue)?;
+            let value = PhysicalValue::from_jsonc(jvalue)?;
             payload.set_regul_tolerance(&value)?;
         }
 
         if let Some(jvalue) = jsonc.optional("energy_to_deliver")? {
-            let value= PhysicalValue::from_jsonc(jvalue)?;
+            let value = PhysicalValue::from_jsonc(jvalue)?;
             payload.set_energy_to_deliver(&value)?;
         }
 
