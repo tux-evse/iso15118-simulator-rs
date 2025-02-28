@@ -12,7 +12,7 @@
 
 use crate::prelude::*;
 use afbv4::prelude::*;
-use iso15118::prelude::iso2_exi::*;
+use iso15118::prelude::{iso2_exi::*, PkiConfig};
 
 impl IsoToJson for PaymentDetailsRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
@@ -26,6 +26,26 @@ impl IsoToJson for PaymentDetailsRequest {
         let emaid = jsonc.get("emaid")?;
         let payload = PaymentDetailsRequest::new(emaid, contract.as_ref())?;
         Ok(Box::new(payload))
+    }
+
+    fn from_jsonc_and_pki(
+        jsonc: JsoncObj,
+        pki_conf: &'static PkiConfig,
+    ) -> Result<Box<Self>, AfbError> {
+        let chain_json = jsonc.optional::<JsoncObj>("chain")?;
+        if let Some(chain_json) = chain_json {
+            let emaid = jsonc.get("emaid")?;
+            let contract = CertificateChainType::from_jsonc(chain_json)?;
+            let payload = PaymentDetailsRequest::new(emaid, contract.as_ref())?;
+            return Ok(Box::new(payload));
+        } else {
+            // no chain defined, go get the contract and its chain of certificates from pki_conf
+            let json = pki_conf.get_contract_chain_as_json()?;
+            let emaid = json.get("emaid")?;
+            let contract = CertificateChainType::from_jsonc(json.get("chain")?)?;
+            let payload = PaymentDetailsRequest::new(emaid, contract.as_ref())?;
+            return Ok(Box::new(payload));
+        }
     }
 }
 

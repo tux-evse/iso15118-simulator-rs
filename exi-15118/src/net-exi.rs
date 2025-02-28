@@ -238,6 +238,7 @@ impl IsoNetConfig {
         session: &IsoSessionState,
         msg_id: u32,
         jsonc: JsoncObj,
+        pki_conf: Option<&'static PkiConfig>,
     ) -> Result<IsoMsgResId, AfbError> {
         // extract message id from json
 
@@ -344,6 +345,9 @@ impl IsoNetConfig {
                 match &body {
                     MessageBody::SessionSetupRes(_msg) => {
                         session.session_id = header.get_session_id().to_vec()
+                    }
+                    MessageBody::PaymentDetailsRes(msg) => {
+                        session.challenge = msg.get_challenge().to_vec();
                     }
                     MessageBody::PaymentDetailsReq(msg) => {
                         // extract certificate and check it match with ca_trust root list

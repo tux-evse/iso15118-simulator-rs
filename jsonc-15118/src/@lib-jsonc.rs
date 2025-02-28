@@ -7,9 +7,17 @@
 extern crate afbv4;
 
 use afbv4::prelude::*;
+
+use iso15118::prelude::PkiConfig;
 pub trait IsoToJson {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError>;
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError>;
+    fn from_jsonc_and_pki(
+        jsonc: JsoncObj,
+        pki_conf: &'static PkiConfig,
+    ) -> Result<Box<Self>, AfbError> {
+        Self::from_jsonc(jsonc)
+    }
 }
 
 pub struct ApiMsgInfo {
