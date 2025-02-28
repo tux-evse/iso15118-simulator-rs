@@ -10,7 +10,6 @@
  *
  */
 
-
 #[cfg(not(afbv4))]
 extern crate afbv4;
 
@@ -76,8 +75,22 @@ mod welding_detection;
 pub mod encoders_test;
 
 pub mod iso2_jsonc {
-    pub use super::sub_types::*;
+    use iso15118::prelude::{AfbError, GnuPkiDatum};
+    pub fn base64_decode(base64: &str) -> Result<Vec<u8>, AfbError> {
+        GnuPkiDatum::new(base64.as_bytes())
+            .b64decode()
+            .map(|x| x.to_vec())
+    }
+
+    pub fn base64_encode(data: &[u8]) -> String {
+        GnuPkiDatum::new(data)
+            .b64encode()
+            .unwrap()
+            .to_string()
+            .unwrap()
+    }
     pub use super::authorization::*;
+    pub use super::body_encoder::*;
     pub use super::cable_check::*;
     pub use super::certificate_install::*;
     pub use super::certificate_update::*;
@@ -93,6 +106,6 @@ pub mod iso2_jsonc {
     pub use super::service_discovery::*;
     pub use super::session_setup::*;
     pub use super::session_stop::*;
+    pub use super::sub_types::*;
     pub use super::welding_detection::*;
-    pub use super::body_encoder::*;
 }

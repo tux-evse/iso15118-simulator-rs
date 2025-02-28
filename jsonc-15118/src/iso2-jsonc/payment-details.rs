@@ -31,9 +31,10 @@ impl IsoToJson for PaymentDetailsRequest {
 
 impl IsoToJson for PaymentDetailsResponse {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
+        use iso2_jsonc::base64_encode;
         let jsonc = JsoncObj::new();
         jsonc.add("rcode", self.get_rcode().to_label())?;
-        jsonc.add("challenge", self.get_challenge())?;
+        jsonc.add("challenge", &base64_encode(self.get_challenge()))?;
         jsonc.add("timestamp", self.get_time_stamp())?;
         Ok(jsonc)
     }

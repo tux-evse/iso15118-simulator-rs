@@ -14,14 +14,6 @@ use crate::prelude::*;
 use afbv4::prelude::*;
 use iso15118::prelude::{iso2_exi::*, GnuPkiDatum};
 
-fn base64_decode(base64: &str) -> Result<Vec<u8>, AfbError> {
-    GnuPkiDatum::new(base64.as_bytes()).b64decode().map(|x| x.to_vec())
-}
-
-fn base64_encode(data: &[u8]) -> String {
-    GnuPkiDatum::new(data).b64encode().unwrap().to_string().unwrap()
-}
-
 impl IsoToJson for EmaidType {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
@@ -114,6 +106,7 @@ impl IsoToJson for CertificateRootList {
 
 impl IsoToJson for CertificateChainType {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
+        use crate::prelude::iso2_jsonc::base64_encode;
         let jsonc = JsoncObj::new();
         if let Some(value) = self.get_id() {
             jsonc.add("id", value)?;
@@ -131,6 +124,7 @@ impl IsoToJson for CertificateChainType {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
+        use crate::prelude::iso2_jsonc::base64_decode;
         let cert_data = base64_decode(&jsonc.get::<String>("cert")?)?;
         let mut cert_chain = CertificateChainType::new(&cert_data)?;
 
