@@ -35,8 +35,8 @@ mod authorization;
 #[path = "cable-check.rs"]
 mod cable_check;
 
-#[path ="certificate-install.rs"]
-mod certificate_install ;
+#[path = "certificate-install.rs"]
+mod certificate_install;
 
 #[path = "certificate-update.rs"]
 mod certificate_update;

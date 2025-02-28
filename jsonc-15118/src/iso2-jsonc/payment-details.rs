@@ -18,13 +18,13 @@ impl IsoToJson for PaymentDetailsRequest {
     fn to_jsonc(&self) -> Result<JsoncObj, AfbError> {
         let jsonc = JsoncObj::new();
         jsonc.add("emaid", self.get_emaid()?)?;
-        jsonc.add("chain",self.get_contract_chain().to_jsonc()?)?;
+        jsonc.add("chain", self.get_contract_chain().to_jsonc()?)?;
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let contract= CertificateChainType::from_jsonc(jsonc.get("chain")?)?;
-        let emaid= jsonc.get("emaid")?;
-        let payload= PaymentDetailsRequest::new(emaid, contract.as_ref())?;
+        let contract = CertificateChainType::from_jsonc(jsonc.get("chain")?)?;
+        let emaid = jsonc.get("emaid")?;
+        let payload = PaymentDetailsRequest::new(emaid, contract.as_ref())?;
         Ok(Box::new(payload))
     }
 }
@@ -39,9 +39,9 @@ impl IsoToJson for PaymentDetailsResponse {
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
         let rcode = ResponseCode::from_label(jsonc.get("rcode")?)?;
-        let challenge= jsonc.get::<&str>("challenge")?;
+        let challenge = jsonc.get::<&str>("challenge")?;
 
-        let payload= PaymentDetailsResponse::new(rcode, challenge.as_bytes())?;
+        let payload = PaymentDetailsResponse::new(rcode, challenge.as_bytes())?;
         Ok(Box::new(payload))
     }
 }
