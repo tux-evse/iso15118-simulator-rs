@@ -189,6 +189,7 @@ impl IsoNetConfig {
                 MessageTagId::CertificateInstallReq
                 | MessageTagId::CertificateUpdateReq
                 | MessageTagId::CertificateUpdateRes
+                | MessageTagId::AuthorizationReq
                 | MessageTagId::MeteringReceiptReq => {
                     exi_doc.pki_sign_sign(tag_id, &pki.get_private_key()?)?
                 }
@@ -254,7 +255,18 @@ impl IsoNetConfig {
                 use iso2_exi::*;
                 use iso2_jsonc::*;
                 let tagid = MessageTagId::from_u32(msg_id);
-                let body = body_from_jsonc(tagid, jsonc)?;
+                match tagid {
+                    MessageTagId::AuthorizationReq => {
+                        // Add the challenge from the session if needed
+                        if jsonc.optional::<String>("challenge")?.is_none()
+                            && session.challenge.len() > 0
+                        {
+                            jsonc.add("challenge", &base64_encode(session.challenge.as_ref()))?;
+                        }
+                    }
+                    _ => {}
+                }
+                let body = body_from_jsonc(tagid, jsonc, pki_conf.clone())?;
                 self.iso2_encode_payload(lock, session, tagid, body)?;
                 IsoMsgResId::Iso2(tagid.match_resid())
             }
