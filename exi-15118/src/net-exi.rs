@@ -263,6 +263,12 @@ impl IsoNetConfig {
                         {
                             jsonc.add("challenge", &base64_encode(session.challenge.as_ref()))?;
                         }
+                    },
+                    MessageTagId::MeteringReceiptReq => {
+                        // Ass the session id if not present
+                        if jsonc.optional::<String>("session")?.is_none() {
+                            jsonc.add("session", &bytes_to_hexa(&session.session_id))?;
+                        }
                     }
                     _ => {}
                 }

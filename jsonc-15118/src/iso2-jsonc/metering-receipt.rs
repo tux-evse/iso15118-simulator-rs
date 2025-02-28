@@ -28,7 +28,7 @@ impl IsoToJson for MeteringReceiptRequest {
         Ok(jsonc)
     }
     fn from_jsonc(jsonc: JsoncObj) -> Result<Box<Self>, AfbError> {
-        let mut buffer= [0x00; 6];
+        let mut buffer= [0x00; 8];
         let session_id = hexa_to_bytes(jsonc.get("session")?, &mut buffer)?;
         let meter_info = MeterInfo::from_jsonc(jsonc.get("info")?)?;
         let mut payload= MeteringReceiptRequest::new(session_id, &meter_info)?;
