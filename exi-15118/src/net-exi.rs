@@ -353,7 +353,13 @@ impl IsoNetConfig {
                                 "missing mandatory pki configuration"
                             )
                         }
-                        Some(pki) => pki.get_public_key()?,
+                        Some(pki) => {
+                            if body.get_tagid() == MessageTagId::ParamDiscoveryRes {
+                                pki.get_mo_sub_ca_2_public_key()?
+                            } else {
+                                pki.get_public_key()?
+                            }
+                        }
                     };
 
                     message.pki_sign_check(body.get_tagid(), &session.challenge, &public_key)?
