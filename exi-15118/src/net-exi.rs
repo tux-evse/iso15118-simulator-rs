@@ -153,7 +153,7 @@ impl IsoNetConfig {
         // move tcp socket data into exi stream buffer
         let mut lock = self.stream.lock_stream();
 
-        let res_id = self.encode_to_stream(&mut lock, session, msg_id, jbody)?;
+        let res_id = self.encode_to_stream(&mut lock, session, msg_id, jbody, self.pki_conf)?;
         let exi_buffer = self.stream.get_buffer(&lock);
         sock.put_data(exi_buffer)?;
         self.stream.reset(&mut lock);
@@ -263,7 +263,7 @@ impl IsoNetConfig {
                         {
                             jsonc.add("challenge", &base64_encode(session.challenge.as_ref()))?;
                         }
-                    },
+                    }
                     MessageTagId::MeteringReceiptReq => {
                         // Ass the session id if not present
                         if jsonc.optional::<String>("session")?.is_none() {
